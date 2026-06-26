@@ -64,6 +64,49 @@ export async function graphGet<T>(
   return res.json()
 }
 
+/** Come graphGet ma ritorna null sui 404 (utile per verificare l'esistenza di una cartella) */
+export async function graphGetOrNull<T>(
+  path: string,
+  extraHeaders?: Record<string, string>
+): Promise<T | null> {
+  const token = await getAppToken()
+  const res = await fetch(`${GRAPH_BASE}${path}`, {
+    headers: { Authorization: `Bearer ${token}`, ...extraHeaders },
+  })
+  if (res.status === 404) return null
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Graph GET ${path} failed (${res.status}): ${err}`)
+  }
+  return res.json()
+}
+
+/**
+ * Upload binario semplice su un Drive (file < 4 MB).
+ * `path` deve essere un endpoint Graph che termina con :/content
+ */
+export async function graphPutBinary<T>(
+  path: string,
+  data: ArrayBuffer | Uint8Array,
+  contentType = 'application/octet-stream'
+): Promise<T> {
+  const token = await getAppToken()
+  const res = await fetch(`${GRAPH_BASE}${path}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': contentType,
+    },
+    body: data as BodyInit,
+  })
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Graph PUT ${path} failed (${res.status}): ${err}`)
+  }
+  const text = await res.text()
+  return text ? JSON.parse(text) : ({} as T)
+}
+
 export async function graphPost<T>(path: string, body: unknown): Promise<T> {
   const token = await getAppToken()
   const res = await fetch(`${GRAPH_BASE}${path}`, {

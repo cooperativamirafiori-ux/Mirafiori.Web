@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/promemoria-ore",
+      "schedule": "0 7 * * *"
+    }
+  ]
+}

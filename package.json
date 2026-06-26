@@ -15,7 +15,9 @@
     "react-dom": "^19.0.0",
     "@auth/core": "^0.37.2",
     "@microsoft/microsoft-graph-client": "^3.0.7",
-    "isomorphic-fetch": "^3.0.0"
+    "isomorphic-fetch": "^3.0.0",
+    "docxtemplater": "^3.50.0",
+    "pizzip": "^3.1.7"
   },
   "devDependencies": {
     "@types/node": "^22",

@@ -40,6 +40,13 @@ export default async function HomePage() {
             sottotitolo="Segnala e gestisci gli interventi"
           />
           <FunzioneCard
+            href="/prestazioni"
+            emoji="📄"
+            accent="purple"
+            titolo="Prestazioni Occasionali"
+            sottotitolo="Attiva e gestisci le ritenute d'acconto"
+          />
+          <FunzioneCard
             href="/acquisti"
             emoji="🛒"
             accent="orange"
@@ -74,6 +81,11 @@ const ACCENTS = {
     bar: 'bg-brand-orange',
     iconBg: 'bg-brand-orange/15 text-brand-orange',
     link: 'text-brand-orange',
+  },
+  purple: {
+    bar: 'bg-accent-purple',
+    iconBg: 'bg-accent-purple/15 text-accent-purple',
+    link: 'text-accent-purple',
   },
 } as const
 
