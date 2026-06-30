@@ -281,6 +281,53 @@ export async function notificaPromemoriaFoglioOre(opts: {
 }
 
 // ============================================================
+// Gestione Software — alert scadenza abbonamento
+// Destinatario: ufficio.rendicontazione (override via SOFTWARE_ALERT_EMAIL)
+// ============================================================
+
+const SOFTWARE_ALERT_EMAIL =
+  process.env.SOFTWARE_ALERT_EMAIL || 'ufficio.rendicontazione@cooperativamirafiori.com'
+
+export async function notificaScadenzaSoftware(opts: {
+  servizio: string
+  scadenza: string // gg/mm/aaaa
+  giorni: number
+  costo?: number
+  periodicita?: string
+  referente?: string
+  cartaPagamento?: string
+  rinnovoAutomatico?: boolean
+  /** destinatario aggiuntivo, oltre a ufficio.rendicontazione */
+  to?: string | string[]
+}): Promise<void> {
+  const euroFmt = (n?: number) =>
+    n == null ? '—' : `€ ${Number(n).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:4px 12px 4px 0;color:#555;white-space:nowrap">${label}</td><td><strong>${value || '—'}</strong></td></tr>`
+
+  const destinatari = [SOFTWARE_ALERT_EMAIL, ...(Array.isArray(opts.to) ? opts.to : opts.to ? [opts.to] : [])]
+
+  await sendEmail({
+    to: destinatari,
+    subject: `Scadenza abbonamento tra ${opts.giorni} giorni — ${opts.servizio}`,
+    html: `
+      <p><strong>Promemoria scadenza software</strong></p>
+      <p>L'abbonamento a <strong>${opts.servizio}</strong> scade il <strong>${opts.scadenza}</strong>
+      (tra ${opts.giorni} giorni).</p>
+      <table style="border-collapse:collapse;font-family:sans-serif;font-size:14px;margin:12px 0">
+        ${row('Costo', `${euroFmt(opts.costo)}${opts.periodicita ? ` · ${opts.periodicita}` : ''}`)}
+        ${row('Rinnovo automatico', opts.rinnovoAutomatico ? 'Sì' : 'No')}
+        ${row('In uso a', opts.referente || '')}
+        ${row('Carta di pagamento', opts.cartaPagamento || '')}
+      </table>
+      <p style="color:#555">${opts.rinnovoAutomatico
+        ? 'Il rinnovo è automatico: verifica la carta di pagamento e che la copertura sia sufficiente.'
+        : 'Il rinnovo NON è automatico: valuta se rinnovare o disdire prima della scadenza.'}</p>
+    `,
+  })
+}
+
+// ============================================================
 // Flusso 2A — Nuova richiesta → admin
 // ============================================================
 
