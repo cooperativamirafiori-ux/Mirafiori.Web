@@ -5,6 +5,7 @@ import { LogoutButton } from '@/components/ui/LogoutButton'
 export default async function HomePage() {
   const session = await auth()
   const nome = (session?.user?.name ?? '').trim().split(/\s+/)[0] || ''
+  const puoAmministrare = session?.user?.permessi?.includes('Amministrazione') ?? false
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-cyan-light/40 via-white to-white">
@@ -61,6 +62,15 @@ export default async function HomePage() {
             titolo="Amazing"
             sottotitolo="Vai al sito Amazing Mirafiori"
           />
+          {puoAmministrare && (
+            <FunzioneCard
+              href="/amministrazione"
+              emoji="⚙️"
+              accent="slate"
+              titolo="Amministrazione"
+              sottotitolo="Strumenti e gestione riservata"
+            />
+          )}
         </section>
 
         <p className="mt-auto pt-12 text-center text-xs text-gray-400">
@@ -86,6 +96,11 @@ const ACCENTS = {
     bar: 'bg-accent-purple',
     iconBg: 'bg-accent-purple/15 text-accent-purple',
     link: 'text-accent-purple',
+  },
+  slate: {
+    bar: 'bg-slate-600',
+    iconBg: 'bg-slate-600/15 text-slate-700',
+    link: 'text-slate-700',
   },
 } as const
 

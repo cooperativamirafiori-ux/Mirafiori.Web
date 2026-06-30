@@ -145,3 +145,15 @@ export async function graphPatch<T>(path: string, body: unknown): Promise<T> {
   if (res.status === 204) return {} as T
   return res.json()
 }
+
+export async function graphDelete(path: string): Promise<void> {
+  const token = await getAppToken()
+  const res = await fetch(`${GRAPH_BASE}${path}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok && res.status !== 404) {
+    const err = await res.text()
+    throw new Error(`Graph DELETE ${path} failed (${res.status}): ${err}`)
+  }
+}

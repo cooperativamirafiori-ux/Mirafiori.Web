@@ -1,6 +1,6 @@
 import NextAuth from 'next-auth'
 import MicrosoftEntraID from 'next-auth/providers/microsoft-entra-id'
-import { isAdmin } from '@/lib/sharepoint'
+import { isAdmin, getPermessi } from '@/lib/sharepoint'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -19,9 +19,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
   callbacks: {
     async session({ session }) {
-      // Arricchisce la sessione con il flag admin (letto da SP)
+      // Arricchisce la sessione con il flag admin e i permessi per area (letti da SP)
       if (session.user?.email) {
-        session.user.isAdmin = await isAdmin(session.user.email)
+        const [admin, permessi] = await Promise.all([
+          isAdmin(session.user.email),
+          getPermessi(session.user.email),
+        ])
+        session.user.isAdmin = admin
+        session.user.permessi = permessi
       }
       return session
     },
@@ -33,10 +38,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 })
 
+/**
+ * Helper: verifica se la sessione ha accesso a una determinata area.
+ * Usare nelle pagine/API per proteggere le sezioni.
+ */
+export function hasPermesso(
+  session: { user?: { permessi?: string[] | null } } | null | undefined,
+  area: string
+): boolean {
+  return !!session?.user?.permessi?.includes(area)
+}
+
 // Estensione tipi NextAuth
 declare module 'next-auth' {
   interface User {
     isAdmin?: boolean
+    permessi?: string[]
   }
   interface Session {
     user: {
@@ -44,6 +61,7 @@ declare module 'next-auth' {
       email?: string | null
       image?: string | null
       isAdmin?: boolean
+      permessi?: string[]
     }
   }
 }
