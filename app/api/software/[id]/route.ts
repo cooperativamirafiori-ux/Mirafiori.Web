@@ -30,6 +30,7 @@ function parseInput(body: Record<string, any>) {
     cartaPagamento: (body.cartaPagamento ?? '').trim(),
     stato: (body.stato ?? 'Attivo').trim() || 'Attivo',
     note: (body.note ?? '').trim(),
+    calendarEmails: (body.calendarEmails ?? '').trim(),
   }
 }
 

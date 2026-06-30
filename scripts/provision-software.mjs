@@ -48,8 +48,10 @@ const COLUMNS = [
   { name: 'FatturaUrl', text: {} },
   { name: 'FatturaNome', text: {} },
   { name: 'Note', text: { allowMultipleLines: true } },
-  // Anti-duplicazione alert: data scadenza per cui l'avviso è già stato inviato
-  { name: 'AlertScadenzaNotificata', text: {} },
+  // Calendario Outlook: email destinatari dell'evento di scadenza
+  { name: 'CalendarEmails', text: {} },
+  // Mappa JSON email→eventId degli eventi creati (multiline: può superare i 255 char)
+  { name: 'CalendarEventi', text: { allowMultipleLines: true } },
 ]
 
 // --- carica .env.local se le env non sono già nell'ambiente ---

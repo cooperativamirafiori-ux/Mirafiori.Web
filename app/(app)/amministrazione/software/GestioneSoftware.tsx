@@ -26,7 +26,11 @@ type FormState = {
   cartaPagamento: string
   stato: string
   note: string
+  calendarEmails: string
 }
+
+// Calendario interno proposto di default per i nuovi inserimenti
+const CALENDARIO_DEFAULT = 'ufficio.rendicontazione@cooperativamirafiori.com'
 
 const FORM_VUOTO: FormState = {
   servizio: '',
@@ -42,6 +46,7 @@ const FORM_VUOTO: FormState = {
   cartaPagamento: '',
   stato: 'Attivo',
   note: '',
+  calendarEmails: CALENDARIO_DEFAULT,
 }
 
 function fromSoftware(s: Software): FormState {
@@ -59,6 +64,7 @@ function fromSoftware(s: Software): FormState {
     cartaPagamento: s.cartaPagamento,
     stato: s.stato || 'Attivo',
     note: s.note,
+    calendarEmails: s.calendarEmails,
   }
 }
 
@@ -322,6 +328,20 @@ export function GestioneSoftware({ iniziali }: Props) {
               <label className={labelCls}>Note</label>
               <textarea className={inputCls} rows={2} value={form.note} onChange={(e) => set('note', e.target.value)} />
             </div>
+
+            <div className="sm:col-span-2">
+              <label className={labelCls}>Calendari Outlook (email, separate da virgola)</label>
+              <input
+                className={inputCls}
+                value={form.calendarEmails}
+                onChange={(e) => set('calendarEmails', e.target.value)}
+                placeholder="ufficio.rendicontazione@cooperativamirafiori.com, ..."
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Con una scadenza impostata, l&apos;evento viene scritto direttamente in questi
+                calendari (senza invito), con promemoria 20 giorni prima.
+              </p>
+            </div>
           </div>
 
           <div className="flex gap-2 justify-end pt-1">
@@ -384,6 +404,12 @@ export function GestioneSoftware({ iniziali }: Props) {
                       {badge.testo}
                     </span>
                   </div>
+                )}
+
+                {Object.keys(s.calendarEventi).length > 0 && (
+                  <p className="mt-2 text-xs text-gray-400">
+                    📅 In calendario: {Object.keys(s.calendarEventi).join(', ')}
+                  </p>
                 )}
 
                 <dl className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">

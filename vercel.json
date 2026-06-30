@@ -3,10 +3,6 @@
     {
       "path": "/api/cron/promemoria-ore",
       "schedule": "0 7 * * *"
-    },
-    {
-      "path": "/api/cron/scadenze-software",
-      "schedule": "0 7 * * *"
     }
   ]
 }

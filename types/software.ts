@@ -50,8 +50,10 @@ export interface Software {
   /** Nome file della fattura */
   fatturaNome: string
   note: string
-  /** Data scadenza per cui l'alert è già stato inviato (anti-duplicazione) */
-  alertScadenzaNotificata?: string
+  /** Calendari Outlook (email, separate da virgola) dove creare l'evento di scadenza */
+  calendarEmails: string
+  /** Mappa email→eventId degli eventi creati (per aggiornarli/cancellarli) */
+  calendarEventi: Record<string, string>
 }
 
 /** Payload di creazione/aggiornamento dal form */
@@ -69,4 +71,5 @@ export interface SoftwareInput {
   cartaPagamento: string
   stato: string
   note: string
+  calendarEmails: string
 }

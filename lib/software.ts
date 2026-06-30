@@ -21,6 +21,13 @@ import {
   graphPutBinary,
 } from '@/lib/graph'
 import type { Software } from '@/types/software'
+import {
+  parseEmails,
+  buildEventoScadenza,
+  creaEvento,
+  aggiornaEvento,
+  eliminaEvento,
+} from '@/lib/calendar'
 
 const SITE = () => process.env.SHAREPOINT_SITE_ID!
 const LIST = () => process.env.SP_LIST_SOFTWARE!
@@ -32,7 +39,17 @@ const PREFER_NON_INDEXED = { Prefer: 'HonorNonIndexedQueriesWarningMayFailRandom
 const FATTURE_FOLDER = 'Gestione Software'
 
 const SOFTWARE_FIELDS =
-  'id,fields&$expand=fields($select=Title,Categoria,Account,Password,LinkPortale,Referente,Costo,Periodicita,RinnovoAutomatico,Scadenza,CartaPagamento,Stato,FatturaUrl,FatturaNome,Note,AlertScadenzaNotificata)'
+  'id,fields&$expand=fields($select=Title,Categoria,Account,Password,LinkPortale,Referente,Costo,Periodicita,RinnovoAutomatico,Scadenza,CartaPagamento,Stato,FatturaUrl,FatturaNome,Note,CalendarEmails,CalendarEventi)'
+
+function parseEventiJson(raw: unknown): Record<string, string> {
+  if (typeof raw !== 'string' || !raw.trim()) return {}
+  try {
+    const obj = JSON.parse(raw)
+    return obj && typeof obj === 'object' ? (obj as Record<string, string>) : {}
+  } catch {
+    return {}
+  }
+}
 
 function soloData(d?: string): string {
   return (d ?? '').slice(0, 10)
@@ -64,7 +81,8 @@ function mapSoftware(item: any): Software {
     fatturaUrl: f.FatturaUrl ?? '',
     fatturaNome: f.FatturaNome ?? '',
     note: f.Note ?? '',
-    alertScadenzaNotificata: f.AlertScadenzaNotificata ?? undefined,
+    calendarEmails: f.CalendarEmails ?? '',
+    calendarEventi: parseEventiJson(f.CalendarEventi),
   }
 }
 
@@ -108,6 +126,7 @@ function buildFields(input: {
   cartaPagamento: string
   stato: string
   note: string
+  calendarEmails: string
 }): Record<string, unknown> {
   return {
     Title: input.servizio,
@@ -123,11 +142,14 @@ function buildFields(input: {
     CartaPagamento: input.cartaPagamento || null,
     Stato: input.stato || 'Attivo',
     Note: input.note || null,
+    // Normalizza la lista email (lowercase, valide, dedup)
+    CalendarEmails: parseEmails(input.calendarEmails).join(', ') || null,
   }
 }
 
 export async function creaSoftware(input: Parameters<typeof buildFields>[0]): Promise<Software> {
   const res = await graphPost<any>(listBase(), { fields: buildFields(input) })
+  await sincronizzaCalendario(res.id)
   return getSoftwareById(res.id)
 }
 
@@ -139,10 +161,81 @@ export async function aggiornaSoftware(
     `/sites/${SITE()}/lists/${LIST()}/items/${spItemId}/fields`,
     buildFields(input),
   )
+  await sincronizzaCalendario(spItemId)
   return getSoftwareById(spItemId)
 }
 
-/** Aggiorna campi arbitrari (usato dal cron per il flag AlertScadenzaNotificata) */
+/**
+ * Allinea gli eventi di scadenza sui calendari Outlook indicati in CalendarEmails:
+ * crea quelli mancanti, aggiorna gli esistenti, cancella quelli non più richiesti
+ * (calendario rimosso o scadenza azzerata). Salva la mappa email→eventId in
+ * CalendarEventi. Best-effort: se Calendars.ReadWrite non è ancora concesso o una
+ * casella non è raggiungibile, NON blocca il salvataggio del software.
+ */
+export async function sincronizzaCalendario(spItemId: string): Promise<void> {
+  let sw: Software
+  try {
+    sw = await getSoftwareById(spItemId)
+  } catch (e) {
+    console.error('[software] sincronizzaCalendario: lettura item fallita', e)
+    return
+  }
+
+  const esistenti = { ...sw.calendarEventi } // email → eventId già creati
+  // Se manca la scadenza, niente eventi: cancella tutti quelli esistenti.
+  const desiderate = sw.scadenza ? parseEmails(sw.calendarEmails) : []
+
+  const payload = sw.scadenza
+    ? buildEventoScadenza({
+        servizio: sw.servizio,
+        scadenza: sw.scadenza,
+        costo: sw.costo,
+        periodicita: sw.periodicita,
+        referente: sw.referente,
+        cartaPagamento: sw.cartaPagamento,
+        rinnovoAutomatico: sw.rinnovoAutomatico,
+      })
+    : null
+
+  const nuovaMappa: Record<string, string> = {}
+
+  // Crea/aggiorna sui calendari desiderati
+  for (const email of desiderate) {
+    try {
+      if (esistenti[email]) {
+        await aggiornaEvento(email, esistenti[email], payload!)
+        nuovaMappa[email] = esistenti[email]
+      } else {
+        nuovaMappa[email] = await creaEvento(email, payload!)
+      }
+    } catch (e) {
+      console.error(`[software] evento calendario fallito per ${email}`, e)
+    }
+  }
+
+  // Cancella gli eventi sui calendari non più desiderati
+  for (const [email, eventId] of Object.entries(esistenti)) {
+    if (desiderate.includes(email)) continue
+    try {
+      await eliminaEvento(email, eventId)
+    } catch (e) {
+      console.error(`[software] cancellazione evento fallita per ${email}`, e)
+    }
+  }
+
+  // Persisti la mappa aggiornata solo se è cambiata
+  const primaJson = JSON.stringify(esistenti)
+  const dopoJson = JSON.stringify(nuovaMappa)
+  if (primaJson !== dopoJson) {
+    try {
+      await patchSoftwareFields(spItemId, { CalendarEventi: dopoJson === '{}' ? '' : dopoJson })
+    } catch (e) {
+      console.error('[software] salvataggio mappa eventi fallito', e)
+    }
+  }
+}
+
+/** Aggiorna campi arbitrari (usato per fattura e mappa eventi calendario) */
 export async function patchSoftwareFields(
   spItemId: string,
   fields: Record<string, unknown>,
@@ -151,6 +244,19 @@ export async function patchSoftwareFields(
 }
 
 export async function eliminaSoftware(spItemId: string): Promise<void> {
+  // Cancella prima gli eventi calendario collegati (best-effort)
+  try {
+    const sw = await getSoftwareById(spItemId)
+    for (const [email, eventId] of Object.entries(sw.calendarEventi)) {
+      try {
+        await eliminaEvento(email, eventId)
+      } catch (e) {
+        console.error(`[software] cancellazione evento (elimina) fallita per ${email}`, e)
+      }
+    }
+  } catch {
+    // se non leggibile, procedi comunque con l'eliminazione dell'item
+  }
   await graphDelete(`${listBase()}/${spItemId}`)
 }
 
