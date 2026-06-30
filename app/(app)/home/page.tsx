@@ -7,6 +7,7 @@ export default async function HomePage() {
   const nome = (session?.user?.name ?? '').trim().split(/\s+/)[0] || ''
   const puoAmministrare = session?.user?.permessi?.includes('Amministrazione') ?? false
   const puoPrestazioni = session?.user?.permessi?.includes('Prestazioni Occasionali') ?? false
+  const puoRisorseUmane = session?.user?.permessi?.includes('Risorse Umane') ?? false
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-cyan-light/40 via-white to-white">
@@ -65,6 +66,15 @@ export default async function HomePage() {
             titolo="Amazing"
             sottotitolo="Vai al sito Amazing Mirafiori"
           />
+          {puoRisorseUmane && (
+            <FunzioneCard
+              href="/risorse-umane"
+              emoji="👥"
+              accent="emerald"
+              titolo="Risorse Umane"
+              sottotitolo="Gestione del personale"
+            />
+          )}
           {puoAmministrare && (
             <FunzioneCard
               href="/amministrazione"
@@ -104,6 +114,11 @@ const ACCENTS = {
     bar: 'bg-slate-600',
     iconBg: 'bg-slate-600/15 text-slate-700',
     link: 'text-slate-700',
+  },
+  emerald: {
+    bar: 'bg-emerald-600',
+    iconBg: 'bg-emerald-600/15 text-emerald-700',
+    link: 'text-emerald-700',
   },
 } as const
 
