@@ -6,6 +6,7 @@ export default async function HomePage() {
   const session = await auth()
   const nome = (session?.user?.name ?? '').trim().split(/\s+/)[0] || ''
   const puoAmministrare = session?.user?.permessi?.includes('Amministrazione') ?? false
+  const puoPrestazioni = session?.user?.permessi?.includes('Prestazioni Occasionali') ?? false
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-cyan-light/40 via-white to-white">
@@ -40,13 +41,15 @@ export default async function HomePage() {
             titolo="Richiesta Manutenzione"
             sottotitolo="Segnala e gestisci gli interventi"
           />
-          <FunzioneCard
-            href="/prestazioni"
-            emoji="📄"
-            accent="purple"
-            titolo="Prestazioni Occasionali"
-            sottotitolo="Attiva e gestisci le ritenute d'acconto"
-          />
+          {puoPrestazioni && (
+            <FunzioneCard
+              href="/prestazioni"
+              emoji="📄"
+              accent="purple"
+              titolo="Prestazioni Occasionali"
+              sottotitolo="Attiva e gestisci le ritenute d'acconto"
+            />
+          )}
           <FunzioneCard
             href="/acquisti"
             emoji="🛒"

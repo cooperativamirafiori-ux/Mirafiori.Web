@@ -299,7 +299,7 @@ export async function isAdmin(email: string): Promise<boolean> {
 // ============================================================
 
 // Aree note dell'app. Aggiungi qui le nuove aree man mano che le crei.
-export const AREE_PERMESSI = ['Amministrazione'] as const
+export const AREE_PERMESSI = ['Amministrazione', 'Prestazioni Occasionali'] as const
 export type AreaPermesso = (typeof AREE_PERMESSI)[number]
 
 // Fallback usato se la lista SP non esiste ancora o Graph fallisce.

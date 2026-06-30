@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { guardArea } from '@/lib/api-guard'
 import {
   getTutteAutorizzazioni,
   aggiungiAutorizzazione,
@@ -15,19 +15,8 @@ import {
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 
-async function guard() {
-  const session = await auth()
-  if (!session?.user?.email) {
-    return { error: NextResponse.json({ error: 'Non autenticato' }, { status: 401 }) }
-  }
-  if (!session.user.permessi?.includes('Amministrazione')) {
-    return { error: NextResponse.json({ error: 'Accesso negato' }, { status: 403 }) }
-  }
-  return { session }
-}
-
 export async function GET() {
-  const g = await guard()
+  const g = await guardArea('Amministrazione')
   if (g.error) return g.error
   try {
     const autorizzazioni = await getTutteAutorizzazioni()
@@ -41,7 +30,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const g = await guard()
+  const g = await guardArea('Amministrazione')
   if (g.error) return g.error
 
   let body: { utente?: string; area?: string }

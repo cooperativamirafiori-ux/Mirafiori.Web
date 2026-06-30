@@ -5,20 +5,15 @@
  */
 
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { guardArea } from '@/lib/api-guard'
 import { rimuoviAutorizzazione } from '@/lib/sharepoint'
 
 export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth()
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
-  }
-  if (!session.user.permessi?.includes('Amministrazione')) {
-    return NextResponse.json({ error: 'Accesso negato' }, { status: 403 })
-  }
+  const g = await guardArea('Amministrazione')
+  if (g.error) return g.error
 
   const { id } = await params
   if (!id) {

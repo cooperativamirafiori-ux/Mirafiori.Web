@@ -29,7 +29,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const LIST_NAME = 'Autorizzazioni'
 
-const AREA_CHOICES = ['Amministrazione']
+const AREA_CHOICES = ['Amministrazione', 'Prestazioni Occasionali']
 
 // Amministratore/i iniziali da seminare (Utente = email, Area)
 const SEED = [
