@@ -297,8 +297,10 @@ export function NuovaPrestazioneForm() {
         </div>
 
         <div>
-          <label className={labelClass}>Residenza *</label>
-          <input className={inputClass} value={form.residenza} onChange={(e) => set('residenza', e.target.value)} placeholder="Via, n. civico, CAP, città" />
+          <label className="block text-sm font-bold text-accent-purple mb-1">
+            Residenza * <span className="font-medium text-gray-500">(Indirizzo, Comune e CAP)</span>
+          </label>
+          <input className={inputClass} value={form.residenza} onChange={(e) => set('residenza', e.target.value)} placeholder="Es. Via Roma 12, Torino (TO), 10100" />
         </div>
 
         <div>
