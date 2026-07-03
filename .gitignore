@@ -18,5 +18,9 @@ next-env.d.ts
 .DS_Store
 *.pem
 
+# dati personali per import una-tantum Risorse Umane (NON committare)
+/scripts/ru-data/
+
 # vercel
 .vercel
+.env*
