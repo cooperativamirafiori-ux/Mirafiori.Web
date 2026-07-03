@@ -32,11 +32,42 @@ function base64url(input: Buffer | string): string {
     .replace(/\//g, '_')
 }
 
+/** Ricompone un PEM ben formato (intestazioni + corpo a righe da 64 char) */
+function normalizePem(pem: string): string {
+  const p = pem.replace(/\\n/g, '\n').trim()
+  const m = p.match(/-----BEGIN ([A-Z0-9 ]+?)-----([\s\S]*?)-----END \1-----/)
+  if (!m) return p + '\n'
+  const label = m[1].trim()
+  const body = m[2].replace(/[^A-Za-z0-9+/=]/g, '')
+  const lines = body.match(/.{1,64}/g)?.join('\n') ?? body
+  return `-----BEGIN ${label}-----\n${lines}\n-----END ${label}-----\n`
+}
+
+/**
+ * Ritorna la chiave privata RSA come PEM valido, tollerando le varie forme in cui
+ * può finire in una env var: PEM in chiaro, PEM codificato in base64, corpo base64
+ * senza intestazioni, a-capo persi o sostituiti da spazi / da "\n" letterali.
+ */
 function privateKeyPem(): string {
-  const b64 = process.env.DOCUSIGN_PRIVATE_KEY_BASE64!
-  const decoded = Buffer.from(b64, 'base64').toString('utf8')
-  // Se per qualche motivo l'env contiene già il PEM in chiaro, usalo così com'è.
-  return decoded.includes('PRIVATE KEY') ? decoded : b64
+  let raw = (process.env.DOCUSIGN_PRIVATE_KEY_BASE64 || '').trim()
+  if (!raw) throw new Error('DOCUSIGN_PRIVATE_KEY_BASE64 non impostata')
+
+  // 1) Se è il base64 di un PEM completo, decodificalo.
+  try {
+    const decoded = Buffer.from(raw, 'base64').toString('utf8')
+    if (/-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/.test(decoded)) raw = decoded
+  } catch {
+    /* non era base64: prosegui */
+  }
+
+  // 2) Se contiene già le intestazioni PEM, normalizza e usa.
+  if (/-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/.test(raw)) return normalizePem(raw)
+
+  // 3) Altrimenti è il solo corpo base64 (senza intestazioni): ricostruisci un
+  //    PEM PKCS#1 (RSA PRIVATE KEY), come generato da DocuSign.
+  const body = raw.replace(/[^A-Za-z0-9+/=]/g, '')
+  const lines = body.match(/.{1,64}/g)?.join('\n') ?? body
+  return `-----BEGIN RSA PRIVATE KEY-----\n${lines}\n-----END RSA PRIVATE KEY-----\n`
 }
 
 let _tokenCache: { token: string; expiresAt: number } | null = null
