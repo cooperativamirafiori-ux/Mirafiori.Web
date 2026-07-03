@@ -52,14 +52,14 @@ export async function verificaEScaricaFirma(
   )
   await aggiornaPrestazione(prestazione.spItemId, { Stato: 'Contratto firmato' })
 
-  // Mail di conferma al responsabile (non bloccante)
-  notificaContrattoFirmato({
+  // Mail di conferma al responsabile (attesa: evita troncamenti su serverless)
+  await notificaContrattoFirmato({
     responsabileEmail: prestazione.responsabileEmail,
     responsabileNome: prestazione.responsabileNome,
     prestatoreNome: `${prestazione.cognome} ${prestazione.nome}`.trim(),
     idPrestazione: prestazione.idPrestazione,
     cartellaUrl: prestazione.cartellaUrl,
-  }).catch(console.error)
+  }).catch((e) => console.error('[firma] invio conferma fallito', e))
 
   return { firmato: true, status }
 }

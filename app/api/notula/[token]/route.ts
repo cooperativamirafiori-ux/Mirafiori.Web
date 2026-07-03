@@ -88,13 +88,13 @@ export async function POST(
 
     await aggiornaPrestazione(p.spItemId, { NotulaUrl: webUrl, Stato: 'Notula ricevuta' })
 
-    notificaNotulaCaricata({
+    await notificaNotulaCaricata({
       idPrestazione: p.idPrestazione,
       prestatoreNome: `${p.cognome} ${p.nome}`.trim(),
       responsabileEmail: p.responsabileEmail,
       notulaUrl: webUrl,
       cartellaUrl: p.cartellaUrl,
-    }).catch(console.error)
+    }).catch((e) => console.error('[notula] invio notifica fallito', e))
 
     return NextResponse.json({ ok: true }, { status: 201 })
   } catch (err: any) {

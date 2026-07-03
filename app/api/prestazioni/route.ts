@@ -184,13 +184,13 @@ export async function POST(req: NextRequest) {
     })
 
     // 5. Mail di riepilogo (non bloccante)
-    notificaRiepilogoPrestazione({
+    await notificaRiepilogoPrestazione({
       idPrestazione,
       ...dati,
       responsabileNome: responsabile.nome,
       responsabileEmail: responsabile.email,
       cartellaUrl: cartella.webUrl,
-    }).catch(console.error)
+    }).catch((e) => console.error('[prestazioni] invio riepilogo fallito', e))
 
     return NextResponse.json(
       { idPrestazione, spItemId, cartellaUrl: cartella.webUrl },

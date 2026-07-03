@@ -109,10 +109,13 @@ export async function POST(
       await aggiornaPrestazione(spItemId, { Stato: 'Contratto inviato' })
     }
 
-    // Mail semplice al prestatore con foglio ore + informativa fornitore (non bloccante)
+    // Mail semplice al prestatore con foglio ore + informativa fornitore.
+    // ATTESA (await) prima di rispondere: su serverless una promise non attesa
+    // viene troncata quando la funzione si congela dopo la risposta → ECONNRESET
+    // (soprattutto con allegati grandi). Un fallimento mail non blocca la route.
     if (prestazione.email) {
       const moduli = leggiAllegatiInformativi()
-      notificaModuliInformativi({
+      await notificaModuliInformativi({
         to: prestazione.email,
         from: prestazione.responsabileEmail,
         prestatoreNome: prestazione.nome,
@@ -122,7 +125,7 @@ export async function POST(
           contentBase64: m.buffer.toString('base64'),
           contentType: m.contentType,
         })),
-      }).catch(console.error)
+      }).catch((e) => console.error('[documenti] invio moduli informativi fallito', e))
     }
 
     return NextResponse.json(
