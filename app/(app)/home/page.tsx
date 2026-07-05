@@ -229,7 +229,7 @@ function FunzioneCard({
             </span>
           )}
         </div>
-        <p className="text-sm text-gray-500 mt-0.5 truncate">{sottotitolo}</p>
+        <p className="text-sm text-gray-500 mt-0.5">{sottotitolo}</p>
       </div>
 
       <span
