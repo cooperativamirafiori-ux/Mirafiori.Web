@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
       {
         data: String(body.data).slice(0, 10),
         servizioId: Number(body.servizioId),
+        ore: body.ore ?? null,
         oraInizio: body.oraInizio ?? null,
         oraFine: body.oraFine ?? null,
         notte: !!body.notte,

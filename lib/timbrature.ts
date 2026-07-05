@@ -66,6 +66,15 @@ export function calcolaOre(oraInizio: string, oraFine: string): { ore: number; n
   return { ore: Math.round((diff / 60) * 10000) / 10000, notte } // esatto (no arrotondamento a intervalli)
 }
 
+/** Ore inserite dall'operatore: positive, arrotondate alla mezz'ora, cap 24. */
+function normalizzaOre(v: unknown): number | null {
+  if (v == null || (v as unknown) === '') return null
+  const n = Number(v)
+  if (!Number.isFinite(n) || n <= 0) return null
+  const mezzora = Math.round(n * 2) / 2
+  return Math.min(mezzora, 24)
+}
+
 function primoUltimoGiorno(anno: number, mese: number): { from: string; to: string } {
   const mm = String(mese).padStart(2, '0')
   const ultimo = new Date(Date.UTC(anno, mese, 0)).getUTCDate()
@@ -323,10 +332,21 @@ export async function creaTimbratura(
     oraInizio = null
     oraFine = null
   } else {
-    if (!oraInizio || !oraFine) throw new Error('Orario di inizio e fine obbligatori')
-    const calc = calcolaOre(oraInizio, oraFine)
-    ore = calc.ore
-    notte = input.notte ?? calc.notte
+    // Voce di lavoro: le ore inserite direttamente hanno priorità (mezze ore
+    // supportate). In assenza, ripiego sul calcolo da oraInizio/oraFine.
+    const oreDirette = normalizzaOre(input.ore)
+    if (oreDirette != null) {
+      ore = oreDirette
+      notte = !!input.notte
+      oraInizio = null
+      oraFine = null
+    } else if (oraInizio && oraFine) {
+      const calc = calcolaOre(oraInizio, oraFine)
+      ore = calc.ore
+      notte = input.notte ?? calc.notte
+    } else {
+      throw new Error('Inserisci le ore lavorate')
+    }
   }
 
   const { data, error } = await supabase()
@@ -370,10 +390,21 @@ export async function aggiornaTimbratura(
     oraInizio = null
     oraFine = null
   } else {
-    if (!oraInizio || !oraFine) throw new Error('Orario di inizio e fine obbligatori')
-    const calc = calcolaOre(oraInizio, oraFine)
-    ore = calc.ore
-    notte = input.notte ?? calc.notte
+    // Voce di lavoro: le ore inserite direttamente hanno priorità (mezze ore
+    // supportate). In assenza, ripiego sul calcolo da oraInizio/oraFine.
+    const oreDirette = normalizzaOre(input.ore)
+    if (oreDirette != null) {
+      ore = oreDirette
+      notte = !!input.notte
+      oraInizio = null
+      oraFine = null
+    } else if (oraInizio && oraFine) {
+      const calc = calcolaOre(oraInizio, oraFine)
+      ore = calc.ore
+      notte = input.notte ?? calc.notte
+    } else {
+      throw new Error('Inserisci le ore lavorate')
+    }
   }
 
   const { data, error } = await supabase()

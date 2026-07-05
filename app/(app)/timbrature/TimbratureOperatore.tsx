@@ -6,16 +6,25 @@ import type { Servizio, Timbratura, RiepilogoPeriodo } from '@/types/timbrature'
 
 const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
 const GIORNI = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab']
+const GIORNI_LUNGHI = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato']
 
 function pad(n: number) { return String(n).padStart(2, '0') }
 function ymd(y: number, m: number, d: number) { return `${y}-${pad(m)}-${pad(d)}` }
 function ultimoGiorno(y: number, m: number) { return new Date(y, m, 0).getDate() }
-function weekdayShort(dataYmd: string) {
+function weekdayIdx(dataYmd: string) {
   const [y, m, d] = dataYmd.split('-').map(Number)
-  return GIORNI[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay()
 }
+function weekdayShort(dataYmd: string) { return GIORNI[weekdayIdx(dataYmd)] }
+function dataEstesa(dataYmd: string) {
+  const [, m, d] = dataYmd.split('-').map(Number)
+  return `${GIORNI_LUNGHI[weekdayIdx(dataYmd)]} ${d} ${MESI[m - 1].toLowerCase()}`
+}
+
 const oreFmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, ''))
-const segno = (n: number) => (n >= 0 ? '+' : '') + oreFmt(n)
+const oreLabel = (n: number) => oreFmt(n).replace('.', ',')
+const segno = (n: number) => (n >= 0 ? '+' : '') + oreLabel(n)
+function parseOre(v: string): number { return parseFloat(v.replace(',', '.')) }
 function fmtRange(from: string, to: string) {
   const f = `${from.slice(8, 10)}/${from.slice(5, 7)}`
   const t = `${to.slice(8, 10)}/${to.slice(5, 7)}`
@@ -28,18 +37,25 @@ function scostClasse(n: number) {
   return 'bg-gray-100 text-gray-600'
 }
 
+/** Data odierna YYYY-MM-DD nel fuso locale del dispositivo. */
+function oggiYmd(): string {
+  const d = new Date()
+  return ymd(d.getFullYear(), d.getMonth() + 1, d.getDate())
+}
+
 interface FormRiga {
   id?: string
   data: string
   servizioId: number | ''
-  oraInizio: string
-  oraFine: string
+  ore: string
   mutua: boolean
   note: string
 }
 
 export default function TimbratureOperatore({ nome }: { nome: string }) {
+  const OGGI = oggiYmd()
   const now = new Date()
+  const [vista, setVista] = useState<'oggi' | 'mese'>('oggi')
   const [anno, setAnno] = useState(now.getFullYear())
   const [mese, setMese] = useState(now.getMonth() + 1)
   const [servizi, setServizi] = useState<Servizio[]>([])
@@ -105,6 +121,54 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
     return m
   }, [servizi])
 
+  const giornoRiep = useMemo(() => {
+    const m = new Map<string, RiepilogoPeriodo['giorni'][number]>()
+    riepilogo?.giorni.forEach((g) => m.set(g.data, g))
+    return m
+  }, [riepilogo])
+
+  // Servizi di lavoro più usati dall'operatore (dal mese caricato), poi per ordine.
+  const serviziFrequenti = useMemo(() => {
+    const conteggio = new Map<number, number>()
+    for (const t of timbrature) {
+      if (t.tipoVoce === 'lavoro') conteggio.set(t.servizioId, (conteggio.get(t.servizioId) ?? 0) + 1)
+    }
+    const lavoro = servizi.filter((s) => s.tipoVoce === 'lavoro')
+    return [...lavoro]
+      .sort((a, b) => (conteggio.get(b.id) ?? 0) - (conteggio.get(a.id) ?? 0) || a.ordine - b.ordine)
+      .slice(0, 6)
+  }, [timbrature, servizi])
+
+  // Giorni lavorativi recenti (<= oggi) senza righe inserite.
+  const giorniMancanti = useMemo(() => {
+    if (!riepilogo) return []
+    return riepilogo.giorni
+      .filter((g) => g.data <= OGGI && !g.festivo && g.oreAttese > 0 && (timbPerGiorno.get(g.data)?.length ?? 0) === 0)
+      .sort((a, b) => (a.data < b.data ? 1 : -1))
+      .slice(0, 6)
+  }, [riepilogo, timbPerGiorno, OGGI])
+
+  // Streak: giorni lavorativi consecutivi coperti, terminando al giorno lavorativo
+  // più recente <= oggi (i festivi/giorni a 0 ore non spezzano la serie).
+  const streak = useMemo(() => {
+    if (!riepilogo) return 0
+    const giorni = riepilogo.giorni.filter((g) => g.data <= OGGI).sort((a, b) => (a.data < b.data ? 1 : -1))
+    let count = 0
+    for (const g of giorni) {
+      if (g.festivo || g.oreAttese === 0) continue
+      const ore = (timbPerGiorno.get(g.data) ?? []).reduce((s, t) => s + t.ore, 0)
+      if (ore + 1e-9 >= g.oreAttese) count++
+      else break
+    }
+    return count
+  }, [riepilogo, timbPerGiorno, OGGI])
+
+  function vaiAOggi() {
+    setVista('oggi')
+    setAnno(now.getFullYear())
+    setMese(now.getMonth() + 1)
+  }
+
   function cambiaMese(delta: number) {
     let m = mese + delta
     let y = anno
@@ -114,12 +178,16 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
   }
 
   function nuovaRiga(data: string) {
-    setForm({ data, servizioId: '', oraInizio: '', oraFine: '', mutua: false, note: '' })
+    const g = giornoRiep.get(data)
+    const oreGia = (timbPerGiorno.get(data) ?? []).reduce((s, t) => s + t.ore, 0)
+    const restanti = g ? Math.max(g.oreAttese - oreGia, 0) : 0
+    const suggerite = restanti > 0 ? Math.round(restanti * 2) / 2 : 4
+    setForm({ data, servizioId: '', ore: oreLabel(suggerite), mutua: false, note: '' })
   }
   function modificaRiga(t: Timbratura) {
     setForm({
       id: t.id, data: t.data, servizioId: t.servizioId,
-      oraInizio: t.oraInizio ?? '', oraFine: t.oraFine ?? '', mutua: t.mutua, note: t.note ?? '',
+      ore: oreLabel(t.ore), mutua: t.mutua, note: t.note ?? '',
     })
   }
 
@@ -129,12 +197,14 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
   async function salva() {
     if (!form) return
     if (!form.servizioId) { setErrore('Seleziona un servizio'); return }
+    const oreNum = parseOre(form.ore)
+    if (!isGiust && (!Number.isFinite(oreNum) || oreNum <= 0)) { setErrore('Inserisci le ore lavorate'); return }
     setSalvando(true); setErrore('')
     try {
       const payload = {
         data: form.data, servizioId: Number(form.servizioId),
-        oraInizio: isGiust ? null : form.oraInizio, oraFine: isGiust ? null : form.oraFine,
-        mutua: form.mutua, note: form.note,
+        ore: isGiust ? null : oreNum,
+        mutua: isGiust ? false : form.mutua, note: form.note || null,
       }
       const url = form.id ? `/api/timbrature/${form.id}` : '/api/timbrature'
       const method = form.id ? 'PATCH' : 'POST'
@@ -163,155 +233,260 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
     }
   }
 
-  const giorni = riepilogo?.giorni ?? []
+  // ---- dati derivati per la vista Oggi ----
+  const righeOggi = timbPerGiorno.get(OGGI) ?? []
+  const oreOggi = righeOggi.reduce((s, t) => s + t.ore, 0)
+  const gOggi = giornoRiep.get(OGGI)
+  const atteseOggi = gOggi?.oreAttese ?? 0
+  const oreLavoroOggi = righeOggi.reduce((s, t) => s + (t.tipoVoce === 'lavoro' ? t.ore : 0), 0)
+  const oggiCompleto = atteseOggi > 0 && oreOggi + 1e-9 >= atteseOggi
+  const nomeCorto = (nome || '').split(' ')[0]
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-24">
       {/* Barra */}
-      <div className="bg-primary text-white px-5 py-4">
+      <div className="bg-primary text-white px-5 pt-4 pb-3">
         <Link href="/home" className="text-white/70 text-sm hover:text-white">← Home</Link>
         <h1 className="text-lg font-bold">Timbrature</h1>
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 py-5">
-        {/* Selettore mese */}
-        <div className="flex items-center justify-between bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3 mb-4">
-          <button onClick={() => cambiaMese(-1)} className="text-2xl text-gray-400 hover:text-gray-700 px-2">‹</button>
-          <div className="text-center">
-            <div className="font-bold text-gray-800">{MESI[mese - 1]} {anno}</div>
-            {scadenza && (
-              <div className="text-xs text-gray-500">Correzioni entro il {scadenza.split('-').reverse().join('/')}</div>
-            )}
-          </div>
-          <button onClick={() => cambiaMese(1)} className="text-2xl text-gray-400 hover:text-gray-700 px-2">›</button>
+      {/* Tab */}
+      <div className="bg-primary px-4 pb-3">
+        <div className="flex gap-1 bg-white/15 rounded-xl p-1">
+          <button
+            onClick={vaiAOggi}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${vista === 'oggi' ? 'bg-white text-primary' : 'text-white/90'}`}
+          >
+            Oggi
+          </button>
+          <button
+            onClick={() => setVista('mese')}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${vista === 'mese' ? 'bg-white text-primary' : 'text-white/90'}`}
+          >
+            Mese
+          </button>
         </div>
+      </div>
 
-        {/* Cruscotto mese */}
-        {riepilogo && (
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <Kpi label="Ore lavorate" value={oreFmt(riepilogo.oreLavorate)} tone="cyan" />
-            <Kpi label="Ore attese" value={oreFmt(riepilogo.oreAttese)} tone="slate" />
-            <Kpi
-              label="Scostamento"
-              value={(riepilogo.scostamento >= 0 ? '+' : '') + oreFmt(riepilogo.scostamento)}
-              tone={riepilogo.scostamento < 0 ? 'red' : 'green'}
-            />
-          </div>
-        )}
-
-        {/* Scostamento per settimana */}
-        {riepilogo && riepilogo.settimane.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3 mb-4">
-            <div className="text-xs font-semibold text-gray-500 mb-2">Scostamento per settimana</div>
-            <div className="space-y-1.5">
-              {riepilogo.settimane.map((s) => (
-                <div key={s.inizio} className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Sett. {fmtRange(s.inizio, s.fine)}</span>
-                  <span className="flex items-center gap-2">
-                    <span className="text-gray-400">{oreFmt(s.oreLavorate)}/{oreFmt(s.oreAttese)} h</span>
-                    {s.conclusa ? (
-                      <span className={`font-semibold px-2 py-0.5 rounded-full text-xs ${scostClasse(s.scostamento)}`}>
-                        {segno(s.scostamento)} h
-                      </span>
-                    ) : (
-                      <span className="text-xs text-gray-400 italic">in corso</span>
-                    )}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Stato finestra */}
-        {bloccato && (
-          <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            🔒 {finestra?.motivo || 'Mese non modificabile'}. Le righe sono in sola lettura.
-          </div>
-        )}
+      <div className="max-w-2xl mx-auto px-4 py-5">
         {errore && (
           <div className="mb-4 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">{errore}</div>
         )}
 
         {loading ? (
           <div className="text-center text-gray-400 py-10">Caricamento…</div>
+        ) : vista === 'oggi' ? (
+          /* ============================ VISTA OGGI ============================ */
+          <div className="space-y-4">
+            {/* Card oggi */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+              <div className="text-xs text-gray-400">{nomeCorto ? `Ciao ${nomeCorto},` : ''} oggi è</div>
+              <div className="font-bold text-gray-800 text-lg capitalize">{dataEstesa(OGGI)}</div>
+
+              <div className="mt-3 flex items-center gap-3 flex-wrap">
+                <div className="text-3xl font-bold text-brand-cyan-dark">{oreLabel(oreOggi)}<span className="text-base text-gray-400 font-semibold"> h</span></div>
+                {gOggi?.festivo ? (
+                  <span className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-rose-500">{gOggi.festivitaNome}</span>
+                    {oreLavoroOggi > 0.001 && (
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                        lavoro in festività · {oreLabel(oreLavoroOggi)} h
+                      </span>
+                    )}
+                  </span>
+                ) : oggiCompleto ? (
+                  <span className="text-sm font-semibold text-emerald-600">✓ Giornata completa</span>
+                ) : atteseOggi > 0 ? (
+                  <span className="text-sm text-amber-600 font-semibold">mancano {oreLabel(Math.max(atteseOggi - oreOggi, 0))} h</span>
+                ) : null}
+              </div>
+
+              {streak >= 2 && (
+                <div className="mt-2 text-xs font-semibold text-orange-500">🔥 {streak} giorni di fila compilati</div>
+              )}
+
+              {/* Righe di oggi */}
+              {righeOggi.length > 0 && (
+                <div className="mt-4 divide-y divide-gray-50 border-t border-gray-100">
+                  {righeOggi.map((t) => (
+                    <RigaVoce key={t.id} t={t} bloccato={bloccato} onEdit={() => modificaRiga(t)} onDelete={() => elimina(t.id)} />
+                  ))}
+                </div>
+              )}
+
+              {!bloccato && (
+                <button
+                  onClick={() => nuovaRiga(OGGI)}
+                  className="mt-4 w-full py-3 rounded-xl bg-brand-cyan text-white font-bold text-base hover:opacity-90 active:scale-[0.99] transition"
+                >
+                  + Aggiungi ore di oggi
+                </button>
+              )}
+            </div>
+
+            {bloccato && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                🔒 {finestra?.motivo || 'Mese non modificabile'}. Le righe sono in sola lettura.
+              </div>
+            )}
+
+            {/* Giorni da completare */}
+            {!bloccato && giorniMancanti.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+                <div className="text-sm font-bold text-amber-800 mb-2">Da completare</div>
+                <div className="flex flex-wrap gap-2">
+                  {giorniMancanti.map((g) => (
+                    <button
+                      key={g.data}
+                      onClick={() => nuovaRiga(g.data)}
+                      className="px-3 py-1.5 rounded-full bg-white border border-amber-300 text-amber-800 text-sm font-semibold hover:bg-amber-100"
+                    >
+                      {weekdayShort(g.data).toLowerCase()} {Number(g.data.slice(8, 10))}
+                    </button>
+                  ))}
+                </div>
+                <div className="text-xs text-amber-700/80 mt-2">Tocca un giorno per aggiungere le ore.</div>
+              </div>
+            )}
+
+            {/* Riepilogo mese compatto */}
+            {riepilogo && (
+              <div className="grid grid-cols-3 gap-3">
+                <Kpi label="Ore mese" value={oreLabel(riepilogo.oreLavorate)} tone="cyan" />
+                <Kpi label="Attese" value={oreLabel(riepilogo.oreAttese)} tone="slate" />
+                <Kpi label="Scost." value={segno(riepilogo.scostamento)} tone={riepilogo.scostamento < 0 ? 'red' : 'green'} />
+              </div>
+            )}
+
+            <button onClick={() => setVista('mese')} className="w-full text-center text-sm font-semibold text-brand-cyan-dark py-2">
+              Vedi tutto il mese →
+            </button>
+          </div>
         ) : (
-          <div className="space-y-2">
-            {giorni.map((g) => {
-              const righe = timbPerGiorno.get(g.data) ?? []
-              const oreGiorno = righe.reduce((s, t) => s + t.ore, 0)
-              const oreLavoroGiorno = righe.reduce((s, t) => s + (t.tipoVoce === 'lavoro' ? t.ore : 0), 0)
-              const incompleto = !g.festivo && oreGiorno + 1e-9 < g.oreAttese
-              return (
-                <div key={g.data} className={`bg-white rounded-xl border ${incompleto ? 'border-amber-200' : 'border-gray-100'} shadow-sm`}>
-                  <div className="flex items-center justify-between px-4 py-2.5">
-                    <div className="flex items-center gap-3">
-                      <div className="text-center w-10">
-                        <div className="text-xs text-gray-400">{weekdayShort(g.data)}</div>
-                        <div className="font-bold text-gray-700">{Number(g.data.slice(8, 10))}</div>
+          /* ============================ VISTA MESE ============================ */
+          <div className="space-y-4">
+            <div className="flex items-center justify-between bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3">
+              <button onClick={() => cambiaMese(-1)} className="text-2xl text-gray-400 hover:text-gray-700 px-2">‹</button>
+              <div className="text-center">
+                <div className="font-bold text-gray-800">{MESI[mese - 1]} {anno}</div>
+                {scadenza && <div className="text-xs text-gray-500">Correzioni entro il {scadenza.split('-').reverse().join('/')}</div>}
+              </div>
+              <button onClick={() => cambiaMese(1)} className="text-2xl text-gray-400 hover:text-gray-700 px-2">›</button>
+            </div>
+
+            {riepilogo && (
+              <div className="grid grid-cols-3 gap-3">
+                <Kpi label="Ore lavorate" value={oreLabel(riepilogo.oreLavorate)} tone="cyan" />
+                <Kpi label="Ore attese" value={oreLabel(riepilogo.oreAttese)} tone="slate" />
+                <Kpi label="Scostamento" value={segno(riepilogo.scostamento)} tone={riepilogo.scostamento < 0 ? 'red' : 'green'} />
+              </div>
+            )}
+
+            {/* Scostamento per settimana */}
+            {riepilogo && riepilogo.settimane.length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3">
+                <div className="text-xs font-semibold text-gray-500 mb-2">Scostamento per settimana</div>
+                <div className="space-y-1.5">
+                  {riepilogo.settimane.map((s) => (
+                    <div key={s.inizio} className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Sett. {fmtRange(s.inizio, s.fine)}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="text-gray-400">{oreLabel(s.oreLavorate)}/{oreLabel(s.oreAttese)} h</span>
+                        {s.conclusa ? (
+                          <span className={`font-semibold px-2 py-0.5 rounded-full text-xs ${scostClasse(s.scostamento)}`}>
+                            {segno(s.scostamento)} h
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">in corso</span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {bloccato && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                🔒 {finestra?.motivo || 'Mese non modificabile'}. Le righe sono in sola lettura.
+              </div>
+            )}
+
+            <div className="space-y-2">
+              {(riepilogo?.giorni ?? []).map((g) => {
+                const righe = timbPerGiorno.get(g.data) ?? []
+                const oreGiorno = righe.reduce((s, t) => s + t.ore, 0)
+                const oreLavoroGiorno = righe.reduce((s, t) => s + (t.tipoVoce === 'lavoro' ? t.ore : 0), 0)
+                const incompleto = !g.festivo && oreGiorno + 1e-9 < g.oreAttese
+                return (
+                  <div key={g.data} className={`bg-white rounded-xl border ${incompleto ? 'border-amber-200' : 'border-gray-100'} shadow-sm`}>
+                    <div className="flex items-center justify-between px-4 py-2.5">
+                      <div className="flex items-center gap-3">
+                        <div className="text-center w-10">
+                          <div className="text-xs text-gray-400">{weekdayShort(g.data)}</div>
+                          <div className="font-bold text-gray-700">{Number(g.data.slice(8, 10))}</div>
+                        </div>
+                        {g.festivo ? (
+                          <span className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-semibold text-rose-500">{g.festivitaNome}</span>
+                            {oreLavoroGiorno > 0.001 && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                                lavoro in festività · {oreLabel(oreLavoroGiorno)} h
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-500">
+                            {oreLabel(oreGiorno)} / {oreLabel(g.oreAttese)} h
+                            {incompleto && <span className="ml-1 text-amber-600 font-semibold">·  incompleto</span>}
+                          </span>
+                        )}
                       </div>
-                      {g.festivo ? (
-                        <span className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-semibold text-rose-500">{g.festivitaNome}</span>
-                          {oreLavoroGiorno > 0.001 && (
-                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                              lavoro in festività · {oreFmt(oreLavoroGiorno)} h
-                            </span>
-                          )}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-gray-500">
-                          {oreFmt(oreGiorno)} / {oreFmt(g.oreAttese)} h
-                          {incompleto && <span className="ml-1 text-amber-600 font-semibold">·  incompleto</span>}
-                        </span>
+                      {!bloccato && (
+                        <button onClick={() => nuovaRiga(g.data)} className="text-sm font-semibold text-brand-cyan-dark hover:underline">+ riga</button>
                       )}
                     </div>
-                    {!bloccato && (
-                      <button onClick={() => nuovaRiga(g.data)} className="text-sm font-semibold text-brand-cyan-dark hover:underline">+ riga</button>
+                    {righe.length > 0 && (
+                      <div className="border-t border-gray-100 divide-y divide-gray-50">
+                        {righe.map((t) => (
+                          <RigaVoce key={t.id} t={t} bloccato={bloccato} onEdit={() => modificaRiga(t)} onDelete={() => elimina(t.id)} compact />
+                        ))}
+                      </div>
                     )}
                   </div>
-                  {righe.length > 0 && (
-                    <div className="border-t border-gray-100 divide-y divide-gray-50">
-                      {righe.map((t) => (
-                        <div key={t.id} className="flex items-center justify-between px-4 py-2 text-sm">
-                          <div>
-                            <span className={`font-medium ${t.tipoVoce === 'giustificativo' ? 'text-accent-purple' : 'text-gray-800'}`}>
-                              {t.servizioNome}{t.mutua ? ' (Mutua)' : ''}
-                            </span>
-                            <span className="text-gray-400 ml-2">
-                              {t.oraInizio && t.oraFine ? `${t.oraInizio}–${t.oraFine}` : ''} · {oreFmt(t.ore)} h
-                            </span>
-                            {t.note && <div className="text-xs text-gray-400">{t.note}</div>}
-                          </div>
-                          {!bloccato && (
-                            <div className="flex gap-3 text-xs">
-                              <button onClick={() => modificaRiga(t)} className="text-gray-500 hover:text-gray-800">Modifica</button>
-                              <button onClick={() => elimina(t.id)} className="text-red-500 hover:text-red-700">Elimina</button>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Form riga */}
+      {/* Bottom sheet inserimento */}
       {form && (
         <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50" onClick={() => setForm(null)}>
-          <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-5 max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-bold text-gray-800 mb-3">{form.id ? 'Modifica riga' : 'Nuova riga'} · {form.data.split('-').reverse().join('/')}</h3>
-            <label className="block text-sm text-gray-600 mb-1">Servizio</label>
+          <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-5 max-h-[92vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-bold text-gray-800 mb-1">{form.id ? 'Modifica' : 'Aggiungi ore'}</h3>
+            <p className="text-sm text-gray-500 mb-4 capitalize">{dataEstesa(form.data)}</p>
+
+            {/* Servizio */}
+            <label className="block text-sm font-semibold text-gray-600 mb-2">Servizio</label>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {serviziFrequenti.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => setForm({ ...form, servizioId: s.id })}
+                  className={`px-3 py-2 rounded-xl text-sm font-semibold border transition ${Number(form.servizioId) === s.id ? 'bg-brand-cyan text-white border-brand-cyan' : 'bg-white text-gray-700 border-gray-300 hover:border-brand-cyan'}`}
+                >
+                  {s.nome}
+                </button>
+              ))}
+            </div>
             <select
               value={form.servizioId}
               onChange={(e) => setForm({ ...form, servizioId: e.target.value ? Number(e.target.value) : '' })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4 text-sm"
             >
-              <option value="">— seleziona —</option>
+              <option value="">— altri servizi / giustificativi —</option>
               <optgroup label="Servizi">
                 {servizi.filter((s) => s.tipoVoce === 'lavoro').map((s) => (
                   <option key={s.id} value={s.id}>{s.nome}</option>
@@ -324,41 +499,85 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
               </optgroup>
             </select>
 
+            {/* Ore (solo lavoro) */}
             {!isGiust && (
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <div>
-                  <label className="block text-sm text-gray-600 mb-1">Dalle</label>
-                  <input type="time" value={form.oraInizio} onChange={(e) => setForm({ ...form, oraInizio: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2" />
+              <>
+                <label className="block text-sm font-semibold text-gray-600 mb-2">Ore</label>
+                <StepperOre value={form.ore} onChange={(v) => setForm({ ...form, ore: v })} />
+                <div className="flex gap-2 mt-2 mb-4">
+                  {[2, 4, 6, 8].map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setForm({ ...form, ore: String(p) })}
+                      className="flex-1 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:border-brand-cyan hover:text-brand-cyan-dark"
+                    >
+                      {p}h
+                    </button>
+                  ))}
                 </div>
-                <div>
-                  <label className="block text-sm text-gray-600 mb-1">Alle</label>
-                  <input type="time" value={form.oraFine} onChange={(e) => setForm({ ...form, oraFine: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2" />
-                </div>
-              </div>
+                <label className="flex items-center gap-2 text-sm text-gray-700 mb-4">
+                  <input type="checkbox" checked={form.mutua} onChange={(e) => setForm({ ...form, mutua: e.target.checked })} />
+                  Malattia (Mutua)
+                </label>
+              </>
             )}
             {isGiust && (
-              <p className="text-xs text-gray-500 mb-3">Il giustificativo occupa il monte ore atteso della giornata.</p>
+              <p className="text-xs text-gray-500 mb-4 bg-gray-50 rounded-lg px-3 py-2">Il giustificativo occupa automaticamente il monte ore atteso della giornata.</p>
             )}
 
-            {!isGiust && (
-              <label className="flex items-center gap-2 text-sm text-gray-700 mb-3">
-                <input type="checkbox" checked={form.mutua} onChange={(e) => setForm({ ...form, mutua: e.target.checked })} />
-                Malattia (Mutua)
-              </label>
-            )}
-
-            <label className="block text-sm text-gray-600 mb-1">Note</label>
-            <input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4" />
+            <label className="block text-sm font-semibold text-gray-600 mb-1">Note <span className="font-normal text-gray-400">(facoltative)</span></label>
+            <input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4 text-sm" />
 
             <div className="flex gap-3">
-              <button onClick={() => setForm(null)} className="flex-1 py-2.5 rounded-lg border border-gray-300 text-gray-600 font-semibold">Annulla</button>
-              <button onClick={salva} disabled={salvando} className="flex-1 py-2.5 rounded-lg bg-brand-cyan text-white font-semibold disabled:opacity-50">
+              <button onClick={() => setForm(null)} className="flex-1 py-3 rounded-xl border border-gray-300 text-gray-600 font-semibold">Annulla</button>
+              <button onClick={salva} disabled={salvando} className="flex-1 py-3 rounded-xl bg-brand-cyan text-white font-bold disabled:opacity-50">
                 {salvando ? 'Salvo…' : 'Salva'}
               </button>
             </div>
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function RigaVoce({ t, bloccato, onEdit, onDelete, compact }: { t: Timbratura; bloccato: boolean; onEdit: () => void; onDelete: () => void; compact?: boolean }) {
+  return (
+    <div className={`flex items-center justify-between ${compact ? 'px-4 py-2' : 'py-2.5'} text-sm`}>
+      <div className="min-w-0">
+        <span className={`font-medium ${t.tipoVoce === 'giustificativo' ? 'text-accent-purple' : 'text-gray-800'}`}>
+          {t.servizioNome}{t.mutua ? ' (Mutua)' : ''}
+        </span>
+        <span className="text-gray-400 ml-2 font-semibold">{oreLabel(t.ore)} h</span>
+        {t.note && <div className="text-xs text-gray-400 truncate">{t.note}</div>}
+      </div>
+      {!bloccato && (
+        <div className="flex gap-3 text-xs shrink-0">
+          <button onClick={onEdit} className="text-gray-500 hover:text-gray-800">Modifica</button>
+          <button onClick={onDelete} className="text-red-500 hover:text-red-700">Elimina</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StepperOre({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const num = parseFloat(value.replace(',', '.'))
+  const step = (delta: number) => {
+    const base = Number.isFinite(num) ? num : 0
+    const next = Math.max(0.5, Math.round((base + delta) * 2) / 2)
+    onChange(String(next).replace('.', ','))
+  }
+  return (
+    <div className="flex items-center gap-3">
+      <button onClick={() => step(-0.5)} className="w-12 h-12 rounded-xl border border-gray-300 text-2xl font-bold text-gray-600 hover:border-brand-cyan active:scale-95">−</button>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        inputMode="decimal"
+        className="flex-1 h-12 text-center text-xl font-bold border border-gray-300 rounded-xl"
+      />
+      <button onClick={() => step(0.5)} className="w-12 h-12 rounded-xl border border-gray-300 text-2xl font-bold text-gray-600 hover:border-brand-cyan active:scale-95">+</button>
     </div>
   )
 }

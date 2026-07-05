@@ -63,6 +63,9 @@ export interface Timbratura {
 export interface TimbraturaInput {
   data: string
   servizioId: number
+  /** Ore inserite direttamente (voci di lavoro). Se presente, ha priorità sul
+   *  calcolo da oraInizio/oraFine. Supporta le mezze ore (step 0.5). */
+  ore?: number | null
   oraInizio?: string | null
   oraFine?: string | null
   notte?: boolean
