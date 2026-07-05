@@ -10,21 +10,21 @@ import type { Session } from 'next-auth'
 import { ensureDipendente } from '@/lib/timbrature'
 import type { Dipendente } from '@/types/timbrature'
 
-export const AREA_OPERATORE = 'Timbrature'
 export const AREA_HR = 'Risorse Umane'
 
 type OperatoreResult =
   | { session: Session; dipendente: Dipendente; error: null }
   | { session: null; dipendente: null; error: NextResponse }
 
-/** Autentica l'operatore e risolve (creando al primo accesso) il suo dipendente. */
+/**
+ * Timbrature accessibili a TUTTI gli utenti autenticati (ogni dipendente timbra).
+ * Nessun permesso d'area richiesto: basta la sessione. Risolve (creando al primo
+ * accesso) il dipendente collegato all'email.
+ */
 export async function guardOperatore(): Promise<OperatoreResult> {
   const session = await auth()
   if (!session?.user?.email) {
     return { session: null, dipendente: null, error: NextResponse.json({ error: 'Non autenticato' }, { status: 401 }) }
-  }
-  if (!session.user.permessi?.includes(AREA_OPERATORE)) {
-    return { session: null, dipendente: null, error: NextResponse.json({ error: 'Accesso negato' }, { status: 403 }) }
   }
   const dipendente = await ensureDipendente(session.user.email, session.user.name ?? '')
   return { session, dipendente, error: null }

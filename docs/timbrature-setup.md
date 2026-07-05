@@ -35,12 +35,14 @@ printf '%s' 'eyJ...service_role...'          | vercel env add SUPABASE_SERVICE_R
 Nessuna nuova variabile Graph/SharePoint: si riusano quelle già presenti
 (la generazione dell'Excel scrive nella cartella personale del dipendente).
 
-## 3. Permessi per area (lista SharePoint "Autorizzazioni")
+## 3. Accessi
 
-- **`Timbrature`** → assegnala a tutti gli operatori che devono timbrare.
-  Compare la card "Timbrature" in home e la pagina `/timbrature`.
-- **`Risorse Umane`** → dà accesso al cruscotto HR `/timbrature/hr`
-  (stato di tutti i dipendenti, monte ore, chiusura mese). Già esistente.
+- **`/timbrature`** (operatore) è aperto a **tutti gli utenti autenticati**: la
+  card in home e la pagina non richiedono alcun permesso d'area. Ogni dipendente
+  che accede viene creato automaticamente in `dipendente`.
+- **`Risorse Umane`** (permesso per area, lista SharePoint "Autorizzazioni") → dà
+  accesso al cruscotto HR `/timbrature/hr` (stato di tutti i dipendenti, monte
+  ore, chiusura mese). Già esistente.
 
 ## 4. Anagrafica dipendenti
 
