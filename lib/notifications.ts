@@ -281,6 +281,57 @@ export async function notificaPromemoriaFoglioOre(opts: {
 }
 
 // ============================================================
+// Timbrature — sollecito ALERT chiusura foglio ore → dipendente
+// Inviato ogni giorno nei giorni 1-5 del mese, finché il mese precedente
+// non è chiuso. Tono perentorio.
+// ============================================================
+
+export async function notificaSollecitoTimbrature(opts: {
+  to: string
+  cognomeNome: string
+  meseNome: string
+  anno: number
+  scadenza: string // YYYY-MM-DD
+  giorniRimasti: number
+  giorniIncompleti: number
+  scostamento: number
+  linkApp: string
+}): Promise<void> {
+  const scadFmt = opts.scadenza.split('-').reverse().join('/')
+  const urgenza = opts.giorniRimasti <= 1 ? '#C00000' : opts.giorniRimasti <= 2 ? '#E36C09' : '#B8860B'
+  const problemi: string[] = []
+  if (opts.giorniIncompleti > 0) problemi.push(`${opts.giorniIncompleti} giorno/i incompleto/i`)
+  if (opts.scostamento < 0) problemi.push(`mancano ${Math.abs(opts.scostamento)} ore rispetto al monte ore`)
+
+  await sendEmail({
+    to: opts.to,
+    subject: `⚠️ AZIONE RICHIESTA — completa il foglio ore di ${opts.meseNome} entro il ${scadFmt}`,
+    html: `
+      <div style="border:2px solid ${urgenza};border-radius:10px;padding:16px 18px;font-family:sans-serif">
+        <p style="margin:0 0 8px;font-size:18px;font-weight:800;color:${urgenza};text-transform:uppercase">
+          ⚠️ Foglio ore da chiudere — ${opts.giorniRimasti === 0 ? 'ULTIMO GIORNO' : `mancano ${opts.giorniRimasti} giorni`}
+        </p>
+        <p style="margin:0 0 10px">${opts.cognomeNome}, il tuo foglio ore di
+          <strong>${opts.meseNome} ${opts.anno}</strong> deve essere completo e corretto
+          <strong>entro e non oltre il ${scadFmt}</strong>.</p>
+        ${
+          problemi.length
+            ? `<p style="margin:0 0 10px;color:${urgenza};font-weight:700">Da sistemare: ${problemi.join('; ')}.</p>`
+            : `<p style="margin:0 0 10px">Verifica che tutte le ore siano inserite e attribuite al servizio corretto.</p>`
+        }
+        <p style="margin:0 0 6px;font-weight:700">Dopo il ${scadFmt} il mese verrà chiuso e non sarà più modificabile.</p>
+        <p style="margin:16px 0 4px">
+          <a href="${opts.linkApp}"
+             style="background:${urgenza};color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:10px;display:inline-block">
+            Apri e completa il foglio ore →
+          </a>
+        </p>
+      </div>
+    `,
+  })
+}
+
+// ============================================================
 // Flusso 2A — Nuova richiesta → admin
 // ============================================================
 

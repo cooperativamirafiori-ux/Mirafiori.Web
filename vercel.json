@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/promemoria-ore",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/sollecito-timbrature",
+      "schedule": "0 7 * * *"
     }
   ]
 }

@@ -8,6 +8,7 @@ export default async function HomePage() {
   const puoAmministrare = session?.user?.permessi?.includes('Amministrazione') ?? false
   const puoPrestazioni = session?.user?.permessi?.includes('Prestazioni Occasionali') ?? false
   const puoRisorseUmane = session?.user?.permessi?.includes('Risorse Umane') ?? false
+  const puoTimbrature = session?.user?.permessi?.includes('Timbrature') ?? false
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-cyan-light/40 via-white to-white">
@@ -42,6 +43,15 @@ export default async function HomePage() {
             titolo="Richiesta Manutenzione"
             sottotitolo="Segnala e gestisci gli interventi"
           />
+          {puoTimbrature && (
+            <FunzioneCard
+              href="/timbrature"
+              emoji="⏱️"
+              accent="cyan"
+              titolo="Timbrature"
+              sottotitolo="Registra le ore e controlla il tuo monte ore"
+            />
+          )}
           {puoPrestazioni && (
             <FunzioneCard
               href="/prestazioni"
