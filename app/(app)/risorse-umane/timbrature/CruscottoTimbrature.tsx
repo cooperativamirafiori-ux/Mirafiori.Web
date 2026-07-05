@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { StatoDipendenteMese, Timbratura, RiepilogoPeriodo, ProfiloOrario, ChiusuraMese } from '@/types/timbrature'
 
@@ -38,6 +38,15 @@ export default function CruscottoTimbrature() {
   const [dettaglio, setDettaglio] = useState<Dettaglio | null>(null)
   const [azione, setAzione] = useState(false)
   const [profiloForm, setProfiloForm] = useState<Record<number, string>>({})
+
+  // Giorni festivi del mese (per segnalare il lavoro in festività nel dettaglio)
+  const festivoByData = useMemo(() => {
+    const m = new Map<string, string>()
+    dettaglio?.riepilogo.giorni.forEach((g) => {
+      if (g.festivo) m.set(g.data, g.festivitaNome ?? 'Festività')
+    })
+    return m
+  }, [dettaglio])
 
   const carica = useCallback(async () => {
     setLoading(true); setErrore('')
@@ -307,7 +316,17 @@ export default function CruscottoTimbrature() {
             <div className="space-y-1 mb-5">
               {dettaglio.timbrature.map((t) => (
                 <div key={t.id} className="flex justify-between text-sm border-b border-gray-50 py-1">
-                  <span>{t.data.slice(8, 10)}/{t.data.slice(5, 7)} · {t.servizioNome}{t.mutua ? ' (Mutua)' : ''}</span>
+                  <span>
+                    {t.data.slice(8, 10)}/{t.data.slice(5, 7)} · {t.servizioNome}{t.mutua ? ' (Mutua)' : ''}
+                    {t.tipoVoce === 'lavoro' && festivoByData.has(t.data) && (
+                      <span
+                        title={festivoByData.get(t.data)}
+                        className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700"
+                      >
+                        lavoro in festività
+                      </span>
+                    )}
+                  </span>
                   <span className="text-gray-400">{t.oraInizio && t.oraFine ? `${t.oraInizio}–${t.oraFine} · ` : ''}{oreFmt(t.ore)} h</span>
                 </div>
               ))}

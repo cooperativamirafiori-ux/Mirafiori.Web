@@ -240,6 +240,7 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
             {giorni.map((g) => {
               const righe = timbPerGiorno.get(g.data) ?? []
               const oreGiorno = righe.reduce((s, t) => s + t.ore, 0)
+              const oreLavoroGiorno = righe.reduce((s, t) => s + (t.tipoVoce === 'lavoro' ? t.ore : 0), 0)
               const incompleto = !g.festivo && oreGiorno + 1e-9 < g.oreAttese
               return (
                 <div key={g.data} className={`bg-white rounded-xl border ${incompleto ? 'border-amber-200' : 'border-gray-100'} shadow-sm`}>
@@ -250,7 +251,14 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
                         <div className="font-bold text-gray-700">{Number(g.data.slice(8, 10))}</div>
                       </div>
                       {g.festivo ? (
-                        <span className="text-xs font-semibold text-rose-500">{g.festivitaNome}</span>
+                        <span className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-semibold text-rose-500">{g.festivitaNome}</span>
+                          {oreLavoroGiorno > 0.001 && (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                              lavoro in festività · {oreFmt(oreLavoroGiorno)} h
+                            </span>
+                          )}
+                        </span>
                       ) : (
                         <span className="text-xs text-gray-500">
                           {oreFmt(oreGiorno)} / {oreFmt(g.oreAttese)} h
