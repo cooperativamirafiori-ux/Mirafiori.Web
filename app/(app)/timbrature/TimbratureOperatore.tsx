@@ -26,7 +26,7 @@ interface FormRiga {
   note: string
 }
 
-export default function TimbratureOperatore({ nome, isHr }: { nome: string; isHr: boolean }) {
+export default function TimbratureOperatore({ nome }: { nome: string }) {
   const now = new Date()
   const [anno, setAnno] = useState(now.getFullYear())
   const [mese, setMese] = useState(now.getMonth() + 1)
@@ -156,16 +156,9 @@ export default function TimbratureOperatore({ nome, isHr }: { nome: string; isHr
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Barra */}
-      <div className="bg-primary text-white px-5 py-4 flex items-center justify-between">
-        <div>
-          <Link href="/home" className="text-white/70 text-sm hover:text-white">← Home</Link>
-          <h1 className="text-lg font-bold">Timbrature</h1>
-        </div>
-        {isHr && (
-          <Link href="/timbrature/hr" className="text-sm bg-white/15 hover:bg-white/25 rounded-lg px-3 py-2 font-semibold">
-            Cruscotto HR →
-          </Link>
-        )}
+      <div className="bg-primary text-white px-5 py-4">
+        <Link href="/home" className="text-white/70 text-sm hover:text-white">← Home</Link>
+        <h1 className="text-lg font-bold">Timbrature</h1>
       </div>
 
       <div className="max-w-3xl mx-auto px-4 py-5">

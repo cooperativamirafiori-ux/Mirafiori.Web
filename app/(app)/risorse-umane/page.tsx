@@ -26,6 +26,12 @@ const SEZIONI = [
     titolo: 'Tirocini',
     sottotitolo: 'Tirocinanti e percorsi di inserimento',
   },
+  {
+    href: '/risorse-umane/timbrature',
+    emoji: '⏱️',
+    titolo: 'Cruscotto Timbrature',
+    sottotitolo: 'Ore di tutti i dipendenti, monte ore settimanale e chiusura mese',
+  },
 ]
 
 export default async function RisorseUmanePage() {
