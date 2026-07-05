@@ -92,6 +92,17 @@ export interface RiepilogoGiorno {
   completo: boolean // oreLavorate+oreGiustificativo >= oreAttese
 }
 
+/** Riga di scostamento su una singola settimana (ISO lun–dom, ritagliata al periodo) */
+export interface RiepilogoSettimana {
+  inizio: string // YYYY-MM-DD (primo giorno della settimana compreso nel periodo)
+  fine: string // YYYY-MM-DD (ultimo giorno della settimana compreso nel periodo)
+  oreLavorate: number
+  oreGiustificativo: number
+  oreAttese: number
+  scostamento: number // (lavorate+giustificativo) - attese
+  conclusa: boolean // true se la settimana è terminata (fine < oggi): scostamento definitivo
+}
+
 /** Cruscotto settimanale/mensile dell'operatore */
 export interface RiepilogoPeriodo {
   oreLavorate: number
@@ -99,6 +110,7 @@ export interface RiepilogoPeriodo {
   oreAttese: number
   scostamento: number // (lavorate+giustificativo) - attese
   giorni: RiepilogoGiorno[]
+  settimane: RiepilogoSettimana[]
 }
 
 /** Riga del cruscotto HR: stato del mese per dipendente */
@@ -112,4 +124,5 @@ export interface StatoDipendenteMese {
   giorniIncompleti: number
   stato: StatoMese
   fileUrl: string | null
+  settimane: RiepilogoSettimana[]
 }

@@ -7,6 +7,17 @@ import type { StatoDipendenteMese, Timbratura, RiepilogoPeriodo, ProfiloOrario, 
 const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
 const GG = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
 const oreFmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, ''))
+const segno = (n: number) => (n >= 0 ? '+' : '') + oreFmt(n)
+function fmtRange(from: string, to: string) {
+  const f = `${from.slice(8, 10)}/${from.slice(5, 7)}`
+  const t = `${to.slice(8, 10)}/${to.slice(5, 7)}`
+  return f === t ? f : `${f}–${t}`
+}
+function scostClasse(n: number) {
+  if (n < -0.001) return 'bg-red-100 text-red-700'
+  if (n > 0.001) return 'bg-emerald-100 text-emerald-700'
+  return 'bg-gray-100 text-gray-600'
+}
 
 interface Dettaglio {
   dipendente: { id: number; cognomeNome: string; email: string }
@@ -155,6 +166,7 @@ export default function CruscottoTimbrature() {
                   <th className="text-right px-3 py-2 font-semibold">Lavorate</th>
                   <th className="text-right px-3 py-2 font-semibold">Attese</th>
                   <th className="text-right px-3 py-2 font-semibold">Scost.</th>
+                  <th className="text-left px-3 py-2 font-semibold">Settimane</th>
                   <th className="text-center px-3 py-2 font-semibold">Incompl.</th>
                   <th className="text-center px-3 py-2 font-semibold">Stato</th>
                   <th className="px-3 py-2"></th>
@@ -174,6 +186,20 @@ export default function CruscottoTimbrature() {
                       <td className="text-right px-3 text-gray-500">{oreFmt(s.oreAttese)}</td>
                       <td className={`text-right px-3 font-semibold ${s.scostamento < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                         {(s.scostamento >= 0 ? '+' : '') + oreFmt(s.scostamento)}
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap gap-1 max-w-[200px]">
+                          {s.settimane.map((w) => (
+                            <span
+                              key={w.inizio}
+                              title={`Sett. ${fmtRange(w.inizio, w.fine)} · ${oreFmt(w.oreLavorate)}/${oreFmt(w.oreAttese)} h${w.conclusa ? '' : ' (in corso)'}`}
+                              className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${w.conclusa ? scostClasse(w.scostamento) : 'bg-gray-50 text-gray-400 italic'}`}
+                            >
+                              {w.conclusa ? segno(w.scostamento) : '·'}
+                            </span>
+                          ))}
+                          {s.settimane.length === 0 && <span className="text-gray-300">—</span>}
+                        </div>
                       </td>
                       <td className="text-center px-3">
                         {s.giorniIncompleti > 0 ? <span className="text-amber-600 font-semibold">{s.giorniIncompleti}</span> : '—'}
@@ -207,7 +233,7 @@ export default function CruscottoTimbrature() {
                   )
                 })}
                 {righe.length === 0 && (
-                  <tr><td colSpan={7} className="text-center text-gray-400 py-8">Nessun dipendente. Verifica il seed dell'anagrafica.</td></tr>
+                  <tr><td colSpan={8} className="text-center text-gray-400 py-8">Nessun dipendente. Verifica il seed dell'anagrafica.</td></tr>
                 )}
               </tbody>
             </table>
@@ -230,6 +256,30 @@ export default function CruscottoTimbrature() {
               <Mini label="Attese" value={oreFmt(dettaglio.riepilogo.oreAttese)} />
               <Mini label="Scost." value={(dettaglio.riepilogo.scostamento >= 0 ? '+' : '') + oreFmt(dettaglio.riepilogo.scostamento)} rosso={dettaglio.riepilogo.scostamento < 0} />
             </div>
+
+            {/* Scostamento per settimana */}
+            {dettaglio.riepilogo.settimane.length > 0 && (
+              <div className="border border-gray-200 rounded-xl p-3 mb-5">
+                <div className="font-semibold text-gray-700 text-sm mb-2">Scostamento per settimana</div>
+                <div className="space-y-1.5">
+                  {dettaglio.riepilogo.settimane.map((w) => (
+                    <div key={w.inizio} className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Sett. {fmtRange(w.inizio, w.fine)}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="text-gray-400">{oreFmt(w.oreLavorate)}/{oreFmt(w.oreAttese)} h</span>
+                        {w.conclusa ? (
+                          <span className={`font-semibold px-2 py-0.5 rounded-full text-xs ${scostClasse(w.scostamento)}`}>
+                            {segno(w.scostamento)} h
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">in corso</span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Monte ore (HR) */}
             <div className="border border-gray-200 rounded-xl p-3 mb-5">

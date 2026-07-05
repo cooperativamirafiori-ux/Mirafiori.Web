@@ -15,6 +15,18 @@ function weekdayShort(dataYmd: string) {
   return GIORNI[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]
 }
 const oreFmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, ''))
+const segno = (n: number) => (n >= 0 ? '+' : '') + oreFmt(n)
+function fmtRange(from: string, to: string) {
+  const f = `${from.slice(8, 10)}/${from.slice(5, 7)}`
+  const t = `${to.slice(8, 10)}/${to.slice(5, 7)}`
+  return f === t ? f : `${f}–${t}`
+}
+/** Classe colore per uno scostamento (verde/rosso/neutro). */
+function scostClasse(n: number) {
+  if (n < -0.001) return 'bg-red-100 text-red-700'
+  if (n > 0.001) return 'bg-emerald-100 text-emerald-700'
+  return 'bg-gray-100 text-gray-600'
+}
 
 interface FormRiga {
   id?: string
@@ -184,6 +196,30 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
               value={(riepilogo.scostamento >= 0 ? '+' : '') + oreFmt(riepilogo.scostamento)}
               tone={riepilogo.scostamento < 0 ? 'red' : 'green'}
             />
+          </div>
+        )}
+
+        {/* Scostamento per settimana */}
+        {riepilogo && riepilogo.settimane.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3 mb-4">
+            <div className="text-xs font-semibold text-gray-500 mb-2">Scostamento per settimana</div>
+            <div className="space-y-1.5">
+              {riepilogo.settimane.map((s) => (
+                <div key={s.inizio} className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Sett. {fmtRange(s.inizio, s.fine)}</span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-gray-400">{oreFmt(s.oreLavorate)}/{oreFmt(s.oreAttese)} h</span>
+                    {s.conclusa ? (
+                      <span className={`font-semibold px-2 py-0.5 rounded-full text-xs ${scostClasse(s.scostamento)}`}>
+                        {segno(s.scostamento)} h
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400 italic">in corso</span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

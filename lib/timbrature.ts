@@ -21,6 +21,7 @@ import type {
   ChiusuraMese,
   RiepilogoGiorno,
   RiepilogoPeriodo,
+  RiepilogoSettimana,
   StatoDipendenteMese,
 } from '@/types/timbrature'
 
@@ -467,17 +468,76 @@ export async function riepilogoPeriodo(
     oreAttese += g.oreAttese
   }
 
+  const giorni = [...perGiorno.values()]
   return {
     oreLavorate: round4(oreLavorate),
     oreGiustificativo: round4(oreGiustificativo),
     oreAttese: round4(oreAttese),
     scostamento: round4(oreLavorate + oreGiustificativo - oreAttese),
-    giorni: [...perGiorno.values()],
+    giorni,
+    settimane: raggruppaSettimane(giorni),
   }
 }
 
 function round4(n: number): number {
   return Math.round(n * 10000) / 10000
+}
+
+/** Data YYYY-MM-DD + n giorni (in UTC). */
+function addGiorni(ymd: string, n: number): string {
+  const d = new Date(ymd + 'T00:00:00Z')
+  d.setUTCDate(d.getUTCDate() + n)
+  return d.toISOString().slice(0, 10)
+}
+
+/** Lunedì (ISO) della settimana che contiene la data. */
+function lunediIso(ymd: string): string {
+  return addGiorni(ymd, -(weekdayIso(ymd) - 1))
+}
+
+/**
+ * Raggruppa i giorni del periodo in settimane ISO (lun→dom) e calcola lo
+ * scostamento di ciascuna. `inizio`/`fine` sono i giorni effettivi coperti nel
+ * periodo (le settimane a cavallo dei bordi mese risultano parziali).
+ * `conclusa`=true quando la settimana è già terminata (fine < oggi): solo allora
+ * lo scostamento è definitivo (le settimane in corso non vanno segnalate).
+ */
+export function raggruppaSettimane(giorni: RiepilogoGiorno[]): RiepilogoSettimana[] {
+  const oggi = oggiRoma()
+  const acc = new Map<string, {
+    inizio: string; fine: string
+    oreLavorate: number; oreGiustificativo: number; oreAttese: number
+  }>()
+  for (const g of giorni) {
+    const chiave = lunediIso(g.data)
+    const cur = acc.get(chiave)
+    if (!cur) {
+      acc.set(chiave, {
+        inizio: g.data,
+        fine: g.data,
+        oreLavorate: g.oreLavorate,
+        oreGiustificativo: g.oreGiustificativo,
+        oreAttese: g.oreAttese,
+      })
+    } else {
+      if (g.data < cur.inizio) cur.inizio = g.data
+      if (g.data > cur.fine) cur.fine = g.data
+      cur.oreLavorate += g.oreLavorate
+      cur.oreGiustificativo += g.oreGiustificativo
+      cur.oreAttese += g.oreAttese
+    }
+  }
+  return [...acc.entries()]
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+    .map(([, s]) => ({
+      inizio: s.inizio,
+      fine: s.fine,
+      oreLavorate: round4(s.oreLavorate),
+      oreGiustificativo: round4(s.oreGiustificativo),
+      oreAttese: round4(s.oreAttese),
+      scostamento: round4(s.oreLavorate + s.oreGiustificativo - s.oreAttese),
+      conclusa: s.fine < oggi,
+    }))
 }
 
 // --------------------------------------------------------------- chiusura mese
@@ -576,6 +636,7 @@ export async function statoMeseTutti(anno: number, mese: number): Promise<StatoD
       giorniIncompleti: rp.giorni.filter((g) => !g.completo && !g.festivo).length,
       stato: ch?.stato ?? 'aperto',
       fileUrl: ch?.fileUrl ?? null,
+      settimane: rp.settimane,
     })
   }
   return out
