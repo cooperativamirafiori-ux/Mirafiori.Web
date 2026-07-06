@@ -36,15 +36,35 @@ export default async function ManutenzioniPage() {
           />
 
           {isAdmin && (
-            <ModuloCard
-              href="/dashboard"
-              emoji="⚙️"
-              iconBg="bg-accent-yellow"
-              iconText="text-primary-dark"
-              titolo="Pannello di controllo"
-              sottotitolo="Gestisci e assegna le richieste"
-              badge="Admin"
-            />
+            <>
+              <ModuloCard
+                href="/dashboard"
+                emoji="⚙️"
+                iconBg="bg-accent-yellow"
+                iconText="text-primary-dark"
+                titolo="Pannello di controllo"
+                sottotitolo="Gestisci e assegna le richieste"
+                badge="Admin"
+              />
+
+              <ModuloCard
+                href="/inserisci-costo"
+                emoji="💶"
+                iconBg="bg-emerald-600"
+                titolo="Inserisci costo"
+                sottotitolo="Registra un costo diretto su una struttura"
+                badge="Admin"
+              />
+
+              <ModuloCard
+                href="/cruscotto-costi"
+                emoji="📊"
+                iconBg="bg-brand-cyan-dark"
+                titolo="Cruscotto costi"
+                sottotitolo="Costi per struttura da inizio anno"
+                badge="Admin"
+              />
+            </>
           )}
         </section>
       </main>

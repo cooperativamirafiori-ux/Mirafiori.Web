@@ -64,6 +64,32 @@ export interface CostoStruttura {
   fonte?: string        // "Manuale"
 }
 
+/** Record di costo letto dalla lista Costi Strutture (per il cruscotto) */
+export interface CostoRecord {
+  id: number            // ID SharePoint item
+  title: string         // ID richiesta (MAN-...) o causale del costo diretto
+  dataCosto: string     // ISO datetime
+  categoria: string
+  importo: number
+  struttura: {
+    id: number
+    value: string       // nome/label struttura
+  }
+  fornitore?: string
+  periodo?: string
+  fonte?: string        // "Manuale" (da ticket) o "Diretto" (inserito a mano)
+  note?: string
+}
+
+/** Costi aggregati per una singola struttura (cruscotto YTD) */
+export interface CostoPerStruttura {
+  strutturaId: number
+  strutturaLabel: string
+  totale: number
+  perCategoria: Record<string, number>
+  movimenti: CostoRecord[]
+}
+
 export interface ParametroConfigurazione {
   title: string   // chiave (es. "Costo orario pulizie")
   valore: number
@@ -79,6 +105,15 @@ export interface NuovaRichiestaPayload {
   tipoIntervento: string
   priorita: string
   descrizione: string
+}
+
+export interface NuovoCostoPayload {
+  strutturaId: number
+  categoria: string
+  importo: number
+  dataCosto: string      // ISO date (YYYY-MM-DD) o datetime
+  fornitore?: string
+  causale?: string       // descrizione libera → Title / Note
 }
 
 export interface AggiornaRichiestaPayload {
