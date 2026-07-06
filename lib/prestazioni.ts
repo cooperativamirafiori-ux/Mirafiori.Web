@@ -172,7 +172,7 @@ export async function uploadAllegato(
 // ============================================================
 
 const PRESTAZIONE_FIELDS =
-  'id,fields&$expand=fields($select=Title,Nome,Cognome,DataNascita,LuogoNascita,CodiceFiscale,Residenza,Ruolo,Email,Telefono,Iban,Giorni,DataInizio,DataFine,Attivita,CompensoPrevisto,Stato,ResponsabileEmail,ResponsabileNome,CartellaUrl,ImportoLordo,DataInserimento,NotulaToken,NotulaUrl,PromemoriaOreInviato,DocusignEnvelopeId)'
+  'id,fields&$expand=fields($select=Title,Nome,Cognome,DataNascita,LuogoNascita,CodiceFiscale,Residenza,Ruolo,Email,Telefono,Iban,Giorni,DataInizio,DataFine,Attivita,CompensoPrevisto,CasisticaGdpr,Stato,ResponsabileEmail,ResponsabileNome,CartellaUrl,ImportoLordo,DataInserimento,NotulaToken,NotulaUrl,PromemoriaOreInviato,DocusignEnvelopeId)'
 
 /**
  * Colonne data "solo giorno" (DataNascita, DataInizio, DataFine): vanno scritte
@@ -210,6 +210,7 @@ function mapPrestazione(item: any): Prestazione {
     dataFine: soloData(f.DataFine),
     attivita: f.Attivita ?? '',
     compensoPrevisto: f.CompensoPrevisto ?? 0,
+    casisticaGdpr: f.CasisticaGdpr ?? '',
     stato: (f.Stato ?? 'Bozza') as StatoPrestazione,
     responsabileEmail: f.ResponsabileEmail ?? '',
     responsabileNome: f.ResponsabileNome ?? '',
@@ -261,6 +262,7 @@ export async function creaPrestazione(
     DataFine: toGraphDateOnly(dati.dataFine),
     Attivita: dati.attivita,
     CompensoPrevisto: dati.compensoPrevisto,
+    CasisticaGdpr: dati.casisticaGdpr,
     Stato: 'Bozza' as StatoPrestazione,
     ResponsabileEmail: responsabile.email,
     ResponsabileNome: responsabile.nome,

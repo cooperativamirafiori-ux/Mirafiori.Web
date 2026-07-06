@@ -25,6 +25,17 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const LIST_NAME = 'Prestazioni Occasionali'
 
+// Casistiche GDPR — DEVONO coincidere con le key in lib/casistiche-gdpr.ts
+const CASISTICHE_GDPR_KEYS = [
+  'UFFICIO',
+  'COMUNITA',
+  'ARTEMISIA',
+  'TERRITORIALE',
+  'CPG',
+  'LOCANDA',
+  'MEDICO',
+]
+
 const STATO_CHOICES = [
   'Bozza',
   'Contratto inviato',
@@ -53,6 +64,7 @@ const COLUMNS = [
   { name: 'DataFine', dateTime: { format: 'dateOnly', displayAs: 'standard' } },
   { name: 'Attivita', text: { allowMultipleLines: true } },
   { name: 'CompensoPrevisto', currency: { locale: 'it-IT' } },
+  { name: 'CasisticaGdpr', choice: { choices: CASISTICHE_GDPR_KEYS, displayAs: 'dropDownMenu' } },
   { name: 'Stato', choice: { choices: STATO_CHOICES, displayAs: 'dropDownMenu' } },
   { name: 'ResponsabileEmail', text: {} },
   { name: 'ResponsabileNome', text: {} },

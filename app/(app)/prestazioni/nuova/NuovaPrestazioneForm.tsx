@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { CASISTICHE_GDPR } from '@/lib/casistiche-gdpr'
 
 const CF_REGEX = /^[A-Z]{6}\d{2}[A-EHLMPR-T]{1}\d{2}[A-Z]{1}\d{3}[A-Z]{1}$/
 
@@ -42,6 +43,7 @@ export function NuovaPrestazioneForm() {
     dataFine: '',
     attivita: '',
     compensoPrevisto: '',
+    casisticaGdpr: '',
   })
 
   // Allegati
@@ -128,6 +130,7 @@ export function NuovaPrestazioneForm() {
       [form.dataFine, 'Data fine'],
       [form.attivita, 'Attività oggetto'],
       [form.compensoPrevisto, 'Compenso previsto'],
+      [form.casisticaGdpr, 'Casistica GDPR'],
     ]
     for (const [val, label] of required) {
       if (!String(val).trim()) return `⚠️ Campo obbligatorio mancante: ${label}.`
@@ -190,7 +193,7 @@ export function NuovaPrestazioneForm() {
       setForm({
         nome: '', cognome: '', dataNascita: '', luogoNascita: '', codiceFiscale: '',
         residenza: '', ruolo: '', email: '', telefono: '', iban: '', giorni: '', dataInizio: '',
-        dataFine: '', attivita: '', compensoPrevisto: '',
+        dataFine: '', attivita: '', compensoPrevisto: '', casisticaGdpr: '',
       })
       setCopiaCf(null)
       setCopiaCi(null)
@@ -373,6 +376,26 @@ export function NuovaPrestazioneForm() {
             value={form.attivita}
             onChange={(e) => set('attivita', e.target.value)}
           />
+        </div>
+
+        <div>
+          <label className={labelClass}>Casistica GDPR *</label>
+          <select
+            className={inputClass}
+            value={form.casisticaGdpr}
+            onChange={(e) => set('casisticaGdpr', e.target.value)}
+          >
+            <option value="">— Seleziona la casistica —</option>
+            {CASISTICHE_GDPR.map((c) => (
+              <option key={c.key} value={c.key}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-400 mt-1">
+            Determina l&apos;autorizzazione al trattamento dei dati che il prestatore firmerà
+            (i trattamenti in base ai dati che effettivamente gestisce).
+          </p>
         </div>
       </fieldset>
 

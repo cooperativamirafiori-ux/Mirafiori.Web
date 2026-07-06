@@ -21,6 +21,7 @@ import {
   uploadAllegato,
 } from '@/lib/prestazioni'
 import { notificaRiepilogoPrestazione } from '@/lib/notifications'
+import { CASISTICHE_GDPR_KEYS } from '@/lib/casistiche-gdpr'
 
 const CF_REGEX = /^[A-Z]{6}\d{2}[A-EHLMPR-T]\d{2}[A-Z]\d{3}[A-Z]$/
 const MAX_FILE_BYTES = 4 * 1024 * 1024 // 4 MB (upload semplice Graph)
@@ -59,6 +60,7 @@ export async function POST(req: NextRequest) {
     dataFine: str(fd, 'dataFine'),
     attivita: str(fd, 'attivita'),
     compensoPrevisto: Number(str(fd, 'compensoPrevisto').replace(',', '.')),
+    casisticaGdpr: str(fd, 'casisticaGdpr'),
   }
 
   // --- Validazione server-side ---
@@ -104,6 +106,12 @@ export async function POST(req: NextRequest) {
   }
   if (dati.dataFine < dati.dataInizio) {
     return NextResponse.json({ error: 'La data fine precede la data inizio' }, { status: 400 })
+  }
+  if (!dati.casisticaGdpr) {
+    return NextResponse.json({ error: 'Seleziona la casistica GDPR' }, { status: 400 })
+  }
+  if (!CASISTICHE_GDPR_KEYS.includes(dati.casisticaGdpr)) {
+    return NextResponse.json({ error: 'Casistica GDPR non valida' }, { status: 400 })
   }
 
   // Allegati identità: OPZIONALI (obbligatori solo al primo inserimento di

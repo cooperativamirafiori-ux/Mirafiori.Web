@@ -34,6 +34,7 @@ export interface DatiPrestazione {
   dataFine: string // ISO date
   attivita: string
   compensoPrevisto: number // compenso indicativo lordo concordato, indicato nel contratto
+  casisticaGdpr: string // key della casistica GDPR (vedi lib/casistiche-gdpr.ts)
 }
 
 /** Payload inviato dal form (gli allegati viaggiano come file in FormData) */

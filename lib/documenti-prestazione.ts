@@ -15,6 +15,7 @@ import { join } from 'node:path'
 import PizZip from 'pizzip'
 import Docxtemplater from 'docxtemplater'
 import type { Prestazione } from '@/types/prestazioni'
+import { templateGdprPerCasistica } from '@/lib/casistiche-gdpr'
 
 const TEMPLATES_DIR = join(process.cwd(), 'lib', 'templates', 'prestazione-occasionale')
 // Moduli informativi inviati al prestatore via mail semplice (non DocuSign)
@@ -229,9 +230,10 @@ export function generaNotula(p: Prestazione, importoLordo: number): DocumentoGen
 /** Genera i 3 documenti precompilati come buffer .docx */
 export function generaDocumentiPrestazione(p: Prestazione): DocumentoGenerato[] {
   const id = p.idPrestazione || 'prestazione'
+  const templateGdpr = templateGdprPerCasistica(p.casisticaGdpr)
   return [
     { tipo: 'contratto', filename: `${id}_Contratto.docx`, buffer: riempi('Contratto_collaborazione_TEMPLATE.docx', segnapostoContratto(p)) },
-    { tipo: 'gdpr', filename: `${id}_Autorizzazione_GDPR.docx`, buffer: riempi('Autorizzazione_GDPR_TEMPLATE.docx', segnapostoGdpr(p)) },
+    { tipo: 'gdpr', filename: `${id}_Autorizzazione_GDPR.docx`, buffer: riempi(templateGdpr, segnapostoGdpr(p)) },
     { tipo: 'impegno', filename: `${id}_Impegno_riservatezza.docx`, buffer: riempi('Impegno_riservatezza_TEMPLATE.docx', segnapostoImpegno(p)) },
   ]
 }
