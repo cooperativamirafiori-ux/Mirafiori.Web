@@ -7,9 +7,10 @@ import type { Struttura } from '@/types/manutenzioni'
 interface Props {
   strutture: Struttura[]
   categorie: string[]
+  fornitori: string[]
 }
 
-export function InserisciCostoForm({ strutture, categorie }: Props) {
+export function InserisciCostoForm({ strutture, categorie, fornitori }: Props) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -168,16 +169,22 @@ export function InserisciCostoForm({ strutture, categorie }: Props) {
         </div>
       </div>
 
-      {/* Fornitore */}
+      {/* Fornitore (campo libero con elenco tecnici/fornitori) */}
       <div>
         <label className={labelClass}>Fornitore</label>
         <input
           type="text"
+          list="fornitori-costi"
           value={form.fornitore}
           onChange={(e) => set('fornitore', e.target.value)}
           className={inputClass}
-          placeholder="Opzionale"
+          placeholder="Scegli dall'elenco o scrivi un nuovo fornitore"
         />
+        <datalist id="fornitori-costi">
+          {fornitori.map((f) => (
+            <option key={f} value={f} />
+          ))}
+        </datalist>
       </div>
 
       {/* Causale */}
