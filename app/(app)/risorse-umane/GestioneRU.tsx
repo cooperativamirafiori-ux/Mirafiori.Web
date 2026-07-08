@@ -181,6 +181,7 @@ export function GestioneRU({ entity, iniziali }: Props) {
   const [lista, setLista] = useState<RURecord[]>(iniziali)
   const [query, setQuery] = useState('')
   const [sortKey, setSortKey] = useState('nome')
+  const [vistaCessati, setVistaCessati] = useState(false)
   const [dettaglio, setDettaglio] = useState<RURecord | null>(null)
   const [formAperto, setFormAperto] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
@@ -465,17 +466,6 @@ export function GestioneRU({ entity, iniziali }: Props) {
   const inForza = isDip ? ordinati.filter((r) => String(r.StatoRapporto ?? '') !== 'Cessato') : []
   const cessati = isDip ? ordinati.filter((r) => String(r.StatoRapporto ?? '') === 'Cessato') : []
 
-  const sezioneElenco = (titolo: string, records: RURecord[], dot: string) =>
-    records.length === 0 ? null : (
-      <div className="space-y-2">
-        <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-gray-500">
-          <span className={`h-2 w-2 rounded-full ${dot}`} />
-          {titolo} <span className="text-gray-400 font-normal">({records.length})</span>
-        </h4>
-        {elencoUl(records)}
-      </div>
-    )
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
@@ -513,8 +503,9 @@ export function GestioneRU({ entity, iniziali }: Props) {
       </div>
 
       <p className="text-sm text-gray-500">
-        {listaFiltrata.length} {listaFiltrata.length === 1 ? config.singolare.toLowerCase() : config.label.toLowerCase()}
-        {query && ` su ${lista.length}`}
+        {isDip
+          ? `${(vistaCessati ? cessati : inForza).length} ${vistaCessati ? 'cessati' : 'in forza'}${query ? ` su ${lista.length}` : ''}`
+          : `${listaFiltrata.length} ${listaFiltrata.length === 1 ? config.singolare.toLowerCase() : config.label.toLowerCase()}${query ? ` su ${lista.length}` : ''}`}
       </p>
 
       {errore && (
@@ -523,17 +514,42 @@ export function GestioneRU({ entity, iniziali }: Props) {
         </div>
       )}
 
-      {listaFiltrata.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-400">
-          Nessun record.
-        </div>
-      ) : isDip ? (
-        <div className="space-y-5">
-          {sezioneElenco('In forza', inForza, 'bg-emerald-500')}
-          {sezioneElenco('Cessati', cessati, 'bg-red-500')}
-        </div>
+      {!isDip ? (
+        listaFiltrata.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-400">
+            Nessun record.
+          </div>
+        ) : (
+          elencoUl(ordinati)
+        )
       ) : (
-        elencoUl(ordinati)
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-gray-500">
+              <span className={`h-2 w-2 rounded-full ${vistaCessati ? 'bg-red-500' : 'bg-emerald-500'}`} />
+              {vistaCessati ? 'Cessati' : 'In forza'}{' '}
+              <span className="text-gray-400 font-normal">({(vistaCessati ? cessati : inForza).length})</span>
+            </h4>
+            <button
+              onClick={() => setVistaCessati((v) => !v)}
+              className={`text-sm font-semibold px-3 py-1.5 rounded-xl border transition-colors whitespace-nowrap ${
+                vistaCessati
+                  ? 'text-emerald-700 border-emerald-200 bg-emerald-50 hover:bg-emerald-100'
+                  : 'text-red-700 border-red-200 bg-red-50 hover:bg-red-100'
+              }`}
+            >
+              {vistaCessati ? '← Dipendenti in forza' : `Dipendenti cessati (${cessati.length})`}
+            </button>
+          </div>
+
+          {(vistaCessati ? cessati : inForza).length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-400">
+              {vistaCessati ? 'Nessun dipendente cessato.' : 'Nessun dipendente in forza.'}
+            </div>
+          ) : (
+            elencoUl(vistaCessati ? cessati : inForza)
+          )}
+        </div>
       )}
     </div>
   )
