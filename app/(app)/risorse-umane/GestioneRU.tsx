@@ -81,7 +81,6 @@ const SOCIO_STILE: Record<string, string> = {
   Si: 'bg-rose-100 text-rose-800 border-rose-200',
   No: 'bg-slate-100 text-slate-600 border-slate-200',
 }
-const QUALIFICA_CLS = 'bg-violet-100 text-violet-800 border-violet-200'
 const MANSIONE_CLS = 'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200'
 
 /** Pillola generica colorata (con eventuale pallino). */
@@ -119,17 +118,13 @@ function badgesDipendente(r: RURecord): BadgeDesc[] {
   const regime = regimeOrario(r)
   if (regime) out.push({ key: 'regime', text: regime, cls: REGIME_STILE[regime] })
 
+  // Socio sempre visibile: Si → "Socio", altrimenti "Non socio".
   const socio = val(r.Socio)
-  if (socio) {
-    out.push({
-      key: 'socio',
-      text: socio === 'Si' ? 'Socio' : 'Non socio',
-      cls: SOCIO_STILE[socio] ?? PILL_DEFAULT,
-    })
-  }
-
-  const qualifica = val(r.Qualifica)
-  if (qualifica) out.push({ key: 'qualifica', text: qualifica, cls: QUALIFICA_CLS })
+  out.push({
+    key: 'socio',
+    text: socio === 'Si' ? 'Socio' : 'Non socio',
+    cls: socio === 'Si' ? SOCIO_STILE.Si : SOCIO_STILE.No,
+  })
 
   const mansione = val(r.Mansione)
   if (mansione) out.push({ key: 'mansione', text: mansione, cls: MANSIONE_CLS })
@@ -147,7 +142,6 @@ function badgesDipendente(r: RURecord): BadgeDesc[] {
 const SORT_OPZIONI: { key: string; label: string; get: (r: RURecord) => string }[] = [
   { key: 'nome', label: 'Nome (A→Z)', get: nomeCompleto },
   { key: 'mansione', label: 'Mansione', get: (r) => val(r.Mansione) },
-  { key: 'qualifica', label: 'Qualifica', get: (r) => val(r.Qualifica) },
   { key: 'coop', label: 'Coop A/B', get: (r) => val(r.AreaAssunzione) },
   { key: 'regime', label: 'Full/Part Time', get: (r) => regimeOrario(r) ?? '' },
   { key: 'socio', label: 'Socio', get: (r) => val(r.Socio) },
