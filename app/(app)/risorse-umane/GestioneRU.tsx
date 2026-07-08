@@ -63,33 +63,111 @@ function regimeOrario(r: RURecord): 'Full Time' | 'Part Time' | null {
   return ore >= SOGLIA_FULL_TIME ? 'Full Time' : 'Part Time'
 }
 
-/** Etichetta stato rapporto con pallino colorato e dicitura sempre visibile. */
-function StatoBadge({ stato }: { stato: string }) {
-  const stile = STATO_RAPPORTO_STILE[stato] ?? {
-    badge: 'bg-gray-100 text-gray-700 border-gray-200',
-    dot: 'bg-gray-400',
-  }
+// ------------------------------------------------------------------
+// Segnalini (badge) dell'elenco dipendenti — un colore per categoria
+// ------------------------------------------------------------------
+const PILL = 'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap'
+const PILL_DEFAULT = 'bg-gray-100 text-gray-700 border-gray-200'
+
+const COOP_STILE: Record<string, string> = {
+  'Tipo A': 'bg-teal-100 text-teal-800 border-teal-200',
+  'Tipo B': 'bg-amber-100 text-amber-800 border-amber-200',
+}
+const REGIME_STILE: Record<string, string> = {
+  'Full Time': 'bg-sky-100 text-sky-800 border-sky-200',
+  'Part Time': 'bg-indigo-100 text-indigo-800 border-indigo-200',
+}
+const SOCIO_STILE: Record<string, string> = {
+  Si: 'bg-rose-100 text-rose-800 border-rose-200',
+  No: 'bg-slate-100 text-slate-600 border-slate-200',
+}
+const QUALIFICA_CLS = 'bg-violet-100 text-violet-800 border-violet-200'
+const MANSIONE_CLS = 'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200'
+
+/** Pillola generica colorata (con eventuale pallino). */
+function Pill({ text, cls, dot }: { text: string; cls: string; dot?: string }) {
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${stile.badge}`}
-    >
-      <span className={`h-2 w-2 rounded-full ${stile.dot}`} />
-      {stato}
+    <span className={`${PILL} ${cls}`}>
+      {dot && <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />}
+      {text}
     </span>
   )
 }
 
-/** Badge Full/Part Time. */
-function RegimeBadge({ regime }: { regime: 'Full Time' | 'Part Time' }) {
-  const cls =
-    regime === 'Full Time'
-      ? 'bg-sky-100 text-sky-800 border-sky-200'
-      : 'bg-indigo-100 text-indigo-800 border-indigo-200'
-  return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${cls}`}>
-      {regime}
-    </span>
-  )
+const val = (v: RURecord[string]): string => (v == null ? '' : String(v).trim())
+
+interface BadgeDesc {
+  key: string
+  text: string
+  cls: string
+  dot?: string
+}
+
+/** I 6 segnalini di un dipendente, in ordine: Coop, Full/Part, Socio, Qualifica, Mansione, Stato. */
+function badgesDipendente(r: RURecord): BadgeDesc[] {
+  const out: BadgeDesc[] = []
+
+  const coop = val(r.AreaAssunzione)
+  if (coop) {
+    out.push({
+      key: 'coop',
+      text: coop === 'Tipo A' ? 'Coop A' : coop === 'Tipo B' ? 'Coop B' : coop,
+      cls: COOP_STILE[coop] ?? PILL_DEFAULT,
+    })
+  }
+
+  const regime = regimeOrario(r)
+  if (regime) out.push({ key: 'regime', text: regime, cls: REGIME_STILE[regime] })
+
+  const socio = val(r.Socio)
+  if (socio) {
+    out.push({
+      key: 'socio',
+      text: socio === 'Si' ? 'Socio' : 'Non socio',
+      cls: SOCIO_STILE[socio] ?? PILL_DEFAULT,
+    })
+  }
+
+  const qualifica = val(r.Qualifica)
+  if (qualifica) out.push({ key: 'qualifica', text: qualifica, cls: QUALIFICA_CLS })
+
+  const mansione = val(r.Mansione)
+  if (mansione) out.push({ key: 'mansione', text: mansione, cls: MANSIONE_CLS })
+
+  const stato = val(r.StatoRapporto)
+  if (stato) {
+    const s = STATO_RAPPORTO_STILE[stato]
+    out.push({ key: 'stato', text: stato, cls: s?.badge ?? PILL_DEFAULT, dot: s?.dot ?? 'bg-gray-400' })
+  }
+
+  return out
+}
+
+/** Opzioni di ordinamento dell'elenco dipendenti. */
+const SORT_OPZIONI: { key: string; label: string; get: (r: RURecord) => string }[] = [
+  { key: 'nome', label: 'Nome (A→Z)', get: nomeCompleto },
+  { key: 'mansione', label: 'Mansione', get: (r) => val(r.Mansione) },
+  { key: 'qualifica', label: 'Qualifica', get: (r) => val(r.Qualifica) },
+  { key: 'coop', label: 'Coop A/B', get: (r) => val(r.AreaAssunzione) },
+  { key: 'regime', label: 'Full/Part Time', get: (r) => regimeOrario(r) ?? '' },
+  { key: 'socio', label: 'Socio', get: (r) => val(r.Socio) },
+  { key: 'stato', label: 'Stato rapporto', get: (r) => val(r.StatoRapporto) },
+]
+
+/** Ordina i record secondo la chiave scelta; valori vuoti in fondo, nome come spareggio. */
+function ordina(records: RURecord[], sortKey: string): RURecord[] {
+  const opt = SORT_OPZIONI.find((o) => o.key === sortKey) ?? SORT_OPZIONI[0]
+  return [...records].sort((a, b) => {
+    const va = opt.get(a)
+    const vb = opt.get(b)
+    if (va !== vb) {
+      if (!va) return 1
+      if (!vb) return -1
+      const c = va.localeCompare(vb, 'it')
+      if (c !== 0) return c
+    }
+    return nomeCompleto(a).localeCompare(nomeCompleto(b), 'it')
+  })
 }
 
 /** Ordine e raggruppamento delle sezioni preservando l'ordine di comparsa. */
@@ -108,6 +186,7 @@ export function GestioneRU({ entity, iniziali }: Props) {
   const fields = config.fields
   const [lista, setLista] = useState<RURecord[]>(iniziali)
   const [query, setQuery] = useState('')
+  const [sortKey, setSortKey] = useState('nome')
   const [dettaglio, setDettaglio] = useState<RURecord | null>(null)
   const [formAperto, setFormAperto] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
@@ -115,19 +194,39 @@ export function GestioneRU({ entity, iniziali }: Props) {
   const [busy, setBusy] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
 
-  const inListFields = useMemo(() => fields.filter((f) => f.inList && f.key !== 'Cognome' && f.key !== 'Nome'), [fields])
+  const isDip = entity === 'dipendenti'
+
+  // Nel sottotitolo escludo Cognome/Nome e — per i dipendenti — Mansione (ora è un badge).
+  const inListFields = useMemo(
+    () =>
+      fields.filter(
+        (f) => f.inList && f.key !== 'Cognome' && f.key !== 'Nome' && !(isDip && f.key === 'Mansione'),
+      ),
+    [fields, isDip],
+  )
+
+  // Per la ricerca includo comunque tutti i campi in elenco (anche Mansione).
+  const searchFields = useMemo(
+    () => fields.filter((f) => f.inList && f.key !== 'Cognome' && f.key !== 'Nome'),
+    [fields],
+  )
 
   const listaFiltrata = useMemo(() => {
     const q = query.trim().toLowerCase()
     const base = [...lista].sort((a, b) => nomeCompleto(a).localeCompare(nomeCompleto(b)))
     if (!q) return base
     return base.filter((r) => {
-      const hay = [nomeCompleto(r), ...inListFields.map((f) => String(r[f.key] ?? ''))]
+      const hay = [nomeCompleto(r), ...searchFields.map((f) => String(r[f.key] ?? ''))]
         .join(' ')
         .toLowerCase()
       return hay.includes(q)
     })
-  }, [lista, query, inListFields])
+  }, [lista, query, searchFields])
+
+  const ordinati = useMemo(
+    () => (isDip ? ordina(listaFiltrata, sortKey) : listaFiltrata),
+    [listaFiltrata, sortKey, isDip],
+  )
 
   function set(k: string, v: string) {
     setForm((p) => ({ ...p, [k]: v }))
@@ -288,9 +387,10 @@ export function GestioneRU({ entity, iniziali }: Props) {
         <div>
           <h3 className="text-xl font-bold text-gray-800">{nomeCompleto(dettaglio)}</h3>
           {entity === 'dipendenti' && (
-            <div className="flex flex-wrap items-center gap-2 mt-1.5">
-              {dettaglio.StatoRapporto && <StatoBadge stato={String(dettaglio.StatoRapporto)} />}
-              {regimeOrario(dettaglio) && <RegimeBadge regime={regimeOrario(dettaglio)!} />}
+            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+              {badgesDipendente(dettaglio).map((b) => (
+                <Pill key={b.key} text={b.text} cls={b.cls} dot={b.dot} />
+              ))}
             </div>
           )}
           {dettaglio.IdAccess != null && (
@@ -330,33 +430,33 @@ export function GestioneRU({ entity, iniziali }: Props) {
   }
 
   // ---------------- ELENCO ----------------
-  const isDip = entity === 'dipendenti'
 
   function riga(r: RURecord) {
-    const regime = isDip ? regimeOrario(r) : null
-    const stato = isDip && r.StatoRapporto ? String(r.StatoRapporto) : null
+    const badges = isDip ? badgesDipendente(r) : []
+    const sottotitolo = inListFields
+      .map((f) => formatValore(f, r[f.key]))
+      .filter(Boolean)
+      .join(' · ')
     return (
       <li key={r.spItemId}>
         <button
           onClick={() => setDettaglio(r)}
-          className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex items-center justify-between gap-3"
+          className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex items-start justify-between gap-3"
         >
-          <div className="min-w-0">
+          <div className="min-w-0 shrink-0 max-w-[40%]">
             <div className="font-semibold text-gray-800 truncate">{nomeCompleto(r)}</div>
-            {inListFields.length > 0 && (
-              <div className="text-xs text-gray-500 truncate">
-                {inListFields
-                  .map((f) => formatValore(f, r[f.key]))
-                  .filter(Boolean)
-                  .join(' · ')}
-              </div>
-            )}
+            {sottotitolo && <div className="text-xs text-gray-500 truncate">{sottotitolo}</div>}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {regime && <RegimeBadge regime={regime} />}
-            {stato && <StatoBadge stato={stato} />}
-            <span className="text-gray-300">›</span>
-          </div>
+          {badges.length > 0 ? (
+            <div className="flex flex-wrap items-center justify-end gap-1.5 min-w-0">
+              {badges.map((b) => (
+                <Pill key={b.key} text={b.text} cls={b.cls} dot={b.dot} />
+              ))}
+              <span className="text-gray-300 self-center">›</span>
+            </div>
+          ) : (
+            <span className="text-gray-300 shrink-0 self-center">›</span>
+          )}
         </button>
       </li>
     )
@@ -368,8 +468,8 @@ export function GestioneRU({ entity, iniziali }: Props) {
     </ul>
   )
 
-  const inForza = isDip ? listaFiltrata.filter((r) => String(r.StatoRapporto ?? '') !== 'Cessato') : []
-  const cessati = isDip ? listaFiltrata.filter((r) => String(r.StatoRapporto ?? '') === 'Cessato') : []
+  const inForza = isDip ? ordinati.filter((r) => String(r.StatoRapporto ?? '') !== 'Cessato') : []
+  const cessati = isDip ? ordinati.filter((r) => String(r.StatoRapporto ?? '') === 'Cessato') : []
 
   const sezioneElenco = (titolo: string, records: RURecord[], dot: string) =>
     records.length === 0 ? null : (
@@ -385,13 +485,31 @@ export function GestioneRU({ entity, iniziali }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
-        <input
-          type="search"
-          placeholder="Cerca per nome, cognome…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className={`${inputCls} sm:max-w-xs`}
-        />
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-center flex-1">
+          <input
+            type="search"
+            placeholder="Cerca per nome, cognome…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className={`${inputCls} sm:max-w-xs`}
+          />
+          {isDip && (
+            <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+              Ordina per
+              <select
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value)}
+                className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              >
+                {SORT_OPZIONI.map((o) => (
+                  <option key={o.key} value={o.key}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
         <button
           onClick={apriNuovo}
           className="bg-emerald-600 text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-emerald-700 transition-colors whitespace-nowrap"
@@ -421,7 +539,7 @@ export function GestioneRU({ entity, iniziali }: Props) {
           {sezioneElenco('Cessati', cessati, 'bg-red-500')}
         </div>
       ) : (
-        elencoUl(listaFiltrata)
+        elencoUl(ordinati)
       )}
     </div>
   )

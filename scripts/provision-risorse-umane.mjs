@@ -91,110 +91,99 @@ const currency = () => ({ currency: { locale: 'it-IT' } })
 const dateOnly = () => ({ dateTime: { format: 'dateOnly', displayAs: 'standard' } })
 
 // ------------------------------------------------------------------
-// Definizione liste + colonne
+// BLOCCO COMUNE — colonne condivise da TUTTE le liste RU.
+// Deve rispecchiare il "BLOCCO COMUNE" di types/risorse-umane.ts:
+// se aggiungi lì un campo comune, aggiungilo qui e rilancia lo script.
 // ------------------------------------------------------------------
+const COMUNE_COLS = [
+  { name: 'IdAccess', ...number() },
+  { name: 'Cognome', ...text() },
+  { name: 'Nome', ...text() },
+  { name: 'Genere', ...choice(GENERE) },
+  { name: 'DataNascita', ...dateOnly() },
+  { name: 'LuogoNascita', ...text() },
+  { name: 'CodiceFiscale', ...text() },
+  { name: 'Nazionalita', ...text() },
+  { name: 'AreaGeografica', ...choice(AREA_GEO) },
+  { name: 'StatoCivile', ...choice(STATO_CIVILE) },
+  { name: 'Residenza', ...text() },
+  { name: 'Domicilio', ...text() },
+  { name: 'CellAziendale', ...text() },
+  { name: 'CellPrivato', ...text() },
+  { name: 'MailAziendale', ...text() },
+  { name: 'MailPersonale', ...text() },
+  { name: 'TitoloStudio', ...choice(TITOLO_STUDIO) },
+]
+const NOTE_COL = { name: 'Note', ...text(true) }
+
+/** Compone le colonne di una lista: blocco comune + specifiche + Note. */
+const conComuneCols = (specifiche) => [...COMUNE_COLS, ...specifiche, NOTE_COL]
+
+// ------------------------------------------------------------------
+// Definizione liste = blocco comune + colonne specifiche
+// ------------------------------------------------------------------
+const DIPENDENTI_SPEC = [
+  { name: 'Matricola', ...text() },
+  { name: 'Qualifica', ...text() },
+  { name: 'Albo', ...choice(ALBO) },
+  { name: 'StatoRapporto', ...choice(STATO_RAPPORTO) },
+  { name: 'DataAssunzione', ...dateOnly() },
+  { name: 'OreLavoroPreviste', ...number() },
+  { name: 'TipoContratto', ...choice(TIPO_CONTRATTO) },
+  { name: 'DataScadenzaContratto', ...dateOnly() },
+  { name: 'TipoRapporto', ...choice(TIPO_RAPPORTO) },
+  { name: 'AreaAssunzione', ...choice(AREA_ASSUNZIONE) },
+  { name: 'LivelloContrattuale', ...choice(LIVELLO) },
+  { name: 'Mansione', ...choice(MANSIONE) },
+  { name: 'ServizioAppartenenza', ...choice(SERVIZIO) },
+  { name: 'IBAN', ...text() },
+  { name: 'AdesioneFondoPensione', ...choice(SINO) },
+  { name: 'FondoPensioneDettaglio', ...text() },
+  { name: 'Socio', ...choice(SINO) },
+  { name: 'DataAmmissioneSocio', ...dateOnly() },
+  { name: 'QuotaSociale', ...currency() },
+  { name: 'QuotaSocialeVersata', ...currency() },
+  { name: 'QuotaSocialeRestituita', ...currency() },
+  { name: 'DataDimissioneLavoratore', ...dateOnly() },
+  { name: 'DataDimissioneSocio', ...dateOnly() },
+  { name: 'InvalidoSvantaggiato', ...choice(SINO) },
+  { name: 'TipologiaSvantaggio', ...choice(TIPOLOGIA_SVANTAGGIO) },
+  { name: 'Legge104', ...choice(SINO) },
+  { name: 'StatoFamiglia', ...text() },
+  { name: 'FondoCoopersalute', ...text() },
+  { name: 'StatoServizio', ...text(true) },
+  { name: 'CartellaUrl', ...text() },
+]
+
+const COLLABORATORI_SPEC = [
+  { name: 'RecapitoTelefonico', ...text() }, // storico: dismesso dallo schema/UI, tenuto per i dati e la migrazione
+  { name: 'CategoriaProfessionale', ...text() },
+  { name: 'TipoPrestazione', ...text() },
+  { name: 'ServizioCoop', ...choice(SERVIZIO) },
+  { name: 'SocioCooperativa', ...choice(SINO) },
+  { name: 'CapitaleSociale', ...currency() },
+]
+
+const TIROCINI_SPEC = [
+  { name: 'RecapitoTelefonico', ...text() }, // storico: dismesso dallo schema/UI, tenuto per i dati e la migrazione
+  { name: 'LivelloIstruzione', ...text() },  // storico: dismesso dallo schema/UI, tenuto per i dati e la migrazione
+  { name: 'CategoriaTirocinante', ...text() },
+  { name: 'TipologiaTirocinio', ...text() },
+  { name: 'AttivitaAteco', ...text() },
+  { name: 'SoggettoOspitante', ...text() },
+  { name: 'DataInizio', ...dateOnly() },
+  { name: 'DataFine', ...dateOnly() },
+  { name: 'DurataMesi', ...number() },
+  { name: 'ImpegnoOrarioSettimanale', ...text() },
+  { name: 'IndennitaMensileLorda', ...currency() },
+  { name: 'StatoTirocinio', ...choice(STATO_TIROCINIO) },
+  { name: 'CategoriaCollaborazione', ...choice(CATEGORIA_COLLAB) },
+]
+
 const LISTE = [
-  {
-    envKey: 'SP_LIST_DIPENDENTI',
-    displayName: 'Dipendenti',
-    columns: [
-      { name: 'IdAccess', ...number() },
-      { name: 'Cognome', ...text() },
-      { name: 'Nome', ...text() },
-      { name: 'Matricola', ...text() },
-      { name: 'CodiceFiscale', ...text() },
-      { name: 'DataNascita', ...dateOnly() },
-      { name: 'LuogoNascita', ...text() },
-      { name: 'Nazionalita', ...text() },
-      { name: 'AreaGeografica', ...choice(AREA_GEO) },
-      { name: 'Genere', ...choice(GENERE) },
-      { name: 'StatoCivile', ...choice(STATO_CIVILE) },
-      { name: 'Residenza', ...text() },
-      { name: 'Domicilio', ...text() },
-      { name: 'TitoloStudio', ...choice(TITOLO_STUDIO) },
-      { name: 'Qualifica', ...text() },
-      { name: 'Albo', ...choice(ALBO) },
-      { name: 'CellAziendale', ...text() },
-      { name: 'CellPrivato', ...text() },
-      { name: 'MailAziendale', ...text() },
-      { name: 'MailPersonale', ...text() },
-      { name: 'StatoRapporto', ...choice(STATO_RAPPORTO) },
-      { name: 'DataAssunzione', ...dateOnly() },
-      { name: 'OreLavoroPreviste', ...number() },
-      { name: 'TipoContratto', ...choice(TIPO_CONTRATTO) },
-      { name: 'DataScadenzaContratto', ...dateOnly() },
-      { name: 'TipoRapporto', ...choice(TIPO_RAPPORTO) },
-      { name: 'AreaAssunzione', ...choice(AREA_ASSUNZIONE) },
-      { name: 'LivelloContrattuale', ...choice(LIVELLO) },
-      { name: 'Mansione', ...choice(MANSIONE) },
-      { name: 'ServizioAppartenenza', ...choice(SERVIZIO) },
-      { name: 'IBAN', ...text() },
-      { name: 'AdesioneFondoPensione', ...choice(SINO) },
-      { name: 'FondoPensioneDettaglio', ...text() },
-      { name: 'Socio', ...choice(SINO) },
-      { name: 'DataAmmissioneSocio', ...dateOnly() },
-      { name: 'QuotaSociale', ...currency() },
-      { name: 'QuotaSocialeVersata', ...currency() },
-      { name: 'QuotaSocialeRestituita', ...currency() },
-      { name: 'DataDimissioneLavoratore', ...dateOnly() },
-      { name: 'DataDimissioneSocio', ...dateOnly() },
-      { name: 'InvalidoSvantaggiato', ...choice(SINO) },
-      { name: 'TipologiaSvantaggio', ...choice(TIPOLOGIA_SVANTAGGIO) },
-      { name: 'Legge104', ...choice(SINO) },
-      { name: 'StatoFamiglia', ...text() },
-      { name: 'FondoCoopersalute', ...text() },
-      { name: 'StatoServizio', ...text(true) },
-      { name: 'CartellaUrl', ...text() },
-      { name: 'Note', ...text(true) },
-    ],
-  },
-  {
-    envKey: 'SP_LIST_COLLABORATORI',
-    displayName: 'Collaboratori',
-    columns: [
-      { name: 'IdAccess', ...number() },
-      { name: 'Cognome', ...text() },
-      { name: 'Nome', ...text() },
-      { name: 'Genere', ...choice(GENERE) },
-      { name: 'CategoriaProfessionale', ...text() },
-      { name: 'TipoPrestazione', ...text() },
-      { name: 'ServizioCoop', ...choice(SERVIZIO) },
-      { name: 'RecapitoTelefonico', ...text() },
-      { name: 'SocioCooperativa', ...choice(SINO) },
-      { name: 'CapitaleSociale', ...currency() },
-      { name: 'Note', ...text(true) },
-    ],
-  },
-  {
-    envKey: 'SP_LIST_TIROCINI',
-    displayName: 'Tirocini',
-    columns: [
-      { name: 'IdAccess', ...number() },
-      { name: 'Cognome', ...text() },
-      { name: 'Nome', ...text() },
-      { name: 'Genere', ...choice(GENERE) },
-      { name: 'DataNascita', ...dateOnly() },
-      { name: 'LuogoNascita', ...text() },
-      { name: 'Nazionalita', ...text() },
-      { name: 'Residenza', ...text() },
-      { name: 'Domicilio', ...text() },
-      { name: 'StatoCivile', ...choice(STATO_CIVILE) },
-      { name: 'RecapitoTelefonico', ...text() },
-      { name: 'LivelloIstruzione', ...text() },
-      { name: 'CategoriaTirocinante', ...text() },
-      { name: 'TipologiaTirocinio', ...text() },
-      { name: 'AttivitaAteco', ...text() },
-      { name: 'SoggettoOspitante', ...text() },
-      { name: 'DataInizio', ...dateOnly() },
-      { name: 'DataFine', ...dateOnly() },
-      { name: 'DurataMesi', ...number() },
-      { name: 'ImpegnoOrarioSettimanale', ...text() },
-      { name: 'IndennitaMensileLorda', ...currency() },
-      { name: 'StatoTirocinio', ...choice(STATO_TIROCINIO) },
-      { name: 'CategoriaCollaborazione', ...choice(CATEGORIA_COLLAB) },
-      { name: 'Note', ...text(true) },
-    ],
-  },
+  { envKey: 'SP_LIST_DIPENDENTI', displayName: 'Dipendenti', columns: conComuneCols(DIPENDENTI_SPEC) },
+  { envKey: 'SP_LIST_COLLABORATORI', displayName: 'Collaboratori', columns: conComuneCols(COLLABORATORI_SPEC) },
+  { envKey: 'SP_LIST_TIROCINI', displayName: 'Tirocini', columns: conComuneCols(TIROCINI_SPEC) },
 ]
 
 // ------------------------------------------------------------------

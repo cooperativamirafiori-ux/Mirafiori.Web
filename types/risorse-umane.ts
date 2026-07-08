@@ -141,10 +141,18 @@ export const STATO_RAPPORTO_STILE: Record<string, { badge: string; dot: string }
 /** Stati che indicano un dipendente "in forza" (tutto tranne Cessato). */
 export const STATO_IN_FORZA: readonly string[] = STATO_RAPPORTO.filter((s) => s !== 'Cessato')
 
+// ==================================================================
+// BLOCCO COMUNE — dati personali condivisi da TUTTE le entità RU.
 // ------------------------------------------------------------------
-// Schema campi per entità
-// ------------------------------------------------------------------
-export const DIPENDENTI_FIELDS: readonly RUField[] = [
+// Questa è l'UNICA fonte dei campi comuni: modifica/aggiungi qui e la
+// variazione si applica AUTOMATICAMENTE a Dipendenti, Collaboratori e
+// Tirocini (schema, form, elenco e lettura/scrittura SharePoint).
+// NB: se AGGIUNGI un campo comune, rispecchia la colonna nel blocco
+// COMUNE_COLS di scripts/provision-risorse-umane.mjs e rilancia il
+// provisioning. I menù a tendina sono già condivisi tramite le costanti
+// qui sopra: cambiarne una si propaga da sé.
+// ==================================================================
+const ANAGRAFICA_COMUNE: readonly RUField[] = [
   { key: 'Cognome', label: 'Cognome', type: 'text', section: 'Anagrafica', inList: true },
   { key: 'Nome', label: 'Nome', type: 'text', section: 'Anagrafica', inList: true },
   { key: 'Genere', label: 'Genere', type: 'choice', choices: GENERE, section: 'Anagrafica' },
@@ -154,15 +162,36 @@ export const DIPENDENTI_FIELDS: readonly RUField[] = [
   { key: 'Nazionalita', label: 'Nazionalità', type: 'text', section: 'Anagrafica' },
   { key: 'AreaGeografica', label: 'Area geografica di provenienza', type: 'choice', choices: AREA_GEO, section: 'Anagrafica' },
   { key: 'StatoCivile', label: 'Stato civile', type: 'choice', choices: STATO_CIVILE, section: 'Anagrafica' },
+]
 
+const CONTATTI_COMUNE: readonly RUField[] = [
   { key: 'Residenza', label: 'Residenza', type: 'text', section: 'Contatti e residenza' },
   { key: 'Domicilio', label: 'Domicilio', type: 'text', section: 'Contatti e residenza' },
   { key: 'CellAziendale', label: 'Cellulare aziendale', type: 'tel', section: 'Contatti e residenza' },
   { key: 'CellPrivato', label: 'Cellulare privato', type: 'tel', section: 'Contatti e residenza' },
   { key: 'MailAziendale', label: 'Mail aziendale', type: 'email', section: 'Contatti e residenza' },
   { key: 'MailPersonale', label: 'Mail personale', type: 'email', section: 'Contatti e residenza' },
+]
 
+const FORMAZIONE_COMUNE: readonly RUField[] = [
   { key: 'TitoloStudio', label: 'Titolo di studio', type: 'choice', choices: TITOLO_STUDIO, section: 'Formazione' },
+]
+
+const NOTE_COMUNE: RUField = { key: 'Note', label: 'Note', type: 'textarea', section: 'Note' }
+
+/**
+ * Compone i campi di un'entità: blocco comune (anagrafica + contatti +
+ * formazione) + campi specifici dell'entità + Note in fondo.
+ */
+function conComune(specifici: readonly RUField[]): readonly RUField[] {
+  return [...ANAGRAFICA_COMUNE, ...CONTATTI_COMUNE, ...FORMAZIONE_COMUNE, ...specifici, NOTE_COMUNE]
+}
+
+// ------------------------------------------------------------------
+// Schema campi per entità = blocco comune + campi specifici
+// ------------------------------------------------------------------
+/** Campi SPECIFICI dei dipendenti (oltre al blocco comune). */
+const DIPENDENTI_SPECIFICI: readonly RUField[] = [
   { key: 'Qualifica', label: 'Qualifica', type: 'choice', choices: QUALIFICA, section: 'Formazione' },
   { key: 'Albo', label: 'Albo professionale', type: 'choice', choices: ALBO, section: 'Formazione' },
 
@@ -196,35 +225,19 @@ export const DIPENDENTI_FIELDS: readonly RUField[] = [
   { key: 'Legge104', label: 'Legge 104', type: 'choice', choices: SINO, section: 'Svantaggio e informazioni personali' },
   { key: 'StatoFamiglia', label: 'Stato di famiglia', type: 'text', section: 'Svantaggio e informazioni personali' },
   { key: 'FondoCoopersalute', label: 'Fondo Coopersalute', type: 'text', section: 'Svantaggio e informazioni personali' },
-
-  { key: 'Note', label: 'Note', type: 'textarea', section: 'Note' },
 ]
 
-export const COLLABORATORI_FIELDS: readonly RUField[] = [
-  { key: 'Cognome', label: 'Cognome', type: 'text', section: 'Anagrafica', inList: true },
-  { key: 'Nome', label: 'Nome', type: 'text', section: 'Anagrafica', inList: true },
-  { key: 'Genere', label: 'Genere', type: 'choice', choices: GENERE, section: 'Anagrafica' },
-  { key: 'RecapitoTelefonico', label: 'Recapito telefonico', type: 'tel', section: 'Anagrafica' },
+/** Campi SPECIFICI dei collaboratori (oltre al blocco comune). */
+const COLLABORATORI_SPECIFICI: readonly RUField[] = [
   { key: 'CategoriaProfessionale', label: 'Categoria professionale', type: 'text', section: 'Prestazione', inList: true },
   { key: 'TipoPrestazione', label: 'Tipo di prestazione', type: 'text', section: 'Prestazione', inList: true },
   { key: 'ServizioCoop', label: 'Servizio coop interessato', type: 'choice', choices: SERVIZIO, section: 'Prestazione' },
   { key: 'SocioCooperativa', label: 'Socio cooperativa', type: 'choice', choices: SINO, section: 'Socio' },
   { key: 'CapitaleSociale', label: 'Capitale sociale sottoscritto', type: 'currency', section: 'Socio' },
-  { key: 'Note', label: 'Note', type: 'textarea', section: 'Note' },
 ]
 
-export const TIROCINI_FIELDS: readonly RUField[] = [
-  { key: 'Cognome', label: 'Cognome', type: 'text', section: 'Anagrafica', inList: true },
-  { key: 'Nome', label: 'Nome', type: 'text', section: 'Anagrafica', inList: true },
-  { key: 'Genere', label: 'Genere', type: 'choice', choices: GENERE, section: 'Anagrafica' },
-  { key: 'DataNascita', label: 'Data di nascita', type: 'date', section: 'Anagrafica' },
-  { key: 'LuogoNascita', label: 'Luogo di nascita', type: 'text', section: 'Anagrafica' },
-  { key: 'Nazionalita', label: 'Nazionalità', type: 'text', section: 'Anagrafica' },
-  { key: 'StatoCivile', label: 'Stato civile', type: 'choice', choices: STATO_CIVILE, section: 'Anagrafica' },
-  { key: 'Residenza', label: 'Residenza', type: 'text', section: 'Contatti e residenza' },
-  { key: 'Domicilio', label: 'Domicilio', type: 'text', section: 'Contatti e residenza' },
-  { key: 'RecapitoTelefonico', label: 'Recapito telefonico', type: 'tel', section: 'Contatti e residenza' },
-  { key: 'LivelloIstruzione', label: 'Livello di istruzione', type: 'text', section: 'Tirocinio' },
+/** Campi SPECIFICI dei tirocini (oltre al blocco comune). */
+const TIROCINI_SPECIFICI: readonly RUField[] = [
   { key: 'CategoriaTirocinante', label: 'Categoria tirocinante', type: 'text', section: 'Tirocinio' },
   { key: 'TipologiaTirocinio', label: 'Tipologia di tirocinio', type: 'text', section: 'Tirocinio' },
   { key: 'AttivitaAteco', label: 'Attività (cod. ATECO)', type: 'text', section: 'Tirocinio' },
@@ -236,8 +249,11 @@ export const TIROCINI_FIELDS: readonly RUField[] = [
   { key: 'IndennitaMensileLorda', label: 'Indennità mensile lorda', type: 'currency', section: 'Tirocinio' },
   { key: 'StatoTirocinio', label: 'Stato tirocinio', type: 'choice', choices: STATO_TIROCINIO, section: 'Tirocinio', inList: true },
   { key: 'CategoriaCollaborazione', label: 'Categoria collaborazione', type: 'choice', choices: CATEGORIA_COLLAB, section: 'Tirocinio' },
-  { key: 'Note', label: 'Note', type: 'textarea', section: 'Note' },
 ]
+
+export const DIPENDENTI_FIELDS: readonly RUField[] = conComune(DIPENDENTI_SPECIFICI)
+export const COLLABORATORI_FIELDS: readonly RUField[] = conComune(COLLABORATORI_SPECIFICI)
+export const TIROCINI_FIELDS: readonly RUField[] = conComune(TIROCINI_SPECIFICI)
 
 export interface RUEntityConfig {
   entity: RUEntity
