@@ -72,6 +72,17 @@ const STATO_RAPPORTO = [
   'Attivo', 'Aspettativa', 'Maternità', 'Congedo parentale',
   'Malattia lunga', 'Sospeso', 'Cessato',
 ]
+const ALBO = [
+  'Albo Assistenti Sociali',
+  'Albo Educatori Professionali (socio-sanitari)',
+  'Albo Educatori socio-pedagogici',
+  'Albo Pedagogisti',
+  'Albo Psicologi',
+  'Albo Infermieri (OPI)',
+  'Albo Logopedisti',
+  'Albo Tecnici della Riabilitazione Psichiatrica',
+  'Albo generico',
+]
 
 const choice = (choices) => ({ choice: { choices, displayAs: 'dropDownMenu', allowTextEntry: true } })
 const text = (multi = false) => ({ text: { allowMultipleLines: multi } })
@@ -102,6 +113,7 @@ const LISTE = [
       { name: 'Domicilio', ...text() },
       { name: 'TitoloStudio', ...choice(TITOLO_STUDIO) },
       { name: 'Qualifica', ...text() },
+      { name: 'Albo', ...choice(ALBO) },
       { name: 'CellAziendale', ...text() },
       { name: 'CellPrivato', ...text() },
       { name: 'MailAziendale', ...text() },

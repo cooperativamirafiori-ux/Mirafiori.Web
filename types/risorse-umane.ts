@@ -85,6 +85,39 @@ export const TIPOLOGIA_SVANTAGGIO = [
 export const STATO_TIROCINIO = ['ATTIVO', 'INTERROTTO', 'TERMINATO'] as const
 export const CATEGORIA_COLLAB = ['TIROCINIO', 'SERVIZIO CIVILE'] as const
 
+/**
+ * Albi professionali del lavoro sociale/sanitario in Italia (ordini con albo).
+ * "Albo generico" = iscritto a un albo non ancora specificato.
+ */
+export const ALBO = [
+  'Albo Assistenti Sociali',
+  'Albo Educatori Professionali (socio-sanitari)',
+  'Albo Educatori socio-pedagogici',
+  'Albo Pedagogisti',
+  'Albo Psicologi',
+  'Albo Infermieri (OPI)',
+  'Albo Logopedisti',
+  'Albo Tecnici della Riabilitazione Psichiatrica',
+  'Albo generico',
+] as const
+
+/** Qualifiche professionali normalizzate (menu a tendina). */
+export const QUALIFICA = [
+  'Educatore Professionale',
+  'Educatore Professionale Sociopedagogico',
+  'Educatore Prima Infanzia',
+  'Assistente Educativo',
+  'Assistente Sociale',
+  'Psicologo',
+  'Pedagogista',
+  'Infermiere',
+  'Tecnico della Riabilitazione Psichiatrica',
+  'OSS',
+  'ADEST',
+  'Operatore Amministrativo',
+  'Altro',
+] as const
+
 /** Stato del rapporto di lavoro del dipendente. "Cessato" = rapporto terminato. */
 export const STATO_RAPPORTO = [
   'Attivo', 'Aspettativa', 'Maternità', 'Congedo parentale',
@@ -130,7 +163,8 @@ export const DIPENDENTI_FIELDS: readonly RUField[] = [
   { key: 'MailPersonale', label: 'Mail personale', type: 'email', section: 'Contatti e residenza' },
 
   { key: 'TitoloStudio', label: 'Titolo di studio', type: 'choice', choices: TITOLO_STUDIO, section: 'Formazione' },
-  { key: 'Qualifica', label: 'Qualifica', type: 'text', section: 'Formazione' },
+  { key: 'Qualifica', label: 'Qualifica', type: 'choice', choices: QUALIFICA, section: 'Formazione' },
+  { key: 'Albo', label: 'Albo professionale', type: 'choice', choices: ALBO, section: 'Formazione' },
 
   { key: 'StatoRapporto', label: 'Stato rapporto', type: 'choice', choices: STATO_RAPPORTO, section: 'Rapporto di lavoro' },
   { key: 'Matricola', label: 'Matricola', type: 'text', section: 'Rapporto di lavoro', inList: true },

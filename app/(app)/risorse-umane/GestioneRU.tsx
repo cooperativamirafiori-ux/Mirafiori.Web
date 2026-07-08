@@ -448,10 +448,13 @@ function CampoInput({
     )
   }
   if (field.type === 'choice') {
+    const opts = field.choices ?? []
+    const fuoriLista = value && !opts.includes(value)
     return (
       <select value={value} onChange={(e) => onChange(e.target.value)} className={inputCls}>
         <option value="">—</option>
-        {field.choices?.map((c) => (
+        {fuoriLista && <option value={value}>{value} (valore attuale)</option>}
+        {opts.map((c) => (
           <option key={c} value={c}>
             {c}
           </option>
