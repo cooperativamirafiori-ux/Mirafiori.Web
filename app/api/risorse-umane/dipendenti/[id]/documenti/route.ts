@@ -33,9 +33,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'File troppo grande (max 4 MB)' }, { status: 400 })
   }
 
+  // Categoria (facoltativa): prefissa il nome del file, es. "Contratto - <nome>.pdf"
+  const categoria = String(form.get('categoria') ?? '').trim()
+  const nomeFile = categoria ? `${categoria} - ${file.name}` : file.name
+
   try {
     const buf = await file.arrayBuffer()
-    const documento = await caricaDocumentoDipendente(id, file.name, buf, file.type || undefined)
+    const documento = await caricaDocumentoDipendente(id, nomeFile, buf, file.type || undefined)
     return NextResponse.json({ documento })
   } catch (e) {
     return NextResponse.json(

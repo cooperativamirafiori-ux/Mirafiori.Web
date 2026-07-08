@@ -48,7 +48,7 @@ const TIPO_RAPPORTO = [
   'Socio fruitore', 'Socio persona giuridica', 'Socio sovventore e finanziatore',
   'Apprendista', 'Collaborazione Coordinate Continuativa',
 ]
-const AREA_ASSUNZIONE = ['Area A', 'Area B']
+const AREA_ASSUNZIONE = ['Tipo A', 'Tipo B']
 const LIVELLO = ['A1', 'A2', 'B1', 'C1', 'C2', 'C3', 'D1', 'D2', 'D3', 'E1', 'E2', 'F1', 'F2']
 const MANSIONE = [
   'ADEST', 'Assistente Sociale', 'Assistente alla persona', 'Addetto alle pulizie',
@@ -68,6 +68,10 @@ const TIPOLOGIA_SVANTAGGIO = [
 ]
 const STATO_TIROCINIO = ['ATTIVO', 'INTERROTTO', 'TERMINATO']
 const CATEGORIA_COLLAB = ['TIROCINIO', 'SERVIZIO CIVILE']
+const STATO_RAPPORTO = [
+  'Attivo', 'Aspettativa', 'Maternità', 'Congedo parentale',
+  'Malattia lunga', 'Sospeso', 'Cessato',
+]
 
 const choice = (choices) => ({ choice: { choices, displayAs: 'dropDownMenu', allowTextEntry: true } })
 const text = (multi = false) => ({ text: { allowMultipleLines: multi } })
@@ -102,20 +106,30 @@ const LISTE = [
       { name: 'CellPrivato', ...text() },
       { name: 'MailAziendale', ...text() },
       { name: 'MailPersonale', ...text() },
+      { name: 'StatoRapporto', ...choice(STATO_RAPPORTO) },
       { name: 'DataAssunzione', ...dateOnly() },
       { name: 'OreLavoroPreviste', ...number() },
       { name: 'TipoContratto', ...choice(TIPO_CONTRATTO) },
+      { name: 'DataScadenzaContratto', ...dateOnly() },
       { name: 'TipoRapporto', ...choice(TIPO_RAPPORTO) },
       { name: 'AreaAssunzione', ...choice(AREA_ASSUNZIONE) },
       { name: 'LivelloContrattuale', ...choice(LIVELLO) },
       { name: 'Mansione', ...choice(MANSIONE) },
       { name: 'ServizioAppartenenza', ...choice(SERVIZIO) },
+      { name: 'IBAN', ...text() },
+      { name: 'AdesioneFondoPensione', ...choice(SINO) },
+      { name: 'FondoPensioneDettaglio', ...text() },
+      { name: 'Socio', ...choice(SINO) },
       { name: 'DataAmmissioneSocio', ...dateOnly() },
       { name: 'QuotaSociale', ...currency() },
+      { name: 'QuotaSocialeVersata', ...currency() },
+      { name: 'QuotaSocialeRestituita', ...currency() },
       { name: 'DataDimissioneLavoratore', ...dateOnly() },
       { name: 'DataDimissioneSocio', ...dateOnly() },
       { name: 'InvalidoSvantaggiato', ...choice(SINO) },
       { name: 'TipologiaSvantaggio', ...choice(TIPOLOGIA_SVANTAGGIO) },
+      { name: 'Legge104', ...choice(SINO) },
+      { name: 'StatoFamiglia', ...text() },
       { name: 'FondoCoopersalute', ...text() },
       { name: 'StatoServizio', ...text(true) },
       { name: 'CartellaUrl', ...text() },

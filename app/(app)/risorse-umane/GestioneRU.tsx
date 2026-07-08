@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import {
   RU_CONFIG,
+  STATO_RAPPORTO_STILE,
   type RUEntity,
   type RUField,
   type RURecord,
@@ -49,6 +50,46 @@ function formatValore(field: RUField, value: RURecord[string]): string {
     return Number.isFinite(n) ? euro(n) : String(value)
   }
   return String(value)
+}
+
+const SOGLIA_FULL_TIME = 38
+
+/** Full Time se ore >= 38, Part Time se inferiori; null se non compilato. */
+function regimeOrario(r: RURecord): 'Full Time' | 'Part Time' | null {
+  const raw = r.OreLavoroPreviste
+  if (raw == null || raw === '') return null
+  const ore = Number(raw)
+  if (!Number.isFinite(ore)) return null
+  return ore >= SOGLIA_FULL_TIME ? 'Full Time' : 'Part Time'
+}
+
+/** Etichetta stato rapporto con pallino colorato e dicitura sempre visibile. */
+function StatoBadge({ stato }: { stato: string }) {
+  const stile = STATO_RAPPORTO_STILE[stato] ?? {
+    badge: 'bg-gray-100 text-gray-700 border-gray-200',
+    dot: 'bg-gray-400',
+  }
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${stile.badge}`}
+    >
+      <span className={`h-2 w-2 rounded-full ${stile.dot}`} />
+      {stato}
+    </span>
+  )
+}
+
+/** Badge Full/Part Time. */
+function RegimeBadge({ regime }: { regime: 'Full Time' | 'Part Time' }) {
+  const cls =
+    regime === 'Full Time'
+      ? 'bg-sky-100 text-sky-800 border-sky-200'
+      : 'bg-indigo-100 text-indigo-800 border-indigo-200'
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${cls}`}>
+      {regime}
+    </span>
+  )
 }
 
 /** Ordine e raggruppamento delle sezioni preservando l'ordine di comparsa. */
@@ -246,6 +287,12 @@ export function GestioneRU({ entity, iniziali }: Props) {
 
         <div>
           <h3 className="text-xl font-bold text-gray-800">{nomeCompleto(dettaglio)}</h3>
+          {entity === 'dipendenti' && (
+            <div className="flex flex-wrap items-center gap-2 mt-1.5">
+              {dettaglio.StatoRapporto && <StatoBadge stato={String(dettaglio.StatoRapporto)} />}
+              {regimeOrario(dettaglio) && <RegimeBadge regime={regimeOrario(dettaglio)!} />}
+            </div>
+          )}
           {dettaglio.IdAccess != null && (
             <span className="text-xs text-gray-400">Rif. archivio #{String(dettaglio.IdAccess)}</span>
           )}
@@ -283,6 +330,58 @@ export function GestioneRU({ entity, iniziali }: Props) {
   }
 
   // ---------------- ELENCO ----------------
+  const isDip = entity === 'dipendenti'
+
+  function riga(r: RURecord) {
+    const regime = isDip ? regimeOrario(r) : null
+    const stato = isDip && r.StatoRapporto ? String(r.StatoRapporto) : null
+    return (
+      <li key={r.spItemId}>
+        <button
+          onClick={() => setDettaglio(r)}
+          className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex items-center justify-between gap-3"
+        >
+          <div className="min-w-0">
+            <div className="font-semibold text-gray-800 truncate">{nomeCompleto(r)}</div>
+            {inListFields.length > 0 && (
+              <div className="text-xs text-gray-500 truncate">
+                {inListFields
+                  .map((f) => formatValore(f, r[f.key]))
+                  .filter(Boolean)
+                  .join(' · ')}
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {regime && <RegimeBadge regime={regime} />}
+            {stato && <StatoBadge stato={stato} />}
+            <span className="text-gray-300">›</span>
+          </div>
+        </button>
+      </li>
+    )
+  }
+
+  const elencoUl = (records: RURecord[]) => (
+    <ul className="divide-y divide-gray-100 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      {records.map(riga)}
+    </ul>
+  )
+
+  const inForza = isDip ? listaFiltrata.filter((r) => String(r.StatoRapporto ?? '') !== 'Cessato') : []
+  const cessati = isDip ? listaFiltrata.filter((r) => String(r.StatoRapporto ?? '') === 'Cessato') : []
+
+  const sezioneElenco = (titolo: string, records: RURecord[], dot: string) =>
+    records.length === 0 ? null : (
+      <div className="space-y-2">
+        <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-gray-500">
+          <span className={`h-2 w-2 rounded-full ${dot}`} />
+          {titolo} <span className="text-gray-400 font-normal">({records.length})</span>
+        </h4>
+        {elencoUl(records)}
+      </div>
+    )
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
@@ -316,30 +415,13 @@ export function GestioneRU({ entity, iniziali }: Props) {
         <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-400">
           Nessun record.
         </div>
+      ) : isDip ? (
+        <div className="space-y-5">
+          {sezioneElenco('In forza', inForza, 'bg-emerald-500')}
+          {sezioneElenco('Cessati', cessati, 'bg-red-500')}
+        </div>
       ) : (
-        <ul className="divide-y divide-gray-100 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          {listaFiltrata.map((r) => (
-            <li key={r.spItemId}>
-              <button
-                onClick={() => setDettaglio(r)}
-                className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex items-center justify-between gap-3"
-              >
-                <div className="min-w-0">
-                  <div className="font-semibold text-gray-800 truncate">{nomeCompleto(r)}</div>
-                  {inListFields.length > 0 && (
-                    <div className="text-xs text-gray-500 truncate">
-                      {inListFields
-                        .map((f) => formatValore(f, r[f.key]))
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </div>
-                  )}
-                </div>
-                <span className="text-gray-300">›</span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        elencoUl(listaFiltrata)
       )}
     </div>
   )

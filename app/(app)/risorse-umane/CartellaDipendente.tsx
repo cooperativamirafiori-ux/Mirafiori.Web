@@ -10,6 +10,15 @@ interface Documento {
   modificato?: string
 }
 
+const CATEGORIE_DOC = [
+  'Contratto',
+  'Buste paga',
+  'Certificazioni',
+  'Carta identità',
+  'Codice fiscale',
+  'Altro',
+] as const
+
 function formatKb(bytes?: number): string {
   if (!bytes) return ''
   const kb = bytes / 1024
@@ -22,6 +31,7 @@ export function CartellaDipendente({ spItemId }: { spItemId: string }) {
   const [caricato, setCaricato] = useState(false)
   const [busy, setBusy] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
+  const [categoria, setCategoria] = useState<string>(CATEGORIE_DOC[0])
   const fileRef = useRef<HTMLInputElement>(null)
 
   const base = `/api/risorse-umane/dipendenti/${spItemId}`
@@ -69,6 +79,7 @@ export function CartellaDipendente({ spItemId }: { spItemId: string }) {
     try {
       const fd = new FormData()
       fd.append('file', file)
+      if (categoria) fd.append('categoria', categoria)
       const res = await fetch(`${base}/documenti`, { method: 'POST', body: fd })
       if (!res.ok) throw new Error((await res.json()).error ?? 'Errore upload')
       const { documento } = await res.json()
@@ -141,7 +152,22 @@ export function CartellaDipendente({ spItemId }: { spItemId: string }) {
             </button>
           )}
 
-          <div className="flex items-center gap-3 mb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
+            <label className="text-xs font-semibold text-gray-600">
+              Tipo documento
+              <select
+                value={categoria}
+                onChange={(e) => setCategoria(e.target.value)}
+                disabled={busy}
+                className="mt-1 block w-full sm:w-48 border border-emerald-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              >
+                {CATEGORIE_DOC.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </label>
             <input
               ref={fileRef}
               type="file"
@@ -150,10 +176,12 @@ export function CartellaDipendente({ spItemId }: { spItemId: string }) {
                 if (f) upload(f)
               }}
               disabled={busy}
-              className="text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-600 file:px-3 file:py-1.5 file:text-white file:text-sm file:font-semibold hover:file:bg-emerald-700"
+              className="text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-600 file:px-3 file:py-1.5 file:text-white file:text-sm file:font-semibold hover:file:bg-emerald-700 self-end"
             />
           </div>
-          <p className="text-xs text-gray-400 mb-3">Carica documenti (max 4 MB per file).</p>
+          <p className="text-xs text-gray-400 mb-3">
+            Scegli il tipo, poi il file: verrà salvato nella cartella del dipendente con il tipo come prefisso (es. «Contratto - …»). Max 4 MB per file.
+          </p>
 
           {documenti.length === 0 ? (
             <p className="text-sm text-gray-400">Nessun documento caricato.</p>
