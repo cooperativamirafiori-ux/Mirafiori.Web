@@ -72,6 +72,7 @@ const STATO_RAPPORTO = [
   'Attivo', 'Aspettativa', 'Maternità', 'Congedo parentale',
   'Malattia lunga', 'Sospeso', 'Cessato',
 ]
+const CATEGORIA_RU = ['Dipendente', 'Collaboratore']
 const ALBO = [
   'Albo Assistenti Sociali',
   'Albo Educatori Professionali (socio-sanitari)',
@@ -123,6 +124,7 @@ const conComuneCols = (specifiche) => [...COMUNE_COLS, ...specifiche, NOTE_COL]
 // Definizione liste = blocco comune + colonne specifiche
 // ------------------------------------------------------------------
 const DIPENDENTI_SPEC = [
+  { name: 'CategoriaRU', ...choice(CATEGORIA_RU) },
   { name: 'Matricola', ...text() },
   { name: 'Qualifica', ...text() },
   { name: 'Albo', ...choice(ALBO) },

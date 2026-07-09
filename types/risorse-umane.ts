@@ -118,6 +118,12 @@ export const QUALIFICA = [
   'Altro',
 ] as const
 
+/**
+ * Categoria dell'anagrafica unificata: distingue i dipendenti dai collaboratori
+ * ora che condividono la stessa lista.
+ */
+export const CATEGORIA_RU = ['Dipendente', 'Collaboratore'] as const
+
 /** Stato del rapporto di lavoro del dipendente. "Cessato" = rapporto terminato. */
 export const STATO_RAPPORTO = [
   'Attivo', 'Aspettativa', 'Maternità', 'Congedo parentale',
@@ -192,6 +198,8 @@ function conComune(specifici: readonly RUField[]): readonly RUField[] {
 // ------------------------------------------------------------------
 /** Campi SPECIFICI dei dipendenti (oltre al blocco comune). */
 const DIPENDENTI_SPECIFICI: readonly RUField[] = [
+  { key: 'CategoriaRU', label: 'Categoria RU', type: 'choice', choices: CATEGORIA_RU, section: 'Rapporto di lavoro', inList: true },
+
   { key: 'Qualifica', label: 'Qualifica', type: 'choice', choices: QUALIFICA, section: 'Formazione' },
   { key: 'Albo', label: 'Albo professionale', type: 'choice', choices: ALBO, section: 'Formazione' },
 

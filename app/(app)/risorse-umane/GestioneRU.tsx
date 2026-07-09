@@ -82,6 +82,10 @@ const SOCIO_STILE: Record<string, string> = {
   No: 'bg-slate-100 text-slate-600 border-slate-200',
 }
 const MANSIONE_CLS = 'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200'
+const CATEGORIA_RU_STILE: Record<string, string> = {
+  Dipendente: 'bg-blue-100 text-blue-800 border-blue-200',
+  Collaboratore: 'bg-violet-100 text-violet-800 border-violet-200',
+}
 
 /** Pillola generica colorata (con eventuale pallino). */
 function Pill({ text, cls, dot }: { text: string; cls: string; dot?: string }) {
@@ -105,6 +109,11 @@ interface BadgeDesc {
 /** I 6 segnalini di un dipendente, in ordine: Coop, Full/Part, Socio, Qualifica, Mansione, Stato. */
 function badgesDipendente(r: RURecord): BadgeDesc[] {
   const out: BadgeDesc[] = []
+
+  const categoria = val(r.CategoriaRU)
+  if (categoria) {
+    out.push({ key: 'categoria', text: categoria, cls: CATEGORIA_RU_STILE[categoria] ?? PILL_DEFAULT })
+  }
 
   const coop = val(r.AreaAssunzione)
   if (coop) {
@@ -204,6 +213,11 @@ export function GestioneRU({ entity, iniziali }: Props) {
   const [query, setQuery] = useState('')
   const [sortKey, setSortKey] = useState('nome')
   const [vistaCessati, setVistaCessati] = useState(false)
+  const [catFiltro, setCatFiltro] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'Tutti'
+    const c = new URLSearchParams(window.location.search).get('categoria')
+    return c === 'Dipendente' || c === 'Collaboratore' ? c : 'Tutti'
+  })
   const [dettaglio, setDettaglio] = useState<RURecord | null>(null)
   const [formAperto, setFormAperto] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
@@ -245,11 +259,16 @@ export function GestioneRU({ entity, iniziali }: Props) {
     }
   }, [colonneSel, entity])
 
-  // Nel sottotitolo escludo Cognome/Nome e — per i dipendenti — Mansione (ora è un badge).
+  // Nel sottotitolo escludo Cognome/Nome e — per i dipendenti — Mansione e
+  // CategoriaRU (mostrati come badge).
   const inListFields = useMemo(
     () =>
       fields.filter(
-        (f) => f.inList && f.key !== 'Cognome' && f.key !== 'Nome' && !(isDip && f.key === 'Mansione'),
+        (f) =>
+          f.inList &&
+          f.key !== 'Cognome' &&
+          f.key !== 'Nome' &&
+          !(isDip && (f.key === 'Mansione' || f.key === 'CategoriaRU')),
       ),
     [fields, isDip],
   )
@@ -262,7 +281,11 @@ export function GestioneRU({ entity, iniziali }: Props) {
 
   const listaFiltrata = useMemo(() => {
     const q = query.trim().toLowerCase()
-    const base = [...lista].sort((a, b) => nomeCompleto(a).localeCompare(nomeCompleto(b)))
+    let base = [...lista]
+    if (isDip && catFiltro !== 'Tutti') {
+      base = base.filter((r) => String(r.CategoriaRU ?? '') === catFiltro)
+    }
+    base.sort((a, b) => nomeCompleto(a).localeCompare(nomeCompleto(b)))
     if (!q) return base
     return base.filter((r) => {
       const hay = [nomeCompleto(r), ...searchFields.map((f) => String(r[f.key] ?? ''))]
@@ -270,7 +293,7 @@ export function GestioneRU({ entity, iniziali }: Props) {
         .toLowerCase()
       return hay.includes(q)
     })
-  }, [lista, query, searchFields])
+  }, [lista, query, searchFields, isDip, catFiltro])
 
   const ordinati = useMemo(
     () => (isDip ? ordina(listaFiltrata, sortKey) : listaFiltrata),
@@ -728,6 +751,20 @@ export function GestioneRU({ entity, iniziali }: Props) {
             onChange={(e) => setQuery(e.target.value)}
             className={`${inputCls} sm:max-w-xs`}
           />
+          {isDip && (
+            <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+              Categoria
+              <select
+                value={catFiltro}
+                onChange={(e) => setCatFiltro(e.target.value)}
+                className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              >
+                <option value="Tutti">Tutti</option>
+                <option value="Dipendente">Dipendenti</option>
+                <option value="Collaboratore">Collaboratori</option>
+              </select>
+            </label>
+          )}
           {isDip && (
             <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
               Ordina per

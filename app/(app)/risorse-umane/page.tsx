@@ -11,14 +11,8 @@ const SEZIONI = [
   {
     href: '/risorse-umane/dipendenti',
     emoji: '👤',
-    titolo: 'Dipendenti',
-    sottotitolo: 'Anagrafica del personale, dati contrattuali e cartelle documenti',
-  },
-  {
-    href: '/risorse-umane/collaboratori',
-    emoji: '🤝',
-    titolo: 'Collaboratori',
-    sottotitolo: 'Consulenti e prestatori esterni della cooperativa',
+    titolo: 'Dipendenti e collaboratori',
+    sottotitolo: 'Anagrafica di dipendenti e collaboratori, dati contrattuali e cartelle documenti',
   },
   {
     href: '/risorse-umane/tirocini',
@@ -52,7 +46,7 @@ export default async function RisorseUmanePage() {
 
         <h2 className="text-xl font-bold text-gray-800 mb-1">Area riservata</h2>
         <p className="text-gray-500 mb-6">
-          Consultazione e gestione del personale: dipendenti, collaboratori e tirocini.
+          Consultazione e gestione del personale: dipendenti e collaboratori (anagrafica unica) e tirocini.
         </p>
 
         <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
