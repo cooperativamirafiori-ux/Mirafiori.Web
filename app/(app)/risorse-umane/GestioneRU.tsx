@@ -742,62 +742,64 @@ export function GestioneRU({ entity, iniziali }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
-        <div className="flex flex-col sm:flex-row gap-3 sm:items-center flex-1">
-          <input
-            type="search"
-            placeholder="Cerca per nome, cognome…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className={`${inputCls} sm:max-w-xs`}
-          />
-          {isDip && (
-            <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
-              Categoria
-              <select
-                value={catFiltro}
-                onChange={(e) => setCatFiltro(e.target.value)}
-                className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-              >
-                <option value="Tutti">Tutti</option>
-                <option value="Dipendente">Dipendenti</option>
-                <option value="Collaboratore">Collaboratori</option>
-              </select>
-            </label>
-          )}
-          {isDip && (
-            <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
-              Ordina per
-              <select
-                value={sortKey}
-                onChange={(e) => setSortKey(e.target.value)}
-                className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-              >
-                {SORT_OPZIONI.map((o) => (
-                  <option key={o.key} value={o.key}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => {
-              setExportErrore(null)
-              setExportAperto(true)
-            }}
-            className="text-sm font-semibold text-emerald-700 border border-emerald-200 bg-emerald-50 px-4 py-2 rounded-xl hover:bg-emerald-100 transition-colors whitespace-nowrap"
-          >
-            Esporta Excel
-          </button>
-          <button
-            onClick={apriNuovo}
-            className="bg-emerald-600 text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-emerald-700 transition-colors whitespace-nowrap"
-          >
-            + Nuovo {config.singolare.toLowerCase()}
-          </button>
+      <div className="space-y-3">
+        <input
+          type="search"
+          placeholder="Cerca per nome, cognome…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className={inputCls}
+        />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+          <div className="flex flex-wrap gap-3 sm:items-center">
+            {isDip && (
+              <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+                Categoria
+                <select
+                  value={catFiltro}
+                  onChange={(e) => setCatFiltro(e.target.value)}
+                  className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                >
+                  <option value="Tutti">Tutti</option>
+                  <option value="Dipendente">Dipendenti</option>
+                  <option value="Collaboratore">Collaboratori</option>
+                </select>
+              </label>
+            )}
+            {isDip && (
+              <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+                Ordina per
+                <select
+                  value={sortKey}
+                  onChange={(e) => setSortKey(e.target.value)}
+                  className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                >
+                  {SORT_OPZIONI.map((o) => (
+                    <option key={o.key} value={o.key}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+          <div className="flex gap-2 sm:shrink-0">
+            <button
+              onClick={() => {
+                setExportErrore(null)
+                setExportAperto(true)
+              }}
+              className="text-sm font-semibold text-emerald-700 border border-emerald-200 bg-emerald-50 px-4 py-2 rounded-xl hover:bg-emerald-100 transition-colors whitespace-nowrap"
+            >
+              Esporta Excel
+            </button>
+            <button
+              onClick={apriNuovo}
+              className="bg-emerald-600 text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-emerald-700 transition-colors whitespace-nowrap"
+            >
+              + Nuovo {config.singolare.toLowerCase()}
+            </button>
+          </div>
         </div>
       </div>
 
