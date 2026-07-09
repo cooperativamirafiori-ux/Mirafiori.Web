@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { guardArea } from '@/lib/api-guard'
 import { getSoftware, creaSoftware } from '@/lib/software'
+import { logAzione } from '@/lib/audit'
 import type { SoftwareInput } from '@/types/software'
 
 export const dynamic = 'force-dynamic'
@@ -68,6 +69,14 @@ export async function POST(req: NextRequest) {
 
   try {
     const software = await creaSoftware(input)
+    await logAzione({
+      utente: g.session.user.email,
+      nome: g.session.user.name,
+      azione: 'software.crea',
+      entita: 'Software',
+      entitaId: software.spItemId,
+      dettagli: { servizio: software.servizio },
+    })
     return NextResponse.json({ software })
   } catch (e) {
     return NextResponse.json(

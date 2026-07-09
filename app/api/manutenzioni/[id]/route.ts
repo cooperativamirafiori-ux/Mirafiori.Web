@@ -32,6 +32,7 @@ import {
   notificaTecnicoAssegnato,
   notificaChiusuraTicket,
 } from '@/lib/notifications'
+import { logAzione } from '@/lib/audit'
 import type { AggiornaRichiestaPayload } from '@/types/manutenzioni'
 
 export async function PATCH(
@@ -87,6 +88,15 @@ export async function PATCH(
         tecnicoTelefono: '',
         note: body.noteResponsabile,
       }).catch(console.error)
+
+      await logAzione({
+        utente: session.user.email,
+        nome: session.user.name,
+        azione: 'manutenzione.assegna-tecnico',
+        entita: 'RichiestaManutenzione',
+        entitaId: richiesta.idRichiesta,
+        dettagli: { tecnico: body.tecnicoNome, note: body.noteResponsabile ?? undefined },
+      })
 
       return NextResponse.json({ ok: true, stato: 'In lavorazione' })
     }
@@ -158,6 +168,15 @@ export async function PATCH(
         richiedenteNome: richiesta.richiedente.displayName,
       }).catch(console.error)
 
+      await logAzione({
+        utente: session.user.email,
+        nome: session.user.name,
+        azione: 'manutenzione.chiudi',
+        entita: 'RichiestaManutenzione',
+        entitaId: richiesta.idRichiesta,
+        dettagli: { importoTotale, struttura: richiesta.struttura.value },
+      })
+
       return NextResponse.json({ ok: true, stato: 'Completata', importoTotale })
     }
 
@@ -167,6 +186,14 @@ export async function PATCH(
     if (body.dataIntervento != null) genericFields.DataIntervento = body.dataIntervento
     if (Object.keys(genericFields).length > 0) {
       await aggiornaRichiesta(spItemId, genericFields)
+      await logAzione({
+        utente: session.user.email,
+        nome: session.user.name,
+        azione: 'manutenzione.aggiorna',
+        entita: 'RichiestaManutenzione',
+        entitaId: richiesta.idRichiesta,
+        dettagli: { campi: Object.keys(genericFields) },
+      })
     }
 
     return NextResponse.json({ ok: true })

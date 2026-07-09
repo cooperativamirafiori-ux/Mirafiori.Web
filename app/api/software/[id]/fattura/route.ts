@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { guardArea } from '@/lib/api-guard'
 import { getSoftwareById, caricaFattura } from '@/lib/software'
+import { logAzione } from '@/lib/audit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -50,6 +51,14 @@ export async function POST(
       buffer,
       file.type || 'application/octet-stream',
     )
+    await logAzione({
+      utente: g.session.user.email,
+      nome: g.session.user.name,
+      azione: 'software.carica-fattura',
+      entita: 'Software',
+      entitaId: id,
+      dettagli: { file: file.name || 'fattura' },
+    })
     return NextResponse.json({ software })
   } catch (e) {
     return NextResponse.json(

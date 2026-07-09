@@ -18,6 +18,7 @@ import {
   uploadAllegato,
 } from '@/lib/prestazioni'
 import { notificaNotulaCaricata } from '@/lib/notifications'
+import { logAzione } from '@/lib/audit'
 
 export const runtime = 'nodejs'
 
@@ -95,6 +96,15 @@ export async function POST(
       notulaUrl: webUrl,
       cartellaUrl: p.cartellaUrl,
     }).catch((e) => console.error('[notula] invio notifica fallito', e))
+
+    await logAzione({
+      utente: p.email || '(prestatore esterno)',
+      nome: `${p.cognome} ${p.nome}`.trim(),
+      azione: 'prestazione.notula-caricata',
+      entita: 'PrestazioneOccasionale',
+      entitaId: p.idPrestazione,
+      dettagli: { origine: 'esterno via token' },
+    })
 
     return NextResponse.json({ ok: true }, { status: 201 })
   } catch (err: any) {

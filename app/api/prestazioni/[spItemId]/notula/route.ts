@@ -20,6 +20,7 @@ import {
 } from '@/lib/prestazioni'
 import { generaNotula, calcolaNotula } from '@/lib/documenti-prestazione'
 import { notificaNotulaAlPrestatore } from '@/lib/notifications'
+import { logAzione } from '@/lib/audit'
 
 export const runtime = 'nodejs'
 
@@ -103,6 +104,15 @@ export async function POST(
         contentBase64: notula.buffer.toString('base64'),
         contentType: DOCX_MIME,
       },
+    })
+
+    await logAzione({
+      utente: session.user.email,
+      nome: session.user.name,
+      azione: 'prestazione.notula-inviata',
+      entita: 'PrestazioneOccasionale',
+      entitaId: prestazione.idPrestazione,
+      dettagli: { importoLordo },
     })
 
     return NextResponse.json(

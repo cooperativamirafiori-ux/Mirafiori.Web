@@ -9,16 +9,25 @@ import { NextRequest, NextResponse } from 'next/server'
 import { guardArea } from '@/lib/api-guard'
 import { AREA_RU } from '@/lib/ru-api'
 import { eliminaDocumentoDipendente } from '@/lib/risorse-umane'
+import { logAzione } from '@/lib/audit'
 
 export const dynamic = 'force-dynamic'
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string; docId: string }> }) {
   const g = await guardArea(AREA_RU)
   if (g.error) return g.error
-  const { docId } = await params
+  const { id, docId } = await params
   if (!docId) return NextResponse.json({ error: 'ID documento mancante' }, { status: 400 })
   try {
     await eliminaDocumentoDipendente(docId)
+    await logAzione({
+      utente: g.session.user.email,
+      nome: g.session.user.name,
+      azione: 'ru.dipendente.documento-elimina',
+      entita: 'dipendente',
+      entitaId: id,
+      dettagli: { docId },
+    })
     return NextResponse.json({ ok: true })
   } catch (e) {
     return NextResponse.json(

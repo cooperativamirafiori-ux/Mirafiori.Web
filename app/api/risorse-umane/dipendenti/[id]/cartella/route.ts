@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { guardArea } from '@/lib/api-guard'
 import { AREA_RU } from '@/lib/ru-api'
+import { logAzione } from '@/lib/audit'
 import {
   ensureCartellaDipendente,
   getDocumentiDipendente,
@@ -38,6 +39,13 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params
   try {
     const res = await ensureCartellaDipendente(id)
+    await logAzione({
+      utente: g.session.user.email,
+      nome: g.session.user.name,
+      azione: 'ru.dipendente.cartella-crea',
+      entita: 'dipendente',
+      entitaId: id,
+    })
     return NextResponse.json(res)
   } catch (e) {
     return NextResponse.json(

@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { guardArea } from '@/lib/api-guard'
 import { aggiornaSoftware, eliminaSoftware } from '@/lib/software'
+import { logAzione } from '@/lib/audit'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,6 +59,14 @@ export async function PATCH(
 
   try {
     const software = await aggiornaSoftware(id, input)
+    await logAzione({
+      utente: g.session.user.email,
+      nome: g.session.user.name,
+      azione: 'software.aggiorna',
+      entita: 'Software',
+      entitaId: id,
+      dettagli: { servizio: input.servizio },
+    })
     return NextResponse.json({ software })
   } catch (e) {
     return NextResponse.json(
@@ -79,6 +88,13 @@ export async function DELETE(
 
   try {
     await eliminaSoftware(id)
+    await logAzione({
+      utente: g.session.user.email,
+      nome: g.session.user.name,
+      azione: 'software.elimina',
+      entita: 'Software',
+      entitaId: id,
+    })
     return NextResponse.json({ ok: true })
   } catch (e) {
     return NextResponse.json(

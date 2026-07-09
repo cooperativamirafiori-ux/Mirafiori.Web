@@ -21,6 +21,7 @@ import {
   uploadAllegato,
 } from '@/lib/prestazioni'
 import { notificaRiepilogoPrestazione } from '@/lib/notifications'
+import { logAzione } from '@/lib/audit'
 import { CASISTICHE_GDPR_KEYS } from '@/lib/casistiche-gdpr'
 
 const CF_REGEX = /^[A-Z]{6}\d{2}[A-EHLMPR-T]\d{2}[A-Z]\d{3}[A-Z]$/
@@ -199,6 +200,15 @@ export async function POST(req: NextRequest) {
       responsabileEmail: responsabile.email,
       cartellaUrl: cartella.webUrl,
     }).catch((e) => console.error('[prestazioni] invio riepilogo fallito', e))
+
+    await logAzione({
+      utente: session.user.email,
+      nome: session.user.name,
+      azione: 'prestazione.crea',
+      entita: 'PrestazioneOccasionale',
+      entitaId: idPrestazione,
+      dettagli: { prestatore: `${dati.cognome} ${dati.nome}`.trim(), ruolo: dati.ruolo },
+    })
 
     return NextResponse.json(
       { idPrestazione, spItemId, cartellaUrl: cartella.webUrl },

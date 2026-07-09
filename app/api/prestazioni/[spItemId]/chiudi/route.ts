@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { getPrestazioneById, aggiornaPrestazione } from '@/lib/prestazioni'
+import { logAzione } from '@/lib/audit'
 
 export const runtime = 'nodejs'
 
@@ -39,6 +40,13 @@ export async function POST(
     }
 
     await aggiornaPrestazione(spItemId, { Stato: 'Chiusa' })
+    await logAzione({
+      utente: session.user.email,
+      nome: session.user.name,
+      azione: 'prestazione.chiudi',
+      entita: 'PrestazioneOccasionale',
+      entitaId: prestazione.idPrestazione,
+    })
     return NextResponse.json({ ok: true, stato: 'Chiusa' }, { status: 200 })
   } catch (err: any) {
     console.error('[POST /api/prestazioni/[spItemId]/chiudi]', err)

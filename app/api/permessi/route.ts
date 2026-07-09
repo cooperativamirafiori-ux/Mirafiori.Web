@@ -12,6 +12,7 @@ import {
   aggiungiAutorizzazione,
   AREE_PERMESSI,
 } from '@/lib/sharepoint'
+import { logAzione } from '@/lib/audit'
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 
@@ -51,6 +52,14 @@ export async function POST(req: NextRequest) {
 
   try {
     const creata = await aggiungiAutorizzazione(utente, area)
+    await logAzione({
+      utente: g.session.user.email,
+      nome: g.session.user.name,
+      azione: 'permesso.concedi',
+      entita: 'Autorizzazione',
+      entitaId: creata.id,
+      dettagli: { utenteTarget: utente, area },
+    })
     return NextResponse.json({ autorizzazione: creata })
   } catch (e) {
     return NextResponse.json(

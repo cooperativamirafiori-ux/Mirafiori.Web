@@ -23,6 +23,7 @@ import {
 } from '@/lib/documenti-prestazione'
 import { isDocusignConfigured, inviaBustaFirma } from '@/lib/docusign'
 import { notificaModuliInformativi } from '@/lib/notifications'
+import { logAzione } from '@/lib/audit'
 
 export const runtime = 'nodejs'
 
@@ -127,6 +128,15 @@ export async function POST(
         })),
       }).catch((e) => console.error('[documenti] invio moduli informativi fallito', e))
     }
+
+    await logAzione({
+      utente: session.user.email,
+      nome: session.user.name,
+      azione: 'prestazione.genera-documenti',
+      entita: 'PrestazioneOccasionale',
+      entitaId: prestazione.idPrestazione,
+      dettagli: { documenti: caricati.map((c) => c.tipo), docusign: inviato, envelopeId },
+    })
 
     return NextResponse.json(
       {

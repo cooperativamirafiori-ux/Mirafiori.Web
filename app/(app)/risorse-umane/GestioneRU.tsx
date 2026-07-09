@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   RU_CONFIG,
   STATO_RAPPORTO_STILE,
@@ -175,6 +175,28 @@ function sezioni(fields: readonly RUField[]): { nome: string; campi: RUField[] }
   return Array.from(map.entries()).map(([nome, campi]) => ({ nome, campi }))
 }
 
+/** Chiave localStorage per ricordare le colonne scelte nell'export, per entità. */
+const exportStorageKey = (entity: RUEntity) => `ru-export-cols-${entity}`
+
+/** Colonne predefinite dell'export: Cognome, Nome + i campi mostrati in elenco. */
+function colonneDefault(fields: readonly RUField[]): string[] {
+  const base = fields.filter((f) => f.inList).map((f) => f.key)
+  const set = new Set<string>(['Cognome', 'Nome', ...base])
+  return fields.map((f) => f.key).filter((k) => set.has(k))
+}
+
+/** Scarica un Blob nel browser con il nome file indicato. */
+function scaricaBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 export function GestioneRU({ entity, iniziali }: Props) {
   const config = RU_CONFIG[entity]
   const fields = config.fields
@@ -189,7 +211,39 @@ export function GestioneRU({ entity, iniziali }: Props) {
   const [busy, setBusy] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
 
+  // ---- Export Excel ----
+  const [exportAperto, setExportAperto] = useState(false)
+  const [colonneSel, setColonneSel] = useState<Set<string>>(() => new Set(colonneDefault(fields)))
+  const [exportBusy, setExportBusy] = useState(false)
+  const [exportErrore, setExportErrore] = useState<string | null>(null)
+
   const isDip = entity === 'dipendenti'
+
+  // Carica la selezione colonne salvata (per entità) al primo mount.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(exportStorageKey(entity))
+      if (!raw) return
+      const keys = JSON.parse(raw)
+      if (Array.isArray(keys)) {
+        const valide = new Set(fields.map((f) => f.key))
+        const filtrate = keys.filter((k: unknown): k is string => typeof k === 'string' && valide.has(k))
+        if (filtrate.length) setColonneSel(new Set(filtrate))
+      }
+    } catch {
+      /* ignora storage non disponibile o JSON invalido */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entity])
+
+  // Salva la selezione ad ogni cambiamento.
+  useEffect(() => {
+    try {
+      localStorage.setItem(exportStorageKey(entity), JSON.stringify([...colonneSel]))
+    } catch {
+      /* ignora */
+    }
+  }, [colonneSel, entity])
 
   // Nel sottotitolo escludo Cognome/Nome e — per i dipendenti — Mansione (ora è un badge).
   const inListFields = useMemo(
@@ -222,6 +276,92 @@ export function GestioneRU({ entity, iniziali }: Props) {
     () => (isDip ? ordina(listaFiltrata, sortKey) : listaFiltrata),
     [listaFiltrata, sortKey, isDip],
   )
+
+  // Record che finiranno nell'export: quelli attualmente visibili a video
+  // (per i dipendenti tiene conto della vista In forza / Cessati).
+  const recordsVisibili = useMemo(() => {
+    if (!isDip) return ordinati
+    return ordinati.filter((r) =>
+      vistaCessati
+        ? String(r.StatoRapporto ?? '') === 'Cessato'
+        : String(r.StatoRapporto ?? '') !== 'Cessato',
+    )
+  }, [ordinati, isDip, vistaCessati])
+
+  // Colonne da esportare, nell'ordine dello schema (non nell'ordine di selezione).
+  const colonneExport = useMemo(
+    () => fields.filter((f) => colonneSel.has(f.key)).map((f) => f.key),
+    [fields, colonneSel],
+  )
+
+  function toggleColonna(key: string) {
+    setColonneSel((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  function setSezione(keys: string[], on: boolean) {
+    setColonneSel((prev) => {
+      const next = new Set(prev)
+      for (const k of keys) {
+        if (on) next.add(k)
+        else next.delete(k)
+      }
+      return next
+    })
+  }
+
+  function presetTutto() {
+    setColonneSel(new Set(fields.map((f) => f.key)))
+  }
+  function presetNessuno() {
+    setColonneSel(new Set())
+  }
+  function presetPredefinito() {
+    setColonneSel(new Set(colonneDefault(fields)))
+  }
+
+  async function esporta() {
+    if (exportBusy) return
+    if (colonneExport.length === 0) {
+      setExportErrore('Seleziona almeno una colonna da esportare.')
+      return
+    }
+    setExportBusy(true)
+    setExportErrore(null)
+    try {
+      const res = await fetch(`/api/risorse-umane/${entity}/export`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fields: colonneExport,
+          ids: recordsVisibili.map((r) => r.spItemId),
+        }),
+      })
+      if (!res.ok) {
+        let msg = 'Errore esportazione'
+        try {
+          msg = (await res.json()).error ?? msg
+        } catch {
+          /* risposta non JSON */
+        }
+        throw new Error(msg)
+      }
+      const blob = await res.blob()
+      const dispo = res.headers.get('Content-Disposition') ?? ''
+      const match = dispo.match(/filename="?([^"]+)"?/)
+      const filename = match?.[1] ?? `${config.label}.xlsx`
+      scaricaBlob(blob, filename)
+      setExportAperto(false)
+    } catch (e) {
+      setExportErrore(e instanceof Error ? e.message : 'Errore di rete')
+    } finally {
+      setExportBusy(false)
+    }
+  }
 
   function set(k: string, v: string) {
     setForm((p) => ({ ...p, [k]: v }))
@@ -424,6 +564,117 @@ export function GestioneRU({ entity, iniziali }: Props) {
     )
   }
 
+  // ---------------- EXPORT (selezione colonne) ----------------
+  if (exportAperto) {
+    const totRighe = recordsVisibili.length
+    const scopeLabel = !isDip ? '' : vistaCessati ? ' (cessati)' : ' (in forza)'
+    return (
+      <div className="space-y-5">
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-gray-800">Esporta in Excel</h3>
+          <button
+            onClick={() => setExportAperto(false)}
+            className="text-sm text-gray-500 hover:text-gray-700"
+          >
+            ← Annulla
+          </button>
+        </div>
+
+        <p className="text-sm text-gray-500">
+          Scegli le colonne da includere. Verranno esportati{' '}
+          <span className="font-semibold text-gray-700">
+            {totRighe} {totRighe === 1 ? config.singolare.toLowerCase() : config.label.toLowerCase()}
+            {scopeLabel}
+          </span>{' '}
+          (i record attualmente visibili).
+        </p>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={presetPredefinito}
+            className="text-xs font-semibold text-gray-700 border border-gray-200 bg-white px-3 py-1.5 rounded-xl hover:bg-gray-50"
+          >
+            Predefinite
+          </button>
+          <button
+            onClick={presetTutto}
+            className="text-xs font-semibold text-gray-700 border border-gray-200 bg-white px-3 py-1.5 rounded-xl hover:bg-gray-50"
+          >
+            Seleziona tutto
+          </button>
+          <button
+            onClick={presetNessuno}
+            className="text-xs font-semibold text-gray-700 border border-gray-200 bg-white px-3 py-1.5 rounded-xl hover:bg-gray-50"
+          >
+            Deseleziona tutto
+          </button>
+          <span className="text-xs text-gray-400 self-center ml-auto">
+            {colonneExport.length} colonne selezionate
+          </span>
+        </div>
+
+        {exportErrore && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+            {exportErrore}
+          </div>
+        )}
+
+        {sezioni(fields).map(({ nome, campi }) => {
+          const keys = campi.map((f) => f.key)
+          const tutteOn = keys.every((k) => colonneSel.has(k))
+          return (
+            <fieldset key={nome} className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+              <legend className="px-2">
+                <label className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-emerald-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={tutteOn}
+                    onChange={(e) => setSezione(keys, e.target.checked)}
+                    className="accent-emerald-600"
+                  />
+                  {nome}
+                </label>
+              </legend>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                {campi.map((f) => (
+                  <label
+                    key={f.key}
+                    className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer py-0.5"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={colonneSel.has(f.key)}
+                      onChange={() => toggleColonna(f.key)}
+                      className="accent-emerald-600"
+                    />
+                    {f.label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )
+        })}
+
+        <div className="flex gap-3">
+          <button
+            onClick={esporta}
+            disabled={exportBusy || colonneExport.length === 0}
+            className="bg-emerald-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+          >
+            {exportBusy ? 'Generazione…' : `Scarica Excel (${totRighe})`}
+          </button>
+          <button
+            onClick={() => setExportAperto(false)}
+            disabled={exportBusy}
+            className="text-sm text-gray-600 px-4 py-2.5 rounded-xl hover:bg-gray-100"
+          >
+            Annulla
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   // ---------------- ELENCO ----------------
 
   function riga(r: RURecord) {
@@ -494,12 +745,23 @@ export function GestioneRU({ entity, iniziali }: Props) {
             </label>
           )}
         </div>
-        <button
-          onClick={apriNuovo}
-          className="bg-emerald-600 text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-emerald-700 transition-colors whitespace-nowrap"
-        >
-          + Nuovo {config.singolare.toLowerCase()}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              setExportErrore(null)
+              setExportAperto(true)
+            }}
+            className="text-sm font-semibold text-emerald-700 border border-emerald-200 bg-emerald-50 px-4 py-2 rounded-xl hover:bg-emerald-100 transition-colors whitespace-nowrap"
+          >
+            Esporta Excel
+          </button>
+          <button
+            onClick={apriNuovo}
+            className="bg-emerald-600 text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-emerald-700 transition-colors whitespace-nowrap"
+          >
+            + Nuovo {config.singolare.toLowerCase()}
+          </button>
+        </div>
       </div>
 
       <p className="text-sm text-gray-500">

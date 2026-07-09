@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server'
 import { guardArea } from '@/lib/api-guard'
 import { rimuoviAutorizzazione } from '@/lib/sharepoint'
+import { logAzione } from '@/lib/audit'
 
 export async function DELETE(
   _req: Request,
@@ -22,6 +23,13 @@ export async function DELETE(
 
   try {
     await rimuoviAutorizzazione(id)
+    await logAzione({
+      utente: g.session.user.email,
+      nome: g.session.user.name,
+      azione: 'permesso.revoca',
+      entita: 'Autorizzazione',
+      entitaId: id,
+    })
     return NextResponse.json({ ok: true })
   } catch (e) {
     return NextResponse.json(

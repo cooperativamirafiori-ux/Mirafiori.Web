@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { creaCostoDiretto } from '@/lib/sharepoint'
+import { logAzione } from '@/lib/audit'
 import type { NuovoCostoPayload } from '@/types/manutenzioni'
 
 export async function POST(req: NextRequest) {
@@ -50,6 +51,14 @@ export async function POST(req: NextRequest) {
       DataCosto: dataCosto,
       Fornitore: fornitore,
       Causale: causale,
+    })
+    await logAzione({
+      utente: session.user.email,
+      nome: session.user.name,
+      azione: 'costo.crea',
+      entita: 'CostoStruttura',
+      entitaId: strutturaId,
+      dettagli: { categoria, importo: importoNum, fornitore: fornitore || undefined },
     })
     return NextResponse.json({ ok: true }, { status: 201 })
   } catch (err: any) {

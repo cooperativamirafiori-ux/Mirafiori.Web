@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { creaRichiesta, aggiornaRichiesta, getSPUserLookupId } from '@/lib/sharepoint'
 import { notificaNuovaRichiesta } from '@/lib/notifications'
+import { logAzione } from '@/lib/audit'
 import type { NuovaRichiestaPayload } from '@/types/manutenzioni'
 
 export async function POST(req: NextRequest) {
@@ -67,6 +68,15 @@ export async function POST(req: NextRequest) {
       descrizione,
       isUrgente,
     }).catch(console.error)
+
+    await logAzione({
+      utente: session.user.email,
+      nome: session.user.name,
+      azione: 'manutenzione.crea',
+      entita: 'RichiestaManutenzione',
+      entitaId: idRichiesta,
+      dettagli: { struttura: strutturaNome, tipoIntervento, priorita },
+    })
 
     return NextResponse.json({ idRichiesta, spItemId }, { status: 201 })
   } catch (err: any) {
