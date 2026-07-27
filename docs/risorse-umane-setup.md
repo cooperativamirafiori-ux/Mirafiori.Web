@@ -1,8 +1,15 @@
 # Risorse Umane — setup e migrazione dati
 
-Sezione dell'app per consultare e gestire **Dipendenti**, **Collaboratori** e **Tirocini**,
-con dati su SharePoint Lists (una lista per entità) e, per ogni dipendente, una
+Sezione dell'app per consultare e gestire **Dipendenti** (che include anche i
+**Collaboratori**, distinti dal campo `CategoriaRU`: "Dipendente" / "Collaboratore")
+e **Tirocini**, con dati su SharePoint Lists e, per ogni dipendente, una
 **cartella personale** nella document library del sito per caricare documenti.
+
+> Storico: fino al 2026-07 i Collaboratori avevano una lista SharePoint
+> separata (`SP_LIST_COLLABORATORI`). È stata unificata nella lista Dipendenti
+> con `scripts/migrate-unifica-collaboratori-2026-07.mjs` e la vecchia lista è
+> stata poi eliminata con `scripts/elimina-lista-collaboratori.mjs` (backup
+> JSON in `scripts/ru-data/collaboratori-backup-*.json`).
 
 Accesso: chiunque abbia il permesso d'area **"Risorse Umane"** (lista Autorizzazioni)
 può consultare, inserire e modificare.
@@ -15,13 +22,12 @@ Dalla cartella `web/`:
 node scripts/provision-risorse-umane.mjs
 ```
 
-Crea le liste **Dipendenti**, **Collaboratori**, **Tirocini** con tutte le colonne.
+Crea le liste **Dipendenti** (include i Collaboratori) e **Tirocini** con tutte le colonne.
 È idempotente: se le liste esistono aggiunge solo le colonne mancanti.
-Al termine stampa 3 GUID da incollare in `.env.local` e nelle Environment Variables di Vercel:
+Al termine stampa 2 GUID da incollare in `.env.local` e nelle Environment Variables di Vercel:
 
 ```
 SP_LIST_DIPENDENTI=...
-SP_LIST_COLLABORATORI=...
 SP_LIST_TIROCINI=...
 ```
 
@@ -31,13 +37,14 @@ I dati sono già stati estratti dal file Access in JSON, nella cartella
 `web/scripts/ru-data/` (è in `.gitignore` perché contiene dati personali):
 
 - `dipendenti.json` — 242 record
-- `collaboratori.json` — 14 record
+- `collaboratori.json` — 14 record (storico: importati poi nella lista Dipendenti,
+  vedi nota in cima al file)
 - `tirocini.json` — 19 record
 
-Dopo aver impostato i 3 GUID in `.env.local`, importa:
+Dopo aver impostato i GUID in `.env.local`, importa:
 
 ```bash
-node scripts/import-risorse-umane.mjs              # tutte e tre le liste
+node scripts/import-risorse-umane.mjs              # tutte le liste configurate
 node scripts/import-risorse-umane.mjs dipendenti   # solo una
 ```
 

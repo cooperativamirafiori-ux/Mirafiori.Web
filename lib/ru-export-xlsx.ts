@@ -1,6 +1,7 @@
 /**
  * Esportazione in Excel (.xlsx) dei record dell'area Risorse Umane
- * (Dipendenti / Collaboratori / Tirocini) con SCELTA DELLE COLONNE.
+ * (Dipendenti — che include anche i Collaboratori, distinti dal campo
+ * CategoriaRU — / Tirocini) con SCELTA DELLE COLONNE.
  *
  * L'export è guidato dallo schema in types/risorse-umane.ts (RU_CONFIG):
  * l'intestazione di ogni colonna è la `label` del campo e il valore viene

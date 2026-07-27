@@ -12,7 +12,7 @@
  * colonna SharePoint creata dallo script di provisioning.
  */
 
-export type RUEntity = 'dipendenti' | 'collaboratori' | 'tirocini'
+export type RUEntity = 'dipendenti' | 'tirocini'
 
 export type RUFieldType =
   | 'text'
@@ -151,8 +151,9 @@ export const STATO_IN_FORZA: readonly string[] = STATO_RAPPORTO.filter((s) => s 
 // BLOCCO COMUNE — dati personali condivisi da TUTTE le entità RU.
 // ------------------------------------------------------------------
 // Questa è l'UNICA fonte dei campi comuni: modifica/aggiungi qui e la
-// variazione si applica AUTOMATICAMENTE a Dipendenti, Collaboratori e
-// Tirocini (schema, form, elenco e lettura/scrittura SharePoint).
+// variazione si applica AUTOMATICAMENTE a Dipendenti (che include anche i
+// Collaboratori, distinti dal campo CategoriaRU) e Tirocini (schema, form,
+// elenco e lettura/scrittura SharePoint).
 // NB: se AGGIUNGI un campo comune, rispecchia la colonna nel blocco
 // COMUNE_COLS di scripts/provision-risorse-umane.mjs e rilancia il
 // provisioning. I menù a tendina sono già condivisi tramite le costanti
@@ -235,15 +236,6 @@ const DIPENDENTI_SPECIFICI: readonly RUField[] = [
   { key: 'FondoCoopersalute', label: 'Fondo Coopersalute', type: 'text', section: 'Svantaggio e informazioni personali' },
 ]
 
-/** Campi SPECIFICI dei collaboratori (oltre al blocco comune). */
-const COLLABORATORI_SPECIFICI: readonly RUField[] = [
-  { key: 'CategoriaProfessionale', label: 'Categoria professionale', type: 'text', section: 'Prestazione', inList: true },
-  { key: 'TipoPrestazione', label: 'Tipo di prestazione', type: 'text', section: 'Prestazione', inList: true },
-  { key: 'ServizioCoop', label: 'Servizio coop interessato', type: 'choice', choices: SERVIZIO, section: 'Prestazione' },
-  { key: 'SocioCooperativa', label: 'Socio cooperativa', type: 'choice', choices: SINO, section: 'Socio' },
-  { key: 'CapitaleSociale', label: 'Capitale sociale sottoscritto', type: 'currency', section: 'Socio' },
-]
-
 /** Campi SPECIFICI dei tirocini (oltre al blocco comune). */
 const TIROCINI_SPECIFICI: readonly RUField[] = [
   { key: 'CategoriaTirocinante', label: 'Categoria tirocinante', type: 'text', section: 'Tirocinio' },
@@ -260,7 +252,6 @@ const TIROCINI_SPECIFICI: readonly RUField[] = [
 ]
 
 export const DIPENDENTI_FIELDS: readonly RUField[] = conComune(DIPENDENTI_SPECIFICI)
-export const COLLABORATORI_FIELDS: readonly RUField[] = conComune(COLLABORATORI_SPECIFICI)
 export const TIROCINI_FIELDS: readonly RUField[] = conComune(TIROCINI_SPECIFICI)
 
 export interface RUEntityConfig {
@@ -273,6 +264,5 @@ export interface RUEntityConfig {
 
 export const RU_CONFIG: Record<RUEntity, RUEntityConfig> = {
   dipendenti: { entity: 'dipendenti', label: 'Dipendenti', singolare: 'Dipendente', emoji: '👤', fields: DIPENDENTI_FIELDS },
-  collaboratori: { entity: 'collaboratori', label: 'Collaboratori', singolare: 'Collaboratore', emoji: '🤝', fields: COLLABORATORI_FIELDS },
   tirocini: { entity: 'tirocini', label: 'Tirocini', singolare: 'Tirocinante', emoji: '🎓', fields: TIROCINI_FIELDS },
 }

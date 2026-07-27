@@ -10,13 +10,11 @@ const AREA = 'Risorse Umane'
 
 const ENV_HINT: Record<RUEntity, string> = {
   dipendenti: 'SP_LIST_DIPENDENTI',
-  collaboratori: 'SP_LIST_COLLABORATORI',
   tirocini: 'SP_LIST_TIROCINI',
 }
 
 const DESCRIZIONE: Record<RUEntity, string> = {
-  dipendenti: 'Anagrafica completa del personale: dati anagrafici, contrattuali e cartella documenti personale.',
-  collaboratori: 'Consulenti e prestatori esterni della cooperativa.',
+  dipendenti: 'Anagrafica completa di dipendenti e collaboratori: dati anagrafici, contrattuali e cartella documenti personale.',
   tirocini: 'Tirocinanti e percorsi di inserimento lavorativo.',
 }
 

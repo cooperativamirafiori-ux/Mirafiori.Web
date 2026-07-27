@@ -1,7 +1,8 @@
 /**
  * Factory di handler per le API route dell'area Risorse Umane.
- * Ogni entità (dipendenti/collaboratori/tirocini) ha le stesse operazioni CRUD,
- * quindi i route file si limitano a:
+ * Ogni entità (dipendenti — che include anche i collaboratori, distinti dal
+ * campo CategoriaRU — /tirocini) ha le stesse operazioni CRUD, quindi i route
+ * file si limitano a:
  *
  *   export const { GET, POST } = listHandlers('dipendenti')
  *
@@ -24,10 +25,9 @@ import { RU_CONFIG, type RUEntity, type RURecord } from '@/types/risorse-umane'
 
 export const AREA_RU = 'Risorse Umane'
 
-/** Entità RU al singolare, per i codici azione del log (es. "ru.collaboratore.crea"). */
+/** Entità RU al singolare, per i codici azione del log (es. "ru.dipendente.crea"). */
 const ENTITA_SINGOLARE: Record<RUEntity, string> = {
   dipendenti: 'dipendente',
-  collaboratori: 'collaboratore',
   tirocini: 'tirocinio',
 }
 

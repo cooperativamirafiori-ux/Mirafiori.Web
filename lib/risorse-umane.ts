@@ -1,12 +1,13 @@
 /**
  * CRUD generico sulle liste SharePoint dell'area Risorse Umane
- * (Dipendenti, Collaboratori, Tirocini) via Microsoft Graph, guidato dallo
- * schema in types/risorse-umane.ts.
+ * (Dipendenti — che include anche i Collaboratori, distinti dal campo
+ * CategoriaRU — e Tirocini) via Microsoft Graph, guidato dallo schema in
+ * types/risorse-umane.ts.
  *
  * Gestione anche della "cartella personale" del dipendente nella document
  * library del sito (creata al primo accesso), con upload/elenco documenti.
  *
- * GUID liste in env: SP_LIST_DIPENDENTI / SP_LIST_COLLABORATORI / SP_LIST_TIROCINI
+ * GUID liste in env: SP_LIST_DIPENDENTI / SP_LIST_TIROCINI
  * (creati da scripts/provision-risorse-umane.mjs)
  */
 
@@ -29,13 +30,12 @@ const SITE = () => process.env.SHAREPOINT_SITE_ID!
 
 const LIST_ENV: Record<RUEntity, () => string | undefined> = {
   dipendenti: () => process.env.SP_LIST_DIPENDENTI,
-  collaboratori: () => process.env.SP_LIST_COLLABORATORI,
   tirocini: () => process.env.SP_LIST_TIROCINI,
 }
 
 function listId(entity: RUEntity): string {
   const id = LIST_ENV[entity]()
-  if (!id) throw new Error(`Lista SharePoint non configurata per "${entity}" (imposta ${entity === 'dipendenti' ? 'SP_LIST_DIPENDENTI' : entity === 'collaboratori' ? 'SP_LIST_COLLABORATORI' : 'SP_LIST_TIROCINI'})`)
+  if (!id) throw new Error(`Lista SharePoint non configurata per "${entity}" (imposta ${entity === 'dipendenti' ? 'SP_LIST_DIPENDENTI' : 'SP_LIST_TIROCINI'})`)
   return id
 }
 

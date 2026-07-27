@@ -1,9 +1,14 @@
 #!/usr/bin/env node
 /**
  * Provisioning delle liste SharePoint dell'area Risorse Umane:
- *   - "Dipendenti"     (da PROFILO SOGGETTO)
- *   - "Collaboratori"  (da COLLABORATORI)
+ *   - "Dipendenti"     (da PROFILO SOGGETTO — include anche i Collaboratori,
+ *                        unificati qui il 2026-07 e distinti dal campo CategoriaRU)
  *   - "Tirocini"       (da TIROCINI)
+ *
+ * NB: la vecchia lista "Collaboratori" è stata eliminata dopo l'unificazione
+ * (vedi migrate-unifica-collaboratori-2026-07.mjs ed
+ * elimina-lista-collaboratori.mjs): non viene più provisionata qui apposta,
+ * per non farla ricomparire a un rilancio futuro di questo script.
  *
  * Crea (se non esistono) le liste con tutte le colonne usate da lib/risorse-umane.ts.
  * Idempotente: se una lista esiste già aggiunge solo le colonne mancanti.
@@ -14,7 +19,7 @@
  * Richiede in .env.local: GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET, SHAREPOINT_SITE_ID
  * Permesso Graph: Sites.ReadWrite.All (Application) — già presente.
  *
- * Al termine stampa le righe SP_LIST_DIPENDENTI / SP_LIST_COLLABORATORI / SP_LIST_TIROCINI
+ * Al termine stampa le righe SP_LIST_DIPENDENTI / SP_LIST_TIROCINI
  * da incollare in .env.local e nelle Environment Variables su Vercel.
  */
 
@@ -157,15 +162,6 @@ const DIPENDENTI_SPEC = [
   { name: 'CartellaUrl', ...text() },
 ]
 
-const COLLABORATORI_SPEC = [
-  { name: 'RecapitoTelefonico', ...text() }, // storico: dismesso dallo schema/UI, tenuto per i dati e la migrazione
-  { name: 'CategoriaProfessionale', ...text() },
-  { name: 'TipoPrestazione', ...text() },
-  { name: 'ServizioCoop', ...choice(SERVIZIO) },
-  { name: 'SocioCooperativa', ...choice(SINO) },
-  { name: 'CapitaleSociale', ...currency() },
-]
-
 const TIROCINI_SPEC = [
   { name: 'RecapitoTelefonico', ...text() }, // storico: dismesso dallo schema/UI, tenuto per i dati e la migrazione
   { name: 'LivelloIstruzione', ...text() },  // storico: dismesso dallo schema/UI, tenuto per i dati e la migrazione
@@ -184,7 +180,6 @@ const TIROCINI_SPEC = [
 
 const LISTE = [
   { envKey: 'SP_LIST_DIPENDENTI', displayName: 'Dipendenti', columns: conComuneCols(DIPENDENTI_SPEC) },
-  { envKey: 'SP_LIST_COLLABORATORI', displayName: 'Collaboratori', columns: conComuneCols(COLLABORATORI_SPEC) },
   { envKey: 'SP_LIST_TIROCINI', displayName: 'Tirocini', columns: conComuneCols(TIROCINI_SPEC) },
 ]
 
