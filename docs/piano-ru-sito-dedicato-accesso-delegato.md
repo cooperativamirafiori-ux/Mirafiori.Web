@@ -740,6 +740,25 @@ dedicata. **Elenco di cosa guardare quando si riprende:**
 | 9 | **Liste sorgente `ZZ_*_dismessa`**: dopo qualche settimana, valutare l'eliminazione definitiva | Sono la rete di sicurezza post-migrazione; tenerle per sempre significa avere due copie delle anagrafiche | D |
 | 10 | **Cronologia versioni**: verificare a distanza di tempo che stia effettivamente accumulando le versioni sulle due liste | Il versioning è stato attivato il 30/07: le modifiche precedenti non ci sono, e vale la pena controllare che quelle successive vengano conservate | D |
 
+### Localizzazione dei dati — accertata il 31/07/2026
+
+Utile per l'informativa: la catena è interamente in UE.
+
+| Dove | Cosa contiene | Localizzazione |
+|---|---|---|
+| Microsoft 365 / SharePoint | anagrafiche, documenti personali, log nativo | UE *(confermato da Dennis)* |
+| Supabase | timbrature di tutti i dipendenti, tabella `ms_token` | UE *(confermato da Dennis)* |
+| Vercel — esecuzione del codice | nessuna archiviazione, solo elaborazione | **Francoforte** (`fra1`), impostata in `vercel.json` |
+
+Due precisazioni da non omettere se il documento finisce davanti a un consulente:
+
+- `"regions": ["fra1"]` decide dove le funzioni **vengono eseguite**, non dove i dati stanno.
+  Sul piano Hobby si può indicare una sola regione.
+- La rete CDN di Vercel resta **globale** e mette in cache gli asset statici in tutto il mondo:
+  riguarda pagine e immagini pubbliche, non i dati del personale, che passano solo da funzioni
+  dinamiche. Vercel resta comunque un fornitore statunitense che agisce da responsabile del
+  trattamento, quindi conta il suo DPA — non la sola scelta della regione.
+
 ### Passo 6-bis — Elementi originari del passo 6 (per riferimento)
 
 - [ ] **(D)** Verifica del piano di audit Purview attivo e dei giorni di conservazione
