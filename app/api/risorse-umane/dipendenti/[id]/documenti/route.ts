@@ -2,12 +2,11 @@
  * POST /api/risorse-umane/dipendenti/[id]/documenti — carica un documento
  * (multipart/form-data, campo "file", < 4 MB) nella cartella personale.
  *
- * Protetta dal permesso "Risorse Umane".
+ * Accesso: membri del gruppo Microsoft 365 "Risorse Umane" (vedi lib/gruppo-ru.ts).
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { guardArea } from '@/lib/api-guard'
-import { AREA_RU } from '@/lib/ru-api'
+import { guardMembroRU } from '@/lib/api-guard'
 import { caricaDocumentoDipendente } from '@/lib/risorse-umane'
 import { graphRU } from '@/lib/graph-delegato'
 import { logAzione } from '@/lib/audit'
@@ -17,7 +16,7 @@ export const dynamic = 'force-dynamic'
 const MAX_BYTES = 4 * 1024 * 1024
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const g = await guardArea(AREA_RU)
+  const g = await guardMembroRU()
   if (g.error) return g.error
   const { id } = await params
 

@@ -15,7 +15,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { guardArea } from '@/lib/api-guard'
+import { guardMembroRU } from '@/lib/api-guard'
 import {
   getItems,
   getItem,
@@ -29,6 +29,12 @@ import { logAzione } from '@/lib/audit'
 import { generaExportBuffer, nomeFileExport } from '@/lib/ru-export-xlsx'
 import { RU_CONFIG, type RUEntity, type RURecord } from '@/types/risorse-umane'
 
+/**
+ * Etichetta dell'area, usata nei codici azione del log applicativo.
+ *
+ * ⚠️ NON è più un permesso della lista Autorizzazioni: l'accesso alle anagrafiche
+ * dipende dall'appartenenza al gruppo M365 (vedi `guardMembroRU`).
+ */
 export const AREA_RU = 'Risorse Umane'
 
 /** Entità RU al singolare, per i codici azione del log (es. "ru.dipendente.crea"). */
@@ -76,7 +82,7 @@ function errore(e: unknown, fallback: string, status = 500) {
 
 export function listHandlers(entity: RUEntity) {
   async function GET() {
-    const g = await guardArea(AREA_RU)
+    const g = await guardMembroRU()
     if (g.error) return g.error
     try {
       const gc = await graphRU(g.session.user.email)
@@ -88,7 +94,7 @@ export function listHandlers(entity: RUEntity) {
   }
 
   async function POST(req: NextRequest) {
-    const g = await guardArea(AREA_RU)
+    const g = await guardMembroRU()
     if (g.error) return g.error
     let body: Record<string, unknown>
     try {
@@ -133,7 +139,7 @@ export function listHandlers(entity: RUEntity) {
  */
 export function exportHandler(entity: RUEntity) {
   async function POST(req: NextRequest) {
-    const g = await guardArea(AREA_RU)
+    const g = await guardMembroRU()
     if (g.error) return g.error
 
     let body: { fields?: unknown; ids?: unknown }
@@ -194,7 +200,7 @@ export function exportHandler(entity: RUEntity) {
 
 export function itemHandlers(entity: RUEntity) {
   async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-    const g = await guardArea(AREA_RU)
+    const g = await guardMembroRU()
     if (g.error) return g.error
     const { id } = await params
     if (!id) return NextResponse.json({ error: 'ID mancante' }, { status: 400 })
@@ -208,7 +214,7 @@ export function itemHandlers(entity: RUEntity) {
   }
 
   async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-    const g = await guardArea(AREA_RU)
+    const g = await guardMembroRU()
     if (g.error) return g.error
     const { id } = await params
     if (!id) return NextResponse.json({ error: 'ID mancante' }, { status: 400 })
@@ -238,7 +244,7 @@ export function itemHandlers(entity: RUEntity) {
   }
 
   async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-    const g = await guardArea(AREA_RU)
+    const g = await guardMembroRU()
     if (g.error) return g.error
     const { id } = await params
     if (!id) return NextResponse.json({ error: 'ID mancante' }, { status: 400 })

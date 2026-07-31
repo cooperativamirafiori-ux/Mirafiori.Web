@@ -25,7 +25,7 @@ ENV_FILE=".env.local"
 APPLY=false
 [[ "${1:-}" == "--apply" ]] && APPLY=true
 
-VARIABILI=(SP_SITE_RU SP_RU_DRIVE_ID SP_RU_FOLDER SP_LIST_DIPENDENTI SP_LIST_TIROCINI TOKEN_ENC_KEY)
+VARIABILI=(SP_SITE_RU SP_RU_DRIVE_ID SP_RU_FOLDER SP_LIST_DIPENDENTI SP_LIST_TIROCINI SP_GRUPPO_RU_ID TOKEN_ENC_KEY)
 AMBIENTI=(production preview development)
 
 # --- lettura dal blocco [B] (o dal file, per TOKEN_ENC_KEY) -----------------
@@ -113,7 +113,7 @@ done
 
 echo
 echo "Controllo finale:"
-vercel env ls 2>/dev/null | grep -E "SP_SITE_RU|SP_RU_|SP_LIST_|TOKEN_ENC_KEY" || true
+vercel env ls 2>/dev/null | grep -E "SP_SITE_RU|SP_RU_|SP_LIST_|SP_GRUPPO_RU_ID|TOKEN_ENC_KEY" || true
 
 cat <<'FINE'
 

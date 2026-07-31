@@ -25,3 +25,36 @@ export async function guardArea(area: string): Promise<GuardResult> {
   }
   return { session, error: null }
 }
+
+/**
+ * Guard per le anagrafiche Risorse Umane.
+ *
+ * Non usa un permesso della lista Autorizzazioni: dopo il passaggio al sito
+ * dedicato con accesso delegato il cancello è l'appartenenza al gruppo
+ * Microsoft 365 del sito, ed è anche ciò che SharePoint verifica per conto suo.
+ * Un permesso applicativo in più sarebbe un secondo elenco destinato a
+ * divergere — punto 14 di docs/piano-ru-sito-dedicato-accesso-delegato.md.
+ *
+ * Questo controllo evita all'utente un 403 opaco da Graph; la barriera vera
+ * resta SharePoint.
+ */
+export async function guardMembroRU(): Promise<GuardResult> {
+  const session = await auth()
+  if (!session?.user?.email) {
+    return { session: null, error: NextResponse.json({ error: 'Non autenticato' }, { status: 401 }) }
+  }
+  if (!session.user.membroRU) {
+    return {
+      session: null,
+      error: NextResponse.json(
+        {
+          error:
+            'Non fai parte del gruppo Risorse Umane e non puoi accedere ai dati del personale. Contatta Amministrazione.',
+          codice: 'permessi-sito',
+        },
+        { status: 403 },
+      ),
+    }
+  }
+  return { session, error: null }
+}

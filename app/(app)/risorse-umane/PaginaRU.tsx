@@ -7,8 +7,6 @@ import { graphRU } from '@/lib/graph-delegato'
 import { RU_CONFIG, type RUEntity, type RURecord } from '@/types/risorse-umane'
 import { GestioneRU } from './GestioneRU'
 
-const AREA = 'Risorse Umane'
-
 const ENV_HINT: Record<RUEntity, string> = {
   dipendenti: 'SP_LIST_DIPENDENTI',
   tirocini: 'SP_LIST_TIROCINI',
@@ -21,7 +19,9 @@ const DESCRIZIONE: Record<RUEntity, string> = {
 
 export async function PaginaRU({ entity }: { entity: RUEntity }) {
   const session = await auth()
-  if (!session?.user?.permessi?.includes(AREA)) redirect('/home')
+  // L'accesso alle anagrafiche segue l'appartenenza al gruppo M365, non un
+  // permesso applicativo: punto 14 del piano RU.
+  if (!session?.user?.membroRU) redirect('/home')
 
   const config = RU_CONFIG[entity]
   let items: RURecord[] = []

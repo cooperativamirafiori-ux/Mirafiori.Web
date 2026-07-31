@@ -7,7 +7,13 @@ export default async function HomePage() {
   const nome = (session?.user?.name ?? '').trim().split(/\s+/)[0] || ''
   const puoAmministrare = session?.user?.permessi?.includes('Amministrazione') ?? false
   const puoPrestazioni = session?.user?.permessi?.includes('Prestazioni Occasionali') ?? false
-  const puoRisorseUmane = session?.user?.permessi?.includes('Risorse Umane') ?? false
+  // Anagrafiche: appartenenza al gruppo M365. Cruscotto presenze: permesso
+  // applicativo. Sono due cose diverse, la voce di menu appare se almeno una
+  // delle due è concessa (punto 14 del piano RU).
+  const permessiUtente = session?.user?.permessi ?? []
+  const puoTimbratureHr =
+    permessiUtente.includes('Timbrature HR') || permessiUtente.includes('Risorse Umane')
+  const puoRisorseUmane = (session?.user?.membroRU ?? false) || puoTimbratureHr
 
   const mostraRiservata = puoRisorseUmane || puoAmministrare
 

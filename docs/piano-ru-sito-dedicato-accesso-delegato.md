@@ -428,6 +428,76 @@ fallisce indica quale dei tre livelli non è a posto.
 
 ---
 
+## 14. Permessi dell'app dopo il passaggio al delegato — da fare
+
+**Problema accertato il 31/07/2026.** Il permesso `"Risorse Umane"` della lista SP
+Autorizzazioni governa **due cose diverse**:
+
+| Cosa apre | Dove stanno i dati | È il cancello vero? |
+|---|---|---|
+| Anagrafiche dipendenti/tirocini | SharePoint, sito RU | **No** — il cancello è l'appartenenza al gruppo M365 |
+| Cruscotto HR delle timbrature (`lib/timbrature-guard.ts`, `AREA_HR`) | Supabase | **Sì** — è l'unico controllo esistente |
+
+Sulle anagrafiche il permesso è diventato un filtro di *visibilità*, non di sicurezza. Ne
+derivano due incoerenze, oggi innocue perché i due elenchi coincidono, ma destinate a
+divergere:
+
+- permesso **sì**, gruppo M365 **no** → vede la voce di menu, entra, prende 403. Vicolo cieco
+- permesso **no**, gruppo M365 **sì** → non vede la sezione nell'app, ma legge i dati
+  direttamente da SharePoint
+
+### Stato: codice scritto il 31/07/2026, restano due passaggi manuali
+
+- [x] **(C)** `lib/gruppo-ru.ts` — `eMembroGruppoRU()`, cache a TTL 5 min della lista membri
+- [x] **(C)** `AREE_PERMESSI`: `"Risorse Umane"` sostituito da `"Timbrature HR"`
+- [x] **(C)** `lib/timbrature-guard.ts` usa `"Timbrature HR"`, con **ripiego temporaneo** sul
+      permesso storico per non chiudere il cruscotto prima della migrazione delle righe
+- [x] **(C)** `guardMembroRU()` in `lib/api-guard.ts`, usata da `ru-api.ts` e dalle 3 route
+      cartella/documenti
+- [x] **(C)** pagine: `PaginaRU.tsx` e la home usano `membroRU`; la pagina hub RU mostra solo
+      le card a cui la persona ha effettivamente accesso, così nessuna card è un vicolo cieco
+- [x] **(C)** `SP_GRUPPO_RU_ID` in `.env.local` (fuori dal blocco A/B: serve sempre) e
+      aggiunta a `scripts/vercel-env-ru.sh`
+- [ ] **(D)** permesso Graph **`GroupMember.Read.All` (Application)** con consenso admin
+- [ ] **(D)** righe `Timbrature HR` nella lista SP Autorizzazioni per chi usa il cruscotto
+      presenze — **prima** del deploy
+- [ ] **(C)** rimozione del ripiego `AREA_HR_LEGACY` a migrazione completata
+
+### Assetto scelto (Dennis, 31/07/2026)
+
+**Separare le due cose e allineare le anagrafiche al gruppo**, così ogni accesso ha una sola
+fonte di verità.
+
+1. **Nuovo permesso `"Timbrature HR"`** in `AREE_PERMESSI` (`lib/sharepoint.ts`), usato da
+   `lib/timbrature-guard.ts` al posto di `AREA_HR = 'Risorse Umane'`. Lì resta il cancello
+   vero, perché i dati sono su Supabase e SharePoint non c'entra.
+   *Migrazione*: per ogni persona che oggi ha `"Risorse Umane"` e usa il cruscotto presenze,
+   aggiungere una riga `Timbrature HR` nella lista Autorizzazioni. **Da fare prima** del
+   cambio di codice, altrimenti il cruscotto si chiude a tutti.
+
+2. **Visibilità delle anagrafiche derivata dal gruppo M365.** Nuovo
+   `lib/gruppo-ru.ts` con `eMembroGruppoRU(email)`: legge i membri del gruppo
+   `82c6267d-1e45-4b57-b0dc-3772d1f32a4b` via Graph app-only
+   (`GET /groups/{id}/transitiveMembers`), con cache a TTL breve **per gruppo** — la lista è
+   una sola e serve tutti gli utenti, quindi una chiamata ogni pochi minuti basta. Il
+   callback `session` di `lib/auth.ts` aggiunge `membroRU: boolean`; `guardArea(AREA_RU)`
+   sulle route delle anagrafiche viene sostituito da quel controllo.
+
+3. **Rimuovere `"Risorse Umane"` da `AREE_PERMESSI`** una volta completati 1 e 2: non
+   servirebbe più a nulla, e lasciarlo sarebbe un interruttore che non comanda niente — il
+   modo più sicuro per far credere a qualcuno di aver revocato un accesso.
+
+**Richiede un permesso Graph nuovo**: `GroupMember.Read.All` (Application), in sola lettura.
+Va aggiunto e consentito con la stessa procedura del runbook §1.
+
+**Scelta di progetto da rispettare: in caso di errore nella lettura del gruppo, la sezione
+si mostra comunque.** Il cancello di sicurezza è SharePoint, non il menu: un errore transitorio
+di Graph non deve nascondere la sezione a chi ne ha diritto, e chi non ne ha diritto prende
+comunque 403 dal canale delegato. Fallire "aperti" sulla visibilità e "chiusi" sui dati è
+corretto; l'inverso sarebbe sbagliato in entrambi i versi.
+
+---
+
 ## 13. Stato di avanzamento
 
 > **Questa è la fonte di verità sullo stato dei lavori.** Va aggiornata a ogni passo
@@ -439,23 +509,33 @@ fallisce indica quale dei tre livelli non è a posto.
 
 ### ▶ Dove siamo — prossimo passo
 
-**Passi 1-4 completati e collaudati** (30/07/2026). L'accesso delegato funziona: un item
-creato dall'app sul sito RU riporta il nome reale della persona nel log nativo Microsoft.
+**Passi 1-5 completati** (30/07/2026): permessi, sito, codice, migrazione dei 263 dipendenti,
+env su Vercel, deploy. In locale l'accesso delegato è verificato — un item creato dall'app
+riporta il nome reale della persona nel log nativo Microsoft.
 
-**Prossimo: passo 5 — migrazione dei dati.**
+**Produzione verificata il 31/07/2026**: record creato dall'app in produzione (id 265) con
+`Creato da` = `Modificato da` = **Dennis Maseri**. Il canale delegato funziona end-to-end.
 
-1. **(C)** scrivere `scripts/migra-ru-sito-dedicato.mjs` — copia item preservando `IdAccess`,
-   poi le cartelle personali con `POST /drives/{id}/items/{id}/copy` (asincrona, serve polling)
-2. **(C/D)** migrazione di prova + confronto conteggi (attesi: 275 dipendenti, 19 tirocini)
-3. **(D)** migrazione definitiva e cutover, **di seguito e non a giorni di distanza**: la
-   migrazione copia e non sposta, quindi fra copia e cutover una modifica fatta sulla lista
-   vecchia si perderebbe. Scegliere un momento in cui nessuno lavora sulle anagrafiche
-4. **(D)** env su Vercel (production/preview/development) + `TOKEN_ENC_KEY` **diversa** da
-   quella locale
-5. **(D)** avvisare le 13 persone: al cutover devono **uscire e rientrare** nell'app, perché
-   il refresh token nasce solo al login
-6. **(D)** collaudo con la checklist del punto 10, poi rinominare le liste sorgente
-   `ZZ_*_dismessa` tenendole qualche settimana
+**Collaudo completato il 31/07/2026** e le 13 persone sono state avvisate. L'area Risorse Umane
+è in produzione sul sito dedicato con accesso delegato.
+
+**Resta aperto, in ordine di rilevanza:**
+
+1. **(D)** rinominare le liste sorgente `ZZ_Dipendenti_dismessa` / `ZZ_Tirocini_dismessa` e
+   togliere i permessi — tenerle qualche settimana come rete di sicurezza
+2. **(C/D)** **punto 14**: separare il permesso `"Timbrature HR"` e allineare la visibilità
+   delle anagrafiche al gruppo M365. Decisione presa, progetto scritto, da eseguire
+3. **(C/D)** **passo 6, governance**: rimandato, elenco delle dieci cose da guardare più sotto
+4. **(D)** chiusura mensile timbrature → il foglio ore finisce nella cartella personale
+5. **(D)** **avvisare le 13 persone del gruppo M365**: al primo accesso devono **uscire e
+   rientrare**, altrimenti l'area RU risponde "esci e rientra nell'app" (manca il refresh
+   token, che nasce solo al login)
+6. **(D)** solo dopo il collaudo: rinominare le liste sorgente `ZZ_*_dismessa`, togliere i
+   permessi, tenerle qualche settimana
+
+Poi resta il **passo 6** (governance): retention Purview, cron di cancellazione log oltre 12
+mesi, informativa art. 4 co. 3 — da aggiornare anche sul fatto che le persone con accesso sono
+13 e non 3-4, e che l'accesso segue l'appartenenza al Teams dell'HR.
 
 Prima della migrazione: eliminare l'item di prova "prova prova" dalla lista Dipendenti del
 sito RU (spItemId 1).
@@ -574,16 +654,54 @@ del personale è costoso:
 | `scripts/sp-liste.mjs` | rilegge i GUID delle liste da Graph (su Vercel le env sensibili non sono recuperabili) |
 | `scripts/get-site-id.mjs` | ricava `SP_SITE_RU` e `SP_RU_DRIVE_ID` dall'URL del sito |
 
-### Passo 5 — Migrazione
+### Passo 5 — Migrazione ✅ ESEGUITA 30/07/2026
 
-- [ ] **(C)** `scripts/migra-ru-sito-dedicato.mjs`
-- [ ] **(C/D)** Migrazione di prova + confronto conteggi
-- [ ] **(D)** Migrazione definitiva
-- [ ] **(C)** Nuove env in `.env.local` e su Vercel (comandi CLI pronti)
-- [ ] **(D)** Collaudo completo con la checklist del punto 10
+- [x] **(C)** `scripts/migra-ru-sito-dedicato.mjs` (dry-run per difetto, `--apply`,
+      `--duplicati` per la diagnosi, idempotente)
+- [x] **(C/D)** Migrazione di prova + confronto conteggi
+- [x] **(D)** **Migrazione definitiva: 263 dipendenti, 5 cartelle personali, 0 errori.**
+      Tirocini: lista sorgente vuota, nulla da migrare (accettato da Dennis — la sezione era
+      da rivedere)
+- [x] **(C)** Nuove env in `.env.local` (blocco assetti) e su Vercel via
+      `scripts/vercel-env-ru.sh --apply` — 6 variabili × 3 ambienti
+- [x] **(C)** Codice pubblicato: commit `48251ad` su `main`, deploy automatico Vercel
+- [ ] **(D)** Collaudo completo con la checklist del punto 10, in produzione
+- [ ] **(D)** Avviso alle 13 persone: devono uscire e rientrare nell'app
 - [ ] **(D)** Liste sorgente rinominate `ZZ_*_dismessa` e permessi rimossi
 
-### Passo 6 — Governance
+**Trappola trovata durante la migrazione, da ricordare.** `IdAccess` **non è univoco** sulla
+lista Dipendenti: le tabelle Access PROFILO SOGGETTO e COLLABORATORI avevano numerazioni
+indipendenti, entrambe da 1, e l'unificazione del 2026-07 le ha sovrapposte — per ogni valore
+1..14 esistono due persone diverse. La prima versione dello script usava `IdAccess` come chiave
+primaria e ha scartato 12 collaboratori come falsi doppioni. Corretto anteponendo il codice
+fiscale. Se in futuro serve un identificativo stabile per i dipendenti, `IdAccess` non lo è.
+
+**Ordine del cutover, se andasse rifatto.** Prima le env su Vercel, poi il push del codice: le
+variabili diventano attive solo al deploy successivo, quindi il build che segue il push applica
+insieme codice nuovo e variabili nuove. Nell'ordine inverso, o con un deploy in mezzo, la
+produzione girerebbe col codice vecchio e i GUID delle liste nuove — che sul sito vecchio non
+esistono.
+
+### Passo 6 — Governance — ⏸ RIMANDATO (decisione di Dennis, 31/07/2026)
+
+Nulla di quanto segue è bloccante per il funzionamento: l'area RU è operativa e il log nativo
+registra le persone reali. Sono adempimenti e affinamenti da affrontare in una sessione
+dedicata. **Elenco di cosa guardare quando si riprende:**
+
+| # | Cosa | Perché | A chi tocca |
+|---|---|---|---|
+| 1 | **Piano di audit Purview**: verificare quale licenza è attiva e quanti giorni di conservazione dà (Audit Standard ≈ 180 gg) | Con il delegato Purview registra anche le **consultazioni** col nome reale: è la parte più preziosa del lavoro, ma dura quanto la retention. Se serve un orizzonte probatorio più lungo occorre una licenza superiore o un export periodico | D |
+| 2 | **Informativa art. 4 co. 3 Statuto dei Lavoratori**: aggiornarla | Va detto che gli addetti HR accedono anche direttamente da SharePoint/OneDrive e che le loro azioni — comprese le consultazioni — sono tracciate. Due dettagli emersi il 30/07: le persone con accesso sono **13** (il piano ipotizzava 3-4) e l'accesso segue **l'appartenenza al Teams dell'HR**, non un elenco separato | D |
+| 3 | **Comunicazione a Stefano Martino** (unico proprietario del gruppo M365) | È di fatto lui che concede l'accesso alle anagrafiche: aggiungere una persona al Teams significa darle IBAN, Legge 104, stato di famiglia di 263 dipendenti | D |
+| 4 | **Casella `info@cooperativamirafiori.com` nel gruppo** | È condivisa: le sue azioni risultano come "Info Coop Mirafiori", senza indicare la persona. Su quelle azioni l'obiettivo del lavoro non è raggiunto. Da valutare se togliere l'accesso ai dati RU lasciandola nel Teams | D |
+| 5 | **Retention del log applicativo**: cron che cancella le righe oltre i 12 mesi | L'infrastruttura cron su Vercel c'è già. Il log applicativo cresce senza limite e contiene nominativi | C |
+| 6 | **Coerenza fra permesso applicativo e gruppo M365** | Vedi punto 14 di questo documento: sono due elenchi separati che possono divergere | C/D |
+| 7 | **`Sites.Selected` anche per l'identità applicativa** al posto di `Sites.ReadWrite.All` | Oggi l'app-only può scrivere su qualunque sito del tenant. Il meccanismo dei grant è ormai noto. Da testare modulo per modulo: Manutenzioni, Costi, Software, Prestazioni, Autorizzazioni, Log | C/D |
+| 8 | **`Domande_Consulenti_Log_Attivita_GDPR.md`**: aggiornare con l'assetto realizzato | Il documento per i consulenti descrive ancora l'ipotesi, non ciò che è stato fatto | C |
+| 9 | **Liste sorgente `ZZ_*_dismessa`**: dopo qualche settimana, valutare l'eliminazione definitiva | Sono la rete di sicurezza post-migrazione; tenerle per sempre significa avere due copie delle anagrafiche | D |
+| 10 | **Cronologia versioni**: verificare a distanza di tempo che stia effettivamente accumulando le versioni sulle due liste | Il versioning è stato attivato il 30/07: le modifiche precedenti non ci sono, e vale la pena controllare che quelle successive vengano conservate | D |
+
+### Passo 6-bis — Elementi originari del passo 6 (per riferimento)
 
 - [ ] **(D)** Verifica del piano di audit Purview attivo e dei giorni di conservazione
       *(rimandato dal passo 1)*
@@ -603,6 +721,8 @@ del personale è costoso:
 | 30/07/2026 | Piano redatto e approvato. Accertato che le app registration di login e Graph coincidono. |
 | 30/07/2026 | Verifica Purview ed elenco nominativo del gruppo rimandati al passo 6. Confermato `Sites.Selected` come permesso delegato. |
 | 30/07/2026 | Conditional Access verificato da Dennis: nessuna policy che richieda dispositivo conforme o hybrid-joined. Via libera all'accesso delegato. |
+| 31/07/2026 | **Collaudo in produzione superato** (record creato dall'app riporta "Dennis Maseri"), prove su cartelle e documenti fatte, 13 persone avvisate. Governance **rimandata** su decisione di Dennis: nel passo 6 c'è l'elenco delle dieci cose da riprendere. Accertato che il permesso `"Risorse Umane"` governa anche il cruscotto HR delle timbrature (Supabase), dove è l'unico controllo di accesso: deciso di separare un permesso `"Timbrature HR"` e derivare la visibilità delle anagrafiche dal gruppo M365 — progetto al punto 14, da eseguire. |
+| 30/07/2026 | **Passo 5 eseguito: migrazione e cutover.** 263 dipendenti e 5 cartelle personali copiati sul sito RU, 0 errori; lista Tirocini sorgente vuota, nulla da migrare. Scoperto che `IdAccess` non è univoco (numerazioni Access sovrapposte dopo l'unificazione dei collaboratori): la prima versione dello script scartava 12 collaboratori come doppioni, corretta anteponendo il codice fiscale nella chiave di appaiamento. Env impostate su Vercel (6 × 3 ambienti) **prima** del push, così il build applica insieme codice e variabili. Codice pubblicato: commit `48251ad`. Restano collaudo in produzione, avviso alle 13 persone e rinomina delle liste sorgente. |
 | 30/07/2026 | **Passo 4 completato e collaudato.** Scritto il codice dell'accesso delegato (`lib/ms-token.ts` con Web Crypto + REST per compatibilità Edge, `lib/graph-delegato.ts` con `graphRU()`, `GraphClient` come primo parametro in `lib/risorse-umane.ts`, 6 chiamanti aggiornati, traduzione errori). Tabella `ms_token` creata su Supabase. Trovate e colmate lacune preesistenti di `.env.local` in locale: mancavano `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` e `SP_LIST_AUTORIZZAZIONI` (per questo l'area RU non era mai comparsa in locale). **Prova superata: un item creato dall'app sul sito RU riporta "Creato/Modificato da: Dennis Maseri".** Aggiunti 5 script di supporto alla transizione. |
 | 30/07/2026 | **Passo 3 quasi completato.** Accertato che il sito RU è un Team site `GROUP#0` con gruppo M365 e Teams attivi dal 29/09/2025, non un communication site: non si ricrea. Su richiesta di Dennis di semplificare, `RU-Gestione` **eliminato** e accesso governato dal solo gruppo M365 (13 membri, 1 proprietario). Corrette le impostazioni di condivisione del sito (esterna e link org-wide erano attive). Registrata l'app di amministrazione `PnP-Mirafiori-Admin` (`e44f7f37-…`) con `AllSites.FullControl` + `Sites.FullControl.All`, necessaria perché l'app di Azure CLI non può concedere permessi di sito. **Grant `Sites.Selected` dato sul sito RU: `Roles : {write}`.** Restano: versioning, provisioning liste, env. |
 | 30/07/2026 | **Passo 2 completato.** Azure CLI installato, login al tenant come Global Administrator, permessi delegati `Sites.Selected` + `offline_access` aggiunti e consenso amministratore dato (`AllPrincipals`). Scoperto un delegato `Sites.Manage.All` preesistente e mai usato, che avrebbe vanificato la limitazione di `Sites.Selected`: **rimosso** (consenso revocato via PATCH del grant + permesso togliato dalla registrazione). Backup su Desktop di Dennis: `backup-permessi-app-mirafiori.json`, `backup-grant-app-mirafiori.json`. |

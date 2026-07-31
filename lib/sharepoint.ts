@@ -383,7 +383,18 @@ export async function isAdmin(email: string): Promise<boolean> {
 // ============================================================
 
 // Aree note dell'app. Aggiungi qui le nuove aree man mano che le crei.
-export const AREE_PERMESSI = ['Amministrazione', 'Prestazioni Occasionali', 'Risorse Umane'] as const
+//
+// ⚠️ "Risorse Umane" è stato RIMOSSO il 31/07/2026. Dopo il passaggio dell'area
+// anagrafiche al sito dedicato con accesso delegato, il cancello di accesso è
+// l'appartenenza al gruppo Microsoft 365 del sito (lib/gruppo-ru.ts): un
+// permesso applicativo qui sarebbe un secondo elenco destinato a divergere, e
+// un interruttore che non comanda niente è peggio di nessun interruttore —
+// fa credere di aver revocato un accesso.
+//
+// Il cruscotto HR delle timbrature, che legge da Supabase e con SharePoint non
+// c'entra, ha invece il suo permesso: "Timbrature HR". Vedi il punto 14 di
+// docs/piano-ru-sito-dedicato-accesso-delegato.md.
+export const AREE_PERMESSI = ['Amministrazione', 'Prestazioni Occasionali', 'Timbrature HR'] as const
 export type AreaPermesso = (typeof AREE_PERMESSI)[number]
 
 // Fallback usato se la lista SP non esiste ancora o Graph fallisce.

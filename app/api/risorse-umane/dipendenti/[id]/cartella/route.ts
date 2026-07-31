@@ -2,12 +2,11 @@
  * GET  /api/risorse-umane/dipendenti/[id]/cartella  — URL cartella + elenco documenti
  * POST /api/risorse-umane/dipendenti/[id]/cartella  — crea (se manca) la cartella personale
  *
- * Protette dal permesso "Risorse Umane".
+ * Accesso: membri del gruppo Microsoft 365 "Risorse Umane" (vedi lib/gruppo-ru.ts).
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { guardArea } from '@/lib/api-guard'
-import { AREA_RU } from '@/lib/ru-api'
+import { guardMembroRU } from '@/lib/api-guard'
 import { graphRU } from '@/lib/graph-delegato'
 import { logAzione } from '@/lib/audit'
 import {
@@ -19,7 +18,7 @@ import {
 export const dynamic = 'force-dynamic'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const g = await guardArea(AREA_RU)
+  const g = await guardMembroRU()
   if (g.error) return g.error
   const { id } = await params
   try {
@@ -36,7 +35,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const g = await guardArea(AREA_RU)
+  const g = await guardMembroRU()
   if (g.error) return g.error
   const { id } = await params
   try {

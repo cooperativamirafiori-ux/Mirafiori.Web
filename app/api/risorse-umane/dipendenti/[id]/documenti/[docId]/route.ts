@@ -2,12 +2,11 @@
  * DELETE /api/risorse-umane/dipendenti/[id]/documenti/[docId] — elimina un
  * documento dalla cartella personale (docId = ID drive item).
  *
- * Protetta dal permesso "Risorse Umane".
+ * Accesso: membri del gruppo Microsoft 365 "Risorse Umane" (vedi lib/gruppo-ru.ts).
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { guardArea } from '@/lib/api-guard'
-import { AREA_RU } from '@/lib/ru-api'
+import { guardMembroRU } from '@/lib/api-guard'
 import { eliminaDocumentoDipendente } from '@/lib/risorse-umane'
 import { graphRU } from '@/lib/graph-delegato'
 import { logAzione } from '@/lib/audit'
@@ -15,7 +14,7 @@ import { logAzione } from '@/lib/audit'
 export const dynamic = 'force-dynamic'
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string; docId: string }> }) {
-  const g = await guardArea(AREA_RU)
+  const g = await guardMembroRU()
   if (g.error) return g.error
   const { id, docId } = await params
   if (!docId) return NextResponse.json({ error: 'ID documento mancante' }, { status: 400 })

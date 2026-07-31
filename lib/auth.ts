@@ -2,6 +2,7 @@ import NextAuth from 'next-auth'
 import MicrosoftEntraID from 'next-auth/providers/microsoft-entra-id'
 import { isAdmin, getPermessi } from '@/lib/sharepoint'
 import { salvaTokenDelegato, SCOPE_DELEGATO } from '@/lib/ms-token'
+import { eMembroGruppoRU } from '@/lib/gruppo-ru'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -58,14 +59,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
 
     async session({ session }) {
-      // Arricchisce la sessione con il flag admin e i permessi per area (letti da SP)
+      // Arricchisce la sessione con il flag admin, i permessi per area (letti da
+      // SP) e l'appartenenza al gruppo M365 Risorse Umane — che per le
+      // anagrafiche del personale è la fonte di verità al posto di un permesso
+      // applicativo (vedi lib/gruppo-ru.ts e il punto 14 del piano RU).
       if (session.user?.email) {
-        const [admin, permessi] = await Promise.all([
+        const [admin, permessi, membroRU] = await Promise.all([
           isAdmin(session.user.email),
           getPermessi(session.user.email),
+          eMembroGruppoRU(session.user.email),
         ])
         session.user.isAdmin = admin
         session.user.permessi = permessi
+        session.user.membroRU = membroRU
       }
       return session
     },
@@ -93,6 +99,8 @@ declare module 'next-auth' {
   interface User {
     isAdmin?: boolean
     permessi?: string[]
+    /** Membro del gruppo M365 "Risorse Umane": governa l'accesso alle anagrafiche. */
+    membroRU?: boolean
   }
   interface Session {
     user: {
@@ -101,6 +109,7 @@ declare module 'next-auth' {
       image?: string | null
       isAdmin?: boolean
       permessi?: string[]
+      membroRU?: boolean
     }
   }
 }

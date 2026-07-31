@@ -5,22 +5,40 @@ import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 
-const AREA = 'Risorse Umane'
+// Le tre sezioni non hanno lo stesso cancello: anagrafiche e tirocini stanno su
+// SharePoint e seguono l'appartenenza al gruppo M365, il cruscotto presenze
+// legge da Supabase e ha il suo permesso applicativo. Mostrare una card che poi
+// rimanda alla home sarebbe un vicolo cieco, quindi ognuna dichiara cosa
+// richiede. Vedi punto 14 di docs/piano-ru-sito-dedicato-accesso-delegato.md.
+const AREA_TIMBRATURE = 'Timbrature HR'
+/** Permesso storico: ripiego da rimuovere a migrazione completata. */
+const AREA_TIMBRATURE_LEGACY = 'Risorse Umane'
 
-const SEZIONI = [
+type Requisito = 'gruppoRU' | 'timbratureHr'
+
+const SEZIONI: Array<{
+  href: string
+  emoji: string
+  titolo: string
+  sottotitolo: string
+  richiede: Requisito
+}> = [
   {
+    richiede: 'gruppoRU',
     href: '/risorse-umane/dipendenti',
     emoji: '👤',
     titolo: 'Dipendenti e collaboratori',
     sottotitolo: 'Anagrafica di dipendenti e collaboratori, dati contrattuali e cartelle documenti',
   },
   {
+    richiede: 'gruppoRU',
     href: '/risorse-umane/tirocini',
     emoji: '🎓',
     titolo: 'Tirocini',
     sottotitolo: 'Tirocinanti e percorsi di inserimento',
   },
   {
+    richiede: 'timbratureHr',
     href: '/risorse-umane/timbrature',
     emoji: '⏱️',
     titolo: 'Cruscotto Timbrature',
@@ -30,7 +48,16 @@ const SEZIONI = [
 
 export default async function RisorseUmanePage() {
   const session = await auth()
-  if (!session?.user?.permessi?.includes(AREA)) redirect('/home')
+  const permessi = session?.user?.permessi ?? []
+  const puoGruppoRU = session?.user?.membroRU ?? false
+  const puoTimbratureHr =
+    permessi.includes(AREA_TIMBRATURE) || permessi.includes(AREA_TIMBRATURE_LEGACY)
+
+  if (!puoGruppoRU && !puoTimbratureHr) redirect('/home')
+
+  const sezioni = SEZIONI.filter((s) =>
+    s.richiede === 'gruppoRU' ? puoGruppoRU : puoTimbratureHr,
+  )
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -50,7 +77,7 @@ export default async function RisorseUmanePage() {
         </p>
 
         <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {SEZIONI.map((s) => (
+          {sezioni.map((s) => (
             <Link
               key={s.href}
               href={s.href}
