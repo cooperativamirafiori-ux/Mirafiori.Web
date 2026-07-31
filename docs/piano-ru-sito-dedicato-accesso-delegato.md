@@ -458,7 +458,9 @@ divergere:
       le card a cui la persona ha effettivamente accesso, così nessuna card è un vicolo cieco
 - [x] **(C)** `SP_GRUPPO_RU_ID` in `.env.local` (fuori dal blocco A/B: serve sempre) e
       aggiunta a `scripts/vercel-env-ru.sh`
-- [x] **(D)** permesso Graph **`GroupMember.Read.All` (Application)** con consenso admin
+- [x] **(D)** permessi Graph **`GroupMember.Read.All`** e **`User.Read.All`** (Application,
+      sola lettura) con consenso amministratore — vedi la lezione qui sotto sul perché
+      servono entrambi
 - [x] **(D)** righe `Timbrature HR` nella lista SP Autorizzazioni
 - [x] **(C)** commit `ac73cb9`, env su Vercel (7 × 3 = 21 valori) e deploy in produzione
 - [x] **(C)** ripiego sul permesso storico **rimosso** (31/07/2026): `Timbrature HR` è ora
@@ -497,8 +499,35 @@ fonte di verità.
    servirebbe più a nulla, e lasciarlo sarebbe un interruttore che non comanda niente — il
    modo più sicuro per far credere a qualcuno di aver revocato un accesso.
 
-**Richiede un permesso Graph nuovo**: `GroupMember.Read.All` (Application), in sola lettura.
-Va aggiunto e consentito con la stessa procedura del runbook §1.
+**Richiede due permessi Graph nuovi** (Application, sola lettura), aggiunti e consentiti con
+la stessa procedura del runbook §1:
+
+| Permesso | A cosa serve |
+|---|---|
+| `GroupMember.Read.All` | sapere chi è nel gruppo |
+| `User.Read.All` | leggere email e UPN di quelle persone |
+
+**Lezione dal primo rilascio, che è andato storto.** Con il solo
+`GroupMember.Read.All`, la richiesta dei membri rispondeva **HTTP 200 con
+`userPrincipalName` e `mail` a `undefined`**: nessun errore, campi omessi. Il codice ne ha
+concluso che nessuno fosse membro del gruppo e ha chiuso la sezione anagrafiche a tutti.
+
+Le due cose da ricordare:
+
+1. **Chiedere a un'API dei dati che non si è autorizzati a vedere non produce necessariamente
+   un errore.** Graph ha risposto correttamente omettendo ciò che non poteva mostrare. Da qui
+   la guardia in `lib/gruppo-ru.ts`: una lista di membri vuota viene trattata come anomalia —
+   e quindi "sezione visibile" — non come la verità sul gruppo.
+2. **I permessi applicativi entrano nei token con qualche minuto di ritardo.** Dopo il consenso
+   la diagnosi continuava a dare 403 e sembrava un problema di configurazione: era solo
+   propagazione. `node scripts/diagnosi-permessi.mjs` legge il claim `roles` del token
+   rilasciato in quel momento, che è ciò che Graph valuta davvero.
+
+**Alternativa valutata e scartata**: confrontare gli object id anziché le email, prendendo il
+proprio dalla claim `oid` dell'id_token. Non avrebbe richiesto `User.Read.All`, ma avrebbe
+imposto a tutti di rifare l'accesso. Deciso di aggiungere il permesso, considerando che l'app
+ha già `Sites.ReadWrite.All` su tutto il tenant: accanto a quello, una lettura sui profili non
+cambia il profilo di rischio.
 
 **Scelta di progetto da rispettare: in caso di errore nella lettura del gruppo, la sezione
 si mostra comunque.** Il cancello di sicurezza è SharePoint, non il menu: un errore transitorio
