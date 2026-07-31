@@ -287,7 +287,66 @@ export async function getDocumentiDipendente(g: GraphClient, spItemId: string): 
     }))
 }
 
-/** Carica un documento (< 4 MB) nella cartella personale del dipendente. */
+export interface SessioneUpload {
+  /** URL pre-autorizzato su cui il browser carica il file, a blocchi. */
+  uploadUrl: string
+  /** Scadenza dell'URL (ISO). Passata quella, va richiesta una sessione nuova. */
+  scadeIl: string
+  /** Nome definitivo del file, già sanificato e con il prefisso della categoria. */
+  nomeFile: string
+}
+
+/**
+ * Apre una sessione di caricamento su SharePoint e restituisce l'URL a cui il
+ * browser invierà il file **direttamente**, senza passare da noi.
+ *
+ * Perché non far transitare il file dal server, come faceva la versione
+ * precedente con `caricaDocumentoDipendente`:
+ *
+ * 1. **Il file non attraversa Vercel.** Prima i byte di una carta d'identità
+ *    stavano nella memoria della funzione per la durata della richiesta. Ora
+ *    Vercel vede solo la richiesta di questa sessione.
+ * 2. **Cade il limite dei 4 MB**, che era la somma di due vincoli: l'upload
+ *    semplice di Graph si ferma lì, e Vercel accetta corpi fino a ~4,5 MB.
+ * 3. **Nessun rischio di timeout.** Il caricamento non occupa più una funzione
+ *    serverless per tutta la sua durata: su piano Hobby il limite è 10 secondi,
+ *    che una connessione lenta con un PDF di qualche MB può superare.
+ *
+ * ⚠️ L'URL restituito è **pre-autorizzato**: chi lo possiede può scrivere in
+ * quella cartella fino alla scadenza, senza altre credenziali. Va consegnato
+ * solo a chi ha diritto di caricare e non deve finire in alcun log.
+ */
+export async function creaSessioneUploadDocumento(
+  g: GraphClient,
+  spItemId: string,
+  filename: string,
+): Promise<SessioneUpload> {
+  const dip = await getItem(g, 'dipendenti', spItemId)
+  const driveId = await getDriveId(g)
+  const relPath = `${folderRoot()}/${nomeCartella(dip)}`
+  await ensureFolderPath(g, driveId, relPath)
+
+  const safe = sanitize(filename) || 'documento'
+  const res = await g.post<{ uploadUrl: string; expirationDateTime: string }>(
+    `/drives/${driveId}/root:/${encodePath(`${relPath}/${safe}`)}:/createUploadSession`,
+    {
+      item: {
+        '@microsoft.graph.conflictBehavior': 'rename',
+        name: safe,
+      },
+    },
+  )
+
+  return { uploadUrl: res.uploadUrl, scadeIl: res.expirationDateTime, nomeFile: safe }
+}
+
+/**
+ * Carica un documento (< 4 MB) nella cartella personale del dipendente.
+ *
+ * Resta in uso per i caricamenti che partono dal SERVER — oggi solo il foglio
+ * ore alla chiusura mensile, che genera il file in memoria e non ha un browser
+ * davanti. Per i caricamenti dell'utente si usa `creaSessioneUploadDocumento`.
+ */
 export async function caricaDocumentoDipendente(
   g: GraphClient,
   spItemId: string,

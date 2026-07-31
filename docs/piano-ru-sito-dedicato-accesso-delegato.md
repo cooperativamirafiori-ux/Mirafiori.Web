@@ -740,6 +740,47 @@ dedicata. **Elenco di cosa guardare quando si riprende:**
 | 9 | **Liste sorgente `ZZ_*_dismessa`**: dopo qualche settimana, valutare l'eliminazione definitiva | Sono la rete di sicurezza post-migrazione; tenerle per sempre significa avere due copie delle anagrafiche | D |
 | 10 | **Cronologia versioni**: verificare a distanza di tempo che stia effettivamente accumulando le versioni sulle due liste | Il versioning è stato attivato il 30/07: le modifiche precedenti non ci sono, e vale la pena controllare che quelle successive vengano conservate | D |
 
+### Caricamento documenti: diretto dal browser a SharePoint (31/07/2026)
+
+Nato da una domanda di Dennis: *"quando carico una carta d'identità, il file finisce su Vercel
+a Francoforte o va diretto in SharePoint?"* Risposta di allora: transitava da Vercel, tenuto in
+memoria per la durata della richiesta, senza essere archiviato. Ora non transita più.
+
+`POST .../documenti` non riceve il file: apre una sessione con
+`createUploadSession` e restituisce un URL pre-autorizzato. Il browser invia i byte
+direttamente a SharePoint, a blocchi da 5 MiB (multiplo dei 320 KiB richiesti da Graph), e a
+caricamento finito chiama `.../documenti/conferma`, che registra l'azione nel log applicativo
+e valorizza `CartellaUrl`.
+
+| | Prima | Ora |
+|---|---|---|
+| Viaggi del file | due, in sequenza: browser→Vercel, poi Vercel→SharePoint | uno |
+| Transito da Vercel | sì, in memoria | no, solo la richiesta di sessione |
+| Limite dimensione | 4 MB (upload semplice Graph + corpo massimo Vercel) | 50 MB, tetto nostro di prudenza |
+| Rischio timeout funzione | sì su connessioni lente (10 s su piano Hobby) | no |
+| Avanzamento a video | no | barra percentuale |
+
+Tre cose da sapere:
+
+- **L'URL della sessione è pre-autorizzato**: chi lo possiede può scrivere in quella cartella
+  fino alla scadenza, senza altre credenziali. Va consegnato solo a chi ha diritto di caricare
+  e non deve finire in alcun log.
+- **Sull'URL non va inviato nessun header `Authorization`**: è già autorizzato, e aggiungerne
+  uno fa rifiutare la richiesta.
+- **Il log si scrive alla conferma, non all'apertura della sessione.** Su un registro usato per
+  l'accountability, un'azione riportata e mai avvenuta è peggio di una non riportata.
+
+**Da provare per primo**: il caricamento a blocchi è una richiesta cross-origin verso
+`*.sharepoint.com` con header `Content-Range`, quindi passa da un preflight. È il modo con cui
+funzionano gli upload web di OneDrive, ma se una policy di rete o il CORS lo bloccassero, il
+sintomo sarebbe un errore CORS nella console del browser al primo blocco — non un errore
+dell'app. In quel caso si torna al transito dal server per i file piccoli.
+
+**Restano con il limite dei 4 MB** altre aree, che caricano ancora attraverso il server:
+prestazioni occasionali (`api/prestazioni`), fatture software (`api/software/[id]/fattura`) e
+la notula pubblica (`api/notula/[token]`). Se il limite dà problemi anche lì, lo stesso schema
+si applica tale e quale.
+
 ### Localizzazione dei dati — accertata il 31/07/2026
 
 Utile per l'informativa: la catena è interamente in UE.

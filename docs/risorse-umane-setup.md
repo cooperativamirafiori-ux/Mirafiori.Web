@@ -61,8 +61,19 @@ python3 scripts/extract-da-accdb.py "PERCORSO/DEL/FILE.accdb" scripts/ru-data
 
 Dalla scheda di un dipendente si può creare (al primo accesso) la sua cartella in
 `Risorse Umane/Dipendenti/<Cognome Nome - Matricola>` della document library, aprirla
-su SharePoint e caricare/eliminare documenti (max 4 MB per file dall'app).
+su SharePoint e caricare/eliminare documenti (max 50 MB per file dall'app).
 Percorso e drive sono configurabili con `SP_RU_FOLDER` e `SP_RU_DRIVE_ID` (opzionali).
+
+**I caricamenti vanno diretti dal browser a SharePoint** (dal 31/07/2026). La route
+`POST .../documenti` non riceve il file: apre una sessione di upload e restituisce un URL
+pre-autorizzato, il browser invia i byte a blocchi da 5 MiB, e a fine caricamento chiama
+`.../documenti/conferma` che registra l'azione nel log e rinfresca l'elenco. Tre conseguenze:
+il file non transita più dalla memoria di una funzione serverless, cade il vecchio limite di
+4 MB (che era la somma dell'upload semplice di Graph e del corpo massimo accettato da Vercel),
+e il caricamento non può più superare il tempo massimo di una funzione su connessioni lente.
+
+`caricaDocumentoDipendente` resta per i caricamenti che partono dal **server** — oggi solo il
+foglio ore alla chiusura mensile, che non ha un browser davanti.
 
 ## Note sui dati importati
 

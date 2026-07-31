@@ -20,6 +20,18 @@ const CATEGORIE_DOC = [
   'Altro',
 ] as const
 
+/**
+ * Dimensione dei blocchi del caricamento diretto: 5 MiB.
+ *
+ * Graph richiede che ogni blocco, tranne l'ultimo, sia un multiplo di 320 KiB —
+ * 5 MiB lo è esattamente (16 × 320 KiB). Blocchi più piccoli danno una barra di
+ * avanzamento più fluida ma più round trip; questo è un compromesso ragionevole.
+ */
+const BLOCCO = 5 * 1024 * 1024
+
+/** Tetto lato client, allineato a quello della route. */
+const MAX_BYTES = 50 * 1024 * 1024
+
 function formatKb(bytes?: number): string {
   if (!bytes) return ''
   const kb = bytes / 1024
@@ -33,6 +45,7 @@ export function CartellaDipendente({ spItemId }: { spItemId: string }) {
   const [busy, setBusy] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
   const [categoria, setCategoria] = useState<string>(CATEGORIE_DOC[0])
+  const [avanzamento, setAvanzamento] = useState<number | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const base = `/api/risorse-umane/dipendenti/${spItemId}`
@@ -74,28 +87,79 @@ export function CartellaDipendente({ spItemId }: { spItemId: string }) {
     }
   }
 
+  /**
+   * Carica il file DIRETTAMENTE su SharePoint, a blocchi.
+   *
+   * Il nostro server non vede mai i byte: si limita ad aprire la sessione e a
+   * restituire un URL pre-autorizzato. Prima il file passava dalla memoria di
+   * una funzione serverless, con il limite dei 4 MB che ne derivava.
+   *
+   * ⚠️ Sull'URL della sessione NON va inviato nessun header Authorization: è già
+   * autorizzato, e aggiungerne uno fa rifiutare la richiesta.
+   */
   async function upload(file: File) {
+    if (file.size > MAX_BYTES) {
+      setErrore(`File troppo grande (max ${Math.round(MAX_BYTES / 1024 / 1024)} MB)`)
+      if (fileRef.current) fileRef.current.value = ''
+      return
+    }
+
     setBusy(true)
     setErrore(null)
+    setAvanzamento(0)
     try {
-      const fd = new FormData()
-      fd.append('file', file)
-      if (categoria) fd.append('categoria', categoria)
-      const res = await fetch(`${base}/documenti`, { method: 'POST', body: fd })
-      if (!res.ok) throw new Error(await messaggioErrore(res, 'Errore upload'))
-      const { documento } = await res.json()
-      setDocumenti((prev) => [documento, ...prev.filter((d) => d.id !== documento.id)])
-      if (!url) {
-        // la cartella è stata creata implicitamente: ricarico l'URL
-        try {
-          const r = await fetch(`${base}/cartella`)
-          if (r.ok) setUrl((await r.json()).url ?? null)
-        } catch { /* ignora */ }
+      // 1. sessione: unica richiesta che passa dal nostro server
+      const resSessione = await fetch(`${base}/documenti`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: file.name, categoria, dimensione: file.size }),
+      })
+      if (!resSessione.ok) {
+        throw new Error(await messaggioErrore(resSessione, 'Errore apertura caricamento'))
+      }
+      const { uploadUrl, nomeFile } = (await resSessione.json()) as {
+        uploadUrl: string
+        nomeFile: string
+      }
+
+      // 2. blocchi verso SharePoint
+      for (let inizio = 0; inizio < file.size; inizio += BLOCCO) {
+        const fine = Math.min(inizio + BLOCCO, file.size)
+        const parte = file.slice(inizio, fine)
+        const r = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Range': `bytes ${inizio}-${fine - 1}/${file.size}`,
+          },
+          body: parte,
+        })
+        // 202 = blocco accettato, ne aspetta altri. 200/201 = file completo.
+        if (r.status !== 202 && r.status !== 200 && r.status !== 201) {
+          const dettaglio = await r.text().catch(() => '')
+          throw new Error(
+            `Caricamento interrotto al ${Math.round((inizio / file.size) * 100)}% ` +
+              `(${r.status}). ${dettaglio.slice(0, 160)}`,
+          )
+        }
+        setAvanzamento(Math.round((fine / file.size) * 100))
+      }
+
+      // 3. conferma: registra l'azione nel log e rinfresca l'elenco
+      const resConferma = await fetch(`${base}/documenti/conferma`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nomeFile }),
+      })
+      if (resConferma.ok) {
+        const dati = await resConferma.json()
+        if (Array.isArray(dati.documenti)) setDocumenti(dati.documenti)
+        if (dati.url) setUrl(dati.url)
       }
     } catch (e) {
       setErrore(e instanceof Error ? e.message : 'Errore di rete')
     } finally {
       setBusy(false)
+      setAvanzamento(null)
       if (fileRef.current) fileRef.current.value = ''
     }
   }
@@ -180,8 +244,20 @@ export function CartellaDipendente({ spItemId }: { spItemId: string }) {
               className="text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-600 file:px-3 file:py-1.5 file:text-white file:text-sm file:font-semibold hover:file:bg-emerald-700 self-end"
             />
           </div>
+          {avanzamento !== null && (
+            <div className="mb-3">
+              <div className="h-2 bg-emerald-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-600 transition-all duration-200"
+                  style={{ width: `${avanzamento}%` }}
+                />
+              </div>
+              <p className="text-xs text-emerald-700 mt-1">Caricamento {avanzamento}%</p>
+            </div>
+          )}
+
           <p className="text-xs text-gray-400 mb-3">
-            Scegli il tipo, poi il file: verrà salvato nella cartella del dipendente con il tipo come prefisso (es. «Contratto - …»). Max 4 MB per file.
+            Scegli il tipo, poi il file: verrà salvato nella cartella del dipendente con il tipo come prefisso (es. «Contratto - …»). Max 50 MB per file.
           </p>
 
           {documenti.length === 0 ? (
