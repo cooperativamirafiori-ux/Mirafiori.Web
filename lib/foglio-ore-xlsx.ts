@@ -11,6 +11,7 @@
  */
 
 import ExcelJS from 'exceljs'
+import type { GraphClient } from '@/lib/graph-delegato'
 import {
   listTimbrature,
   riepilogoPeriodo,
@@ -266,22 +267,36 @@ export async function pubblicaFoglioOre(
   dip: Dipendente,
   anno: number,
   mese: number,
+  gRU?: GraphClient,
 ): Promise<string> {
   const buffer = await generaFoglioOreBuffer(dip, anno, mese)
   const filename = `FoglioOre_${dip.cognomeNome.replace(/[^\w]+/g, '_')}_${anno}-${String(mese).padStart(2, '0')}.xlsx`
   const contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
-  // 1) prova la cartella personale RU (match per email aziendale/personale)
+  // 1) prova la cartella personale RU (match per email aziendale/personale).
+  //
+  // L'area RU scrive con l'identità dell'utente: il client arriva dal chiamante
+  // (api/timbrature/hr/chiudi), che è protetto dal permesso HR e ha quindi sempre
+  // una persona autenticata dietro.
+  //
+  // ⚠️ RIPIEGO APPLICATIVO ESPLICITO. Se `gRU` non viene passato — caso di una
+  // chiusura mensile automatizzata via cron, che oggi non esiste — si opera con
+  // l'identità dell'applicazione. Sul sito RU questo funziona grazie a
+  // Sites.ReadWrite.All (Application), ma il log nativo attribuirà la scrittura
+  // all'app e non a una persona. Se la chiusura diventa automatica, va deciso
+  // consapevolmente se accettarlo.
   try {
     const ru = await import('@/lib/risorse-umane')
-    const dipendenti = await ru.getItems('dipendenti')
+    const { graphApplicativo } = await import('@/lib/graph-delegato')
+    const gc = gRU ?? graphApplicativo()
+    const dipendenti = await ru.getItems(gc, 'dipendenti')
     const match = dipendenti.find(
       (d: any) =>
         String(d.MailAziendale ?? '').toLowerCase() === dip.email.toLowerCase() ||
         String(d.MailPersonale ?? '').toLowerCase() === dip.email.toLowerCase(),
     )
     if (match) {
-      const doc = await ru.caricaDocumentoDipendente(String(match.spItemId), filename, buffer, contentType)
+      const doc = await ru.caricaDocumentoDipendente(gc, String(match.spItemId), filename, buffer, contentType)
       return doc.url
     }
   } catch (e) {

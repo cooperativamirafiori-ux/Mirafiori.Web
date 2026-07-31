@@ -7,6 +7,11 @@
  *   export const { GET, POST } = listHandlers('dipendenti')
  *
  * Tutte le route sono protette dal permesso "Risorse Umane".
+ *
+ * Identità: dopo `guardArea` si costruisce UNA VOLTA il client Graph con
+ * `graphRU(session.user.email)` e lo si passa alle funzioni di lib/risorse-umane.
+ * Sull'assetto nuovo scrive con l'identità dell'utente, così il log nativo
+ * Microsoft riporta la persona reale.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -19,6 +24,7 @@ import {
   eliminaItem,
   validaInput,
 } from '@/lib/risorse-umane'
+import { graphRU, isRiautenticazione, isAccessoNegato } from '@/lib/graph-delegato'
 import { logAzione } from '@/lib/audit'
 import { generaExportBuffer, nomeFileExport } from '@/lib/ru-export-xlsx'
 import { RU_CONFIG, type RUEntity, type RURecord } from '@/types/risorse-umane'
@@ -44,7 +50,24 @@ function nominativoDa(src: Record<string, unknown> | null | undefined): string {
   return `${cognome} ${nome}`.trim()
 }
 
+/**
+ * Traduce gli errori del canale delegato in risposte comprensibili.
+ * Senza questa traduzione ogni problema di permessi diventa una richiesta di
+ * assistenza, perché Graph restituisce sempre lo stesso 403 opaco.
+ */
 function errore(e: unknown, fallback: string, status = 500) {
+  if (isRiautenticazione(e)) {
+    return NextResponse.json(
+      { error: e.message, codice: 'riautenticazione' },
+      { status: 401 },
+    )
+  }
+  if (isAccessoNegato(e)) {
+    return NextResponse.json(
+      { error: e.message, codice: 'permessi-sito' },
+      { status: 403 },
+    )
+  }
   return NextResponse.json(
     { error: e instanceof Error ? e.message : fallback },
     { status },
@@ -56,7 +79,8 @@ export function listHandlers(entity: RUEntity) {
     const g = await guardArea(AREA_RU)
     if (g.error) return g.error
     try {
-      const items = await getItems(entity)
+      const gc = await graphRU(g.session.user.email)
+      const items = await getItems(gc, entity)
       return NextResponse.json({ items })
     } catch (e) {
       return errore(e, 'Errore lettura dati')
@@ -75,7 +99,8 @@ export function listHandlers(entity: RUEntity) {
     const msg = validaInput(body)
     if (msg) return NextResponse.json({ error: msg }, { status: 400 })
     try {
-      const item = await creaItem(entity, body)
+      const gc = await graphRU(g.session.user.email)
+      const item = await creaItem(gc, entity, body)
       await logAzione({
         utente: g.session.user.email,
         nome: g.session.user.name,
@@ -131,7 +156,8 @@ export function exportHandler(entity: RUEntity) {
         : null
 
     try {
-      const tutti = await getItems(entity)
+      const gc = await graphRU(g.session.user.email)
+      const tutti = await getItems(gc, entity)
       let records: RURecord[] = tutti
       if (ids) {
         const perId = new Map(tutti.map((r) => [r.spItemId, r]))
@@ -173,7 +199,8 @@ export function itemHandlers(entity: RUEntity) {
     const { id } = await params
     if (!id) return NextResponse.json({ error: 'ID mancante' }, { status: 400 })
     try {
-      const item = await getItem(entity, id)
+      const gc = await graphRU(g.session.user.email)
+      const item = await getItem(gc, entity, id)
       return NextResponse.json({ item })
     } catch (e) {
       return errore(e, 'Errore lettura')
@@ -194,7 +221,8 @@ export function itemHandlers(entity: RUEntity) {
     const msg = validaInput(body)
     if (msg) return NextResponse.json({ error: msg }, { status: 400 })
     try {
-      const item = await aggiornaItem(entity, id, body)
+      const gc = await graphRU(g.session.user.email)
+      const item = await aggiornaItem(gc, entity, id, body)
       await logAzione({
         utente: g.session.user.email,
         nome: g.session.user.name,
@@ -215,9 +243,10 @@ export function itemHandlers(entity: RUEntity) {
     const { id } = await params
     if (!id) return NextResponse.json({ error: 'ID mancante' }, { status: 400 })
     try {
+      const gc = await graphRU(g.session.user.email)
       // Recupera il nominativo PRIMA di eliminare, per registrarlo nel log.
-      const daEliminare = await getItem(entity, id).catch(() => null)
-      await eliminaItem(entity, id)
+      const daEliminare = await getItem(gc, entity, id).catch(() => null)
+      await eliminaItem(gc, entity, id)
       await logAzione({
         utente: g.session.user.email,
         nome: g.session.user.name,

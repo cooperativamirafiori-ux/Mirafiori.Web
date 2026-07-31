@@ -1,6 +1,7 @@
 import NextAuth from 'next-auth'
 import MicrosoftEntraID from 'next-auth/providers/microsoft-entra-id'
 import { isAdmin, getPermessi } from '@/lib/sharepoint'
+import { salvaTokenDelegato, SCOPE_DELEGATO } from '@/lib/ms-token'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -11,13 +12,51 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       issuer: `https://login.microsoftonline.com/${process.env.AUTH_MICROSOFT_ENTRA_ID_TENANT_ID}/v2.0`,
       authorization: {
         url: `https://login.microsoftonline.com/${process.env.AUTH_MICROSOFT_ENTRA_ID_TENANT_ID}/oauth2/v2.0/authorize`,
-        params: { scope: 'openid profile email' },
+        // offline_access → refresh token (serve per rinnovare il token delegato
+        // lato server); Sites.Selected → scrittura su SharePoint con l'identità
+        // dell'utente, limitata ai soli siti concessi all'app (area Risorse Umane).
+        // La costante è condivisa con il rinnovo in lib/ms-token.ts: i due
+        // insiemi di scope devono coincidere.
+        // Vedi docs/piano-ru-sito-dedicato-accesso-delegato.md
+        params: { scope: SCOPE_DELEGATO },
       },
       token: `https://login.microsoftonline.com/${process.env.AUTH_MICROSOFT_ENTRA_ID_TENANT_ID}/oauth2/v2.0/token`,
     }),
   ],
 
   callbacks: {
+    /**
+     * Al login Entra restituisce `account` con i token: li conserviamo cifrati
+     * su Supabase (lib/ms-token.ts), indicizzati per email. Nel JWT — e quindi
+     * nel cookie — non finisce nulla di nuovo: un access token Graph pesa 2-3 KB
+     * e sfonderebbe il limite di 4 KB del cookie.
+     *
+     * Serve all'area Risorse Umane, che scrive su SharePoint con l'identità
+     * dell'utente. Un salvataggio fallito non deve impedire l'accesso all'app:
+     * si registra l'errore e si va avanti; l'utente troverà l'area RU non
+     * disponibile con un messaggio esplicito, il resto dell'app funziona.
+     */
+    async jwt({ token, user, account }) {
+      if (account?.access_token && account.refresh_token) {
+        const email = (user?.email ?? token.email ?? '').toLowerCase()
+        if (email) {
+          try {
+            await salvaTokenDelegato({
+              email,
+              accessToken: account.access_token,
+              refreshToken: account.refresh_token,
+              expiresAt: new Date(
+                account.expires_at ? account.expires_at * 1000 : Date.now() + 3600_000,
+              ),
+            })
+          } catch (e) {
+            console.error('[auth] salvataggio del token delegato non riuscito', e)
+          }
+        }
+      }
+      return token
+    },
+
     async session({ session }) {
       // Arricchisce la sessione con il flag admin e i permessi per area (letti da SP)
       if (session.user?.email) {

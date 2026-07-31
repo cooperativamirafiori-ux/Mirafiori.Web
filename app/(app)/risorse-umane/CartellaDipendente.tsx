@@ -1,5 +1,6 @@
 'use client'
 
+import { messaggioErrore } from '@/lib/ru-fetch'
 import { useEffect, useRef, useState } from 'react'
 
 interface Documento {
@@ -41,7 +42,7 @@ export function CartellaDipendente({ spItemId }: { spItemId: string }) {
     ;(async () => {
       try {
         const res = await fetch(`${base}/cartella`)
-        if (!res.ok) throw new Error((await res.json()).error ?? 'Errore')
+        if (!res.ok) throw new Error(await messaggioErrore(res, 'Errore lettura cartella'))
         const data = await res.json()
         if (!attivo) return
         setUrl(data.url ?? null)
@@ -63,7 +64,7 @@ export function CartellaDipendente({ spItemId }: { spItemId: string }) {
     setErrore(null)
     try {
       const res = await fetch(`${base}/cartella`, { method: 'POST' })
-      if (!res.ok) throw new Error((await res.json()).error ?? 'Errore creazione cartella')
+      if (!res.ok) throw new Error(await messaggioErrore(res, 'Errore creazione cartella'))
       const data = await res.json()
       setUrl(data.url)
     } catch (e) {
@@ -81,7 +82,7 @@ export function CartellaDipendente({ spItemId }: { spItemId: string }) {
       fd.append('file', file)
       if (categoria) fd.append('categoria', categoria)
       const res = await fetch(`${base}/documenti`, { method: 'POST', body: fd })
-      if (!res.ok) throw new Error((await res.json()).error ?? 'Errore upload')
+      if (!res.ok) throw new Error(await messaggioErrore(res, 'Errore upload'))
       const { documento } = await res.json()
       setDocumenti((prev) => [documento, ...prev.filter((d) => d.id !== documento.id)])
       if (!url) {
@@ -105,7 +106,7 @@ export function CartellaDipendente({ spItemId }: { spItemId: string }) {
     setErrore(null)
     try {
       const res = await fetch(`${base}/documenti/${doc.id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error((await res.json()).error ?? 'Errore eliminazione')
+      if (!res.ok) throw new Error(await messaggioErrore(res, 'Errore eliminazione'))
       setDocumenti((prev) => prev.filter((d) => d.id !== doc.id))
     } catch (e) {
       setErrore(e instanceof Error ? e.message : 'Errore di rete')

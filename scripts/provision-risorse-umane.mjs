@@ -14,9 +14,11 @@
  * Idempotente: se una lista esiste già aggiunge solo le colonne mancanti.
  *
  * Uso (dalla cartella web/):
- *   node scripts/provision-risorse-umane.mjs
+ *   node scripts/provision-risorse-umane.mjs                 # sito da SP_SITE_RU o SHAREPOINT_SITE_ID
+ *   node scripts/provision-risorse-umane.mjs --site=<siteId> # sito esplicito (es. nuovo sito RU)
  *
- * Richiede in .env.local: GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET, SHAREPOINT_SITE_ID
+ * Richiede in .env.local: GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET
+ * e un sito bersaglio (--site, SP_SITE_RU o SHAREPOINT_SITE_ID)
  * Permesso Graph: Sites.ReadWrite.All (Application) — già presente.
  *
  * Al termine stampa le righe SP_LIST_DIPENDENTI / SP_LIST_TIROCINI
@@ -259,10 +261,21 @@ async function provisionList(token, site, def) {
 
 async function main() {
   loadEnvLocal()
-  const site = process.env.SHAREPOINT_SITE_ID
-  for (const k of ['GRAPH_TENANT_ID', 'GRAPH_CLIENT_ID', 'GRAPH_CLIENT_SECRET', 'SHAREPOINT_SITE_ID']) {
+  for (const k of ['GRAPH_TENANT_ID', 'GRAPH_CLIENT_ID', 'GRAPH_CLIENT_SECRET']) {
     if (!process.env[k]) throw new Error(`Variabile mancante: ${k}`)
   }
+
+  // Sito bersaglio: --site=<id> > SP_SITE_RU > SHAREPOINT_SITE_ID.
+  // Serve per provisionare le liste sul nuovo sito dedicato Risorse Umane
+  // (vedi docs/piano-ru-sito-dedicato-accesso-delegato.md, passo 3).
+  const argSite = process.argv.find((a) => a.startsWith('--site='))?.slice(7)
+  const site = argSite || process.env.SP_SITE_RU || process.env.SHAREPOINT_SITE_ID
+  if (!site) {
+    throw new Error('Sito non indicato: usa --site=<siteId> oppure imposta SP_SITE_RU / SHAREPOINT_SITE_ID')
+  }
+  const origine = argSite ? '--site' : process.env.SP_SITE_RU ? 'SP_SITE_RU' : 'SHAREPOINT_SITE_ID'
+  console.log(`→ Sito bersaglio (${origine}): ${site}`)
+
   console.log('→ Autenticazione Graph...')
   const token = await getToken()
 

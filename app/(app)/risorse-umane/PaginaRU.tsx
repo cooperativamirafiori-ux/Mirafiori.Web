@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Header } from '@/components/ui/Header'
 import { getItems } from '@/lib/risorse-umane'
+import { graphRU } from '@/lib/graph-delegato'
 import { RU_CONFIG, type RUEntity, type RURecord } from '@/types/risorse-umane'
 import { GestioneRU } from './GestioneRU'
 
@@ -26,7 +27,10 @@ export async function PaginaRU({ entity }: { entity: RUEntity }) {
   let items: RURecord[] = []
   let erroreLista = false
   try {
-    items = await getItems(entity)
+    // Identità dell'utente: la lettura dell'elenco viene tracciata da Purview
+    // col suo nome, non con quello dell'applicazione.
+    const gc = await graphRU(session.user.email)
+    items = await getItems(gc, entity)
   } catch (err) {
     console.error(`[risorse-umane/${entity}]`, err)
     erroreLista = true

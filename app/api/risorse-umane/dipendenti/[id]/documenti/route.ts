@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { guardArea } from '@/lib/api-guard'
 import { AREA_RU } from '@/lib/ru-api'
 import { caricaDocumentoDipendente } from '@/lib/risorse-umane'
+import { graphRU } from '@/lib/graph-delegato'
 import { logAzione } from '@/lib/audit'
 
 export const dynamic = 'force-dynamic'
@@ -40,7 +41,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   try {
     const buf = await file.arrayBuffer()
-    const documento = await caricaDocumentoDipendente(id, nomeFile, buf, file.type || undefined)
+    const gc = await graphRU(g.session.user.email)
+    const documento = await caricaDocumentoDipendente(gc, id, nomeFile, buf, file.type || undefined)
     await logAzione({
       utente: g.session.user.email,
       nome: g.session.user.name,

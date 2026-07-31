@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { guardArea } from '@/lib/api-guard'
 import { AREA_RU } from '@/lib/ru-api'
+import { graphRU } from '@/lib/graph-delegato'
 import { logAzione } from '@/lib/audit'
 import {
   ensureCartellaDipendente,
@@ -22,8 +23,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (g.error) return g.error
   const { id } = await params
   try {
-    const dip = await getItem('dipendenti', id)
-    const documenti = await getDocumentiDipendente(id)
+    const gc = await graphRU(g.session.user.email)
+    const dip = await getItem(gc, 'dipendenti', id)
+    const documenti = await getDocumentiDipendente(gc, id)
     return NextResponse.json({ url: dip.CartellaUrl ?? null, documenti })
   } catch (e) {
     return NextResponse.json(
@@ -38,7 +40,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   if (g.error) return g.error
   const { id } = await params
   try {
-    const res = await ensureCartellaDipendente(id)
+    const gc = await graphRU(g.session.user.email)
+    const res = await ensureCartellaDipendente(gc, id)
     await logAzione({
       utente: g.session.user.email,
       nome: g.session.user.name,

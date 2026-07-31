@@ -1,5 +1,6 @@
 'use client'
 
+import { messaggioErrore } from '@/lib/ru-fetch'
 import { useEffect, useMemo, useState } from 'react'
 import {
   RU_CONFIG,
@@ -365,13 +366,7 @@ export function GestioneRU({ entity, iniziali }: Props) {
         }),
       })
       if (!res.ok) {
-        let msg = 'Errore esportazione'
-        try {
-          msg = (await res.json()).error ?? msg
-        } catch {
-          /* risposta non JSON */
-        }
-        throw new Error(msg)
+        throw new Error(await messaggioErrore(res, 'Errore esportazione'))
       }
       const blob = await res.blob()
       const dispo = res.headers.get('Content-Disposition') ?? ''
@@ -429,7 +424,7 @@ export function GestioneRU({ entity, iniziali }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       })
-      if (!res.ok) throw new Error((await res.json()).error ?? 'Errore salvataggio')
+      if (!res.ok) throw new Error(await messaggioErrore(res, 'Errore salvataggio'))
       const { item } = await res.json()
       setLista((prev) =>
         editId ? prev.map((r) => (r.spItemId === editId ? item : r)) : [item, ...prev],
@@ -450,7 +445,7 @@ export function GestioneRU({ entity, iniziali }: Props) {
     setErrore(null)
     try {
       const res = await fetch(`/api/risorse-umane/${entity}/${r.spItemId}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error((await res.json()).error ?? 'Errore eliminazione')
+      if (!res.ok) throw new Error(await messaggioErrore(res, 'Errore eliminazione'))
       setLista((prev) => prev.filter((x) => x.spItemId !== r.spItemId))
       if (dettaglio?.spItemId === r.spItemId) setDettaglio(null)
     } catch (e) {

@@ -9,16 +9,22 @@
  *
  * GUID liste in env: SP_LIST_DIPENDENTI / SP_LIST_TIROCINI
  * (creati da scripts/provision-risorse-umane.mjs)
+ *
+ * ⚠️ IDENTITÀ. Ogni funzione riceve come PRIMO parametro un `GraphClient`, che
+ * porta con sé l'identità con cui si opera. Sull'area RU l'identità è quella
+ * dell'utente (accesso delegato), perché il log nativo Microsoft riporti la
+ * persona reale. Il client si costruisce con `graphRU(session.user.email)` di
+ * lib/graph-delegato.ts — mai importando direttamente lib/graph.ts qui.
+ *
+ * È un parametro esplicito e non una variabile di contesto implicita
+ * (AsyncLocalStorage): più verboso, ma rende visibile in ogni riga con quale
+ * identità si sta scrivendo. Su dati del personale è un vantaggio, non un costo.
+ *
+ * Sito: SP_SITE_RU (sito dedicato Risorse Umane). Finché non è impostata si usa
+ * SHAREPOINT_SITE_ID, cioè l'assetto precedente — vedi `graphRU`.
  */
 
-import {
-  graphGet,
-  graphGetOrNull,
-  graphPost,
-  graphPatch,
-  graphDelete,
-  graphPutBinary,
-} from '@/lib/graph'
+import type { GraphClient } from '@/lib/graph-delegato'
 import {
   RU_CONFIG,
   type RUEntity,
@@ -26,7 +32,7 @@ import {
   type RURecord,
 } from '@/types/risorse-umane'
 
-const SITE = () => process.env.SHAREPOINT_SITE_ID!
+const SITE = () => process.env.SP_SITE_RU || process.env.SHAREPOINT_SITE_ID!
 
 const LIST_ENV: Record<RUEntity, () => string | undefined> = {
   dipendenti: () => process.env.SP_LIST_DIPENDENTI,
@@ -119,16 +125,16 @@ function buildFields(entity: RUEntity, input: Record<string, unknown>): Record<s
 // ------------------------------------------------------------------
 // Lettura
 // ------------------------------------------------------------------
-export async function getItems(entity: RUEntity): Promise<RURecord[]> {
-  const res = await graphGet<{ value: any[] }>(
+export async function getItems(g: GraphClient, entity: RUEntity): Promise<RURecord[]> {
+  const res = await g.get<{ value: any[] }>(
     `${listBase(entity)}?$select=${selectFields(entity)}&$orderby=fields/Cognome asc&$top=1000`,
     PREFER_NON_INDEXED,
   )
   return res.value.map((it) => mapItem(entity, it))
 }
 
-export async function getItem(entity: RUEntity, spItemId: string): Promise<RURecord> {
-  const item = await graphGet<any>(
+export async function getItem(g: GraphClient, entity: RUEntity, spItemId: string): Promise<RURecord> {
+  const item = await g.get<any>(
     `/sites/${SITE()}/lists/${listId(entity)}/items/${spItemId}?$select=${selectFields(entity)}`,
   )
   return mapItem(entity, item)
@@ -137,21 +143,21 @@ export async function getItem(entity: RUEntity, spItemId: string): Promise<RURec
 // ------------------------------------------------------------------
 // Scrittura
 // ------------------------------------------------------------------
-export async function creaItem(entity: RUEntity, input: Record<string, unknown>): Promise<RURecord> {
-  const res = await graphPost<any>(listBase(entity), { fields: buildFields(entity, input) })
-  return getItem(entity, res.id)
+export async function creaItem(g: GraphClient, entity: RUEntity, input: Record<string, unknown>): Promise<RURecord> {
+  const res = await g.post<any>(listBase(entity), { fields: buildFields(entity, input) })
+  return getItem(g, entity, res.id)
 }
 
-export async function aggiornaItem(entity: RUEntity, spItemId: string, input: Record<string, unknown>): Promise<RURecord> {
-  await graphPatch(
+export async function aggiornaItem(g: GraphClient, entity: RUEntity, spItemId: string, input: Record<string, unknown>): Promise<RURecord> {
+  await g.patch(
     `/sites/${SITE()}/lists/${listId(entity)}/items/${spItemId}/fields`,
     buildFields(entity, input),
   )
-  return getItem(entity, spItemId)
+  return getItem(g, entity, spItemId)
 }
 
-export async function eliminaItem(entity: RUEntity, spItemId: string): Promise<void> {
-  await graphDelete(`${listBase(entity)}/${spItemId}`)
+export async function eliminaItem(g: GraphClient, entity: RUEntity, spItemId: string): Promise<void> {
+  await g.del(`${listBase(entity)}/${spItemId}`)
 }
 
 /** Validazione minima: Cognome e Nome obbligatori. Ritorna messaggio o null. */
@@ -166,9 +172,14 @@ export function validaInput(input: Record<string, unknown>): string | null {
 
 // ==================================================================
 // Cartella personale del dipendente (document library del sito)
-// Struttura: <FOLDER_ROOT>/<Cognome Nome - Matricola>
+// Struttura: <folderRoot()>/<Cognome Nome - Matricola>
 // ==================================================================
-const FOLDER_ROOT = process.env.SP_RU_FOLDER || 'Risorse Umane/Dipendenti'
+/**
+ * Radice delle cartelle personali, relativa alla raccolta documenti del sito.
+ * Sul sito dedicato: "Risorse Umane App/Dipendenti" (dentro `Documenti condivisi`).
+ * Funzione e non costante: l'env cambia col cutover.
+ */
+const folderRoot = () => process.env.SP_RU_FOLDER || 'Risorse Umane/Dipendenti'
 
 function encodePath(path: string): string {
   return path.split('/').map(encodeURIComponent).join('/')
@@ -182,29 +193,37 @@ function sanitize(s: string): string {
     .slice(0, 120)
 }
 
-let _driveIdCache: string | null = null
-async function getDriveId(): Promise<string> {
+/**
+ * Cache del drive id, per sito. Si può cachare a livello di modulo — al
+ * contrario del token — perché il drive è una proprietà del SITO e non
+ * dell'utente: due utenti diversi risolvono lo stesso valore.
+ */
+const _driveIdCache: Record<string, string> = {}
+
+async function getDriveId(g: GraphClient): Promise<string> {
   if (process.env.SP_RU_DRIVE_ID) return process.env.SP_RU_DRIVE_ID
-  if (_driveIdCache) return _driveIdCache
-  const d = await graphGet<{ id: string }>(`/sites/${SITE()}/drive?$select=id`)
-  _driveIdCache = d.id
+  const site = SITE()
+  const inCache = _driveIdCache[site]
+  if (inCache) return inCache
+  const d = await g.get<{ id: string }>(`/sites/${site}/drive?$select=id`)
+  _driveIdCache[site] = d.id
   return d.id
 }
 
 /** Crea (idempotente) l'intero percorso di cartelle e ritorna il path finale. */
-async function ensureFolderPath(driveId: string, fullPath: string): Promise<void> {
+async function ensureFolderPath(g: GraphClient, driveId: string, fullPath: string): Promise<void> {
   const segments = fullPath.split('/').filter(Boolean)
   let parent = '' // path relativo alla root
   for (const seg of segments) {
     const current = parent ? `${parent}/${seg}` : seg
-    const existing = await graphGetOrNull<{ id: string }>(
+    const existing = await g.getOrNull<{ id: string }>(
       `/drives/${driveId}/root:/${encodePath(current)}?$select=id`,
     )
     if (!existing) {
       const parentEndpoint = parent
         ? `/drives/${driveId}/root:/${encodePath(parent)}:/children`
         : `/drives/${driveId}/root/children`
-      await graphPost(parentEndpoint, {
+      await g.post(parentEndpoint, {
         name: seg,
         folder: {},
         '@microsoft.graph.conflictBehavior': 'rename',
@@ -224,16 +243,16 @@ function nomeCartella(dip: RURecord): string {
  * Restituisce (creandola al primo accesso) la cartella personale del dipendente.
  * Salva l'URL SharePoint della cartella nel campo CartellaUrl.
  */
-export async function ensureCartellaDipendente(spItemId: string): Promise<{ url: string; path: string }> {
-  const dip = await getItem('dipendenti', spItemId)
-  const driveId = await getDriveId()
-  const relPath = `${FOLDER_ROOT}/${nomeCartella(dip)}`
-  await ensureFolderPath(driveId, relPath)
-  const folder = await graphGet<{ webUrl: string }>(
+export async function ensureCartellaDipendente(g: GraphClient, spItemId: string): Promise<{ url: string; path: string }> {
+  const dip = await getItem(g, 'dipendenti', spItemId)
+  const driveId = await getDriveId(g)
+  const relPath = `${folderRoot()}/${nomeCartella(dip)}`
+  await ensureFolderPath(g, driveId, relPath)
+  const folder = await g.get<{ webUrl: string }>(
     `/drives/${driveId}/root:/${encodePath(relPath)}?$select=webUrl`,
   )
   if (dip.CartellaUrl !== folder.webUrl) {
-    await graphPatch(`/sites/${SITE()}/lists/${listId('dipendenti')}/items/${spItemId}/fields`, {
+    await g.patch(`/sites/${SITE()}/lists/${listId('dipendenti')}/items/${spItemId}/fields`, {
       CartellaUrl: folder.webUrl,
     })
   }
@@ -249,11 +268,11 @@ export interface DocumentoDipendente {
 }
 
 /** Elenca i documenti nella cartella personale (vuoto se la cartella non esiste). */
-export async function getDocumentiDipendente(spItemId: string): Promise<DocumentoDipendente[]> {
-  const dip = await getItem('dipendenti', spItemId)
-  const driveId = await getDriveId()
-  const relPath = `${FOLDER_ROOT}/${nomeCartella(dip)}`
-  const res = await graphGetOrNull<{ value: any[] }>(
+export async function getDocumentiDipendente(g: GraphClient, spItemId: string): Promise<DocumentoDipendente[]> {
+  const dip = await getItem(g, 'dipendenti', spItemId)
+  const driveId = await getDriveId(g)
+  const relPath = `${folderRoot()}/${nomeCartella(dip)}`
+  const res = await g.getOrNull<{ value: any[] }>(
     `/drives/${driveId}/root:/${encodePath(relPath)}:/children?$select=id,name,webUrl,size,lastModifiedDateTime&$top=200`,
   )
   if (!res) return []
@@ -270,32 +289,33 @@ export async function getDocumentiDipendente(spItemId: string): Promise<Document
 
 /** Carica un documento (< 4 MB) nella cartella personale del dipendente. */
 export async function caricaDocumentoDipendente(
+  g: GraphClient,
   spItemId: string,
   filename: string,
   data: ArrayBuffer | Uint8Array,
   contentType?: string,
 ): Promise<DocumentoDipendente> {
-  const dip = await getItem('dipendenti', spItemId)
-  const driveId = await getDriveId()
-  const relPath = `${FOLDER_ROOT}/${nomeCartella(dip)}`
-  await ensureFolderPath(driveId, relPath)
+  const dip = await getItem(g, 'dipendenti', spItemId)
+  const driveId = await getDriveId(g)
+  const relPath = `${folderRoot()}/${nomeCartella(dip)}`
+  await ensureFolderPath(g, driveId, relPath)
   const safe = sanitize(filename) || 'documento'
-  const res = await graphPutBinary<any>(
+  const res = await g.putBinary<any>(
     `/drives/${driveId}/root:/${encodePath(`${relPath}/${safe}`)}:/content`,
     data,
     contentType,
   )
   // aggiorna CartellaUrl se non impostato
   if (!dip.CartellaUrl) {
-    try { await ensureCartellaDipendente(spItemId) } catch { /* best effort */ }
+    try { await ensureCartellaDipendente(g, spItemId) } catch { /* best effort */ }
   }
   return { id: res.id, nome: res.name ?? safe, url: res.webUrl, dimensione: res.size, modificato: res.lastModifiedDateTime }
 }
 
 /** Elimina un documento dalla cartella personale. */
-export async function eliminaDocumentoDipendente(itemId: string): Promise<void> {
-  const driveId = await getDriveId()
-  await graphDelete(`/drives/${driveId}/items/${itemId}`)
+export async function eliminaDocumentoDipendente(g: GraphClient, itemId: string): Promise<void> {
+  const driveId = await getDriveId(g)
+  await g.del(`/drives/${driveId}/items/${itemId}`)
 }
 
 export type { RUField }

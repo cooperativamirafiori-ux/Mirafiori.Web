@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { guardHr } from '@/lib/timbrature-guard'
 import { getDipendenteById, chiudiMese } from '@/lib/timbrature'
 import { pubblicaFoglioOre } from '@/lib/foglio-ore-xlsx'
+import { graphRU } from '@/lib/graph-delegato'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -31,7 +32,10 @@ export async function POST(req: NextRequest) {
   try {
     const dip = await getDipendenteById(dipendenteId)
     if (!dip) return NextResponse.json({ error: 'Dipendente non trovato' }, { status: 404 })
-    const fileUrl = await pubblicaFoglioOre(dip, anno, mese)
+    // Il foglio ore finisce nella cartella personale RU: passiamo il client con
+    // l'identità dell'utente HR, così la scrittura risulta fatta da lui.
+    const gc = await graphRU(g.session.user.email)
+    const fileUrl = await pubblicaFoglioOre(dip, anno, mese, gc)
     const chiusura = await chiudiMese(dipendenteId, anno, mese, g.session.user.email!, fileUrl)
     return NextResponse.json({ chiusura })
   } catch (e) {
