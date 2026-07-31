@@ -16,16 +16,6 @@ import type { Dipendente } from '@/types/timbrature'
 
 export const AREA_HR = 'Timbrature HR'
 
-/**
- * Permesso storico, prima che il cruscotto presenze avesse il suo.
- *
- * ⚠️ RIPIEGO TEMPORANEO. Va rimosso quando nella lista SP Autorizzazioni ogni
- * persona che usa il cruscotto presenze ha una riga "Timbrature HR". Serve solo
- * a non chiudere il cruscotto a tutti nell'intervallo fra il rilascio di questo
- * codice e la migrazione delle righe. Vedi punto 14 del piano RU.
- */
-const AREA_HR_LEGACY = 'Risorse Umane'
-
 type OperatoreResult =
   | { session: Session; dipendente: Dipendente; error: null }
   | { session: null; dipendente: null; error: NextResponse }
@@ -51,8 +41,7 @@ export async function guardHr(): Promise<HrResult> {
   if (!session?.user?.email) {
     return { session: null, error: NextResponse.json({ error: 'Non autenticato' }, { status: 401 }) }
   }
-  const permessi = session.user.permessi ?? []
-  if (!permessi.includes(AREA_HR) && !permessi.includes(AREA_HR_LEGACY)) {
+  if (!session.user.permessi?.includes(AREA_HR)) {
     return { session: null, error: NextResponse.json({ error: 'Accesso negato' }, { status: 403 }) }
   }
   return { session, error: null }

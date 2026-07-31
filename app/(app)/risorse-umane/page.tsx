@@ -11,8 +11,6 @@ export const dynamic = 'force-dynamic'
 // rimanda alla home sarebbe un vicolo cieco, quindi ognuna dichiara cosa
 // richiede. Vedi punto 14 di docs/piano-ru-sito-dedicato-accesso-delegato.md.
 const AREA_TIMBRATURE = 'Timbrature HR'
-/** Permesso storico: ripiego da rimuovere a migrazione completata. */
-const AREA_TIMBRATURE_LEGACY = 'Risorse Umane'
 
 type Requisito = 'gruppoRU' | 'timbratureHr'
 
@@ -50,8 +48,7 @@ export default async function RisorseUmanePage() {
   const session = await auth()
   const permessi = session?.user?.permessi ?? []
   const puoGruppoRU = session?.user?.membroRU ?? false
-  const puoTimbratureHr =
-    permessi.includes(AREA_TIMBRATURE) || permessi.includes(AREA_TIMBRATURE_LEGACY)
+  const puoTimbratureHr = permessi.includes(AREA_TIMBRATURE)
 
   if (!puoGruppoRU && !puoTimbratureHr) redirect('/home')
 

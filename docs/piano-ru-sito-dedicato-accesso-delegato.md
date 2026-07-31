@@ -458,10 +458,20 @@ divergere:
       le card a cui la persona ha effettivamente accesso, così nessuna card è un vicolo cieco
 - [x] **(C)** `SP_GRUPPO_RU_ID` in `.env.local` (fuori dal blocco A/B: serve sempre) e
       aggiunta a `scripts/vercel-env-ru.sh`
-- [ ] **(D)** permesso Graph **`GroupMember.Read.All` (Application)** con consenso admin
-- [ ] **(D)** righe `Timbrature HR` nella lista SP Autorizzazioni per chi usa il cruscotto
-      presenze — **prima** del deploy
-- [ ] **(C)** rimozione del ripiego `AREA_HR_LEGACY` a migrazione completata
+- [x] **(D)** permesso Graph **`GroupMember.Read.All` (Application)** con consenso admin
+- [x] **(D)** righe `Timbrature HR` nella lista SP Autorizzazioni
+- [x] **(C)** commit `ac73cb9`, env su Vercel (7 × 3 = 21 valori) e deploy in produzione
+- [x] **(C)** ripiego sul permesso storico **rimosso** (31/07/2026): `Timbrature HR` è ora
+      l'unico permesso che apre il cruscotto presenze. Chi ha solo la vecchia riga
+      `Risorse Umane` in lista Autorizzazioni non lo vede più
+- [ ] **(D)** verifica in produzione: home → Risorse Umane → tre card, e apertura del
+      **Cruscotto Timbrature** (è il punto delicato: dipende solo dal permesso nuovo)
+
+L'unico `'Risorse Umane'` rimasto nel codice è `AREA_RU` in `lib/ru-api.ts`, che è l'etichetta
+dei codici azione del log applicativo (`ru.dipendente.crea` ecc.) e non un permesso.
+- [ ] **(D)** pulizia: su Vercel resta `SP_LIST_COLLABORATORI`, che punta alla lista dismessa
+      nell'unificazione di luglio. Non fa danni (nessun codice la legge più) ma è una variabile
+      che mente sullo stato del sistema
 
 ### Assetto scelto (Dennis, 31/07/2026)
 
