@@ -26,6 +26,13 @@ const DOCS_IDENTITA = 'Documenti Identità'
 
 const listBase = () => `/sites/${SITE()}/lists/${PRESTAZIONI_LIST()}/items`
 
+/** Sessione di upload Graph: l'URL è pre-autorizzato e scade da solo. */
+export interface SessioneUpload {
+  uploadUrl: string
+  scadeIl: string
+  nomeFile: string
+}
+
 // ============================================================
 // Helpers
 // ============================================================
@@ -148,6 +155,45 @@ export async function haDocumentiIdentitaPerCf(cf: string): Promise<boolean> {
   const p = anagrafica.find((x) => x.codiceFiscale.toUpperCase() === target)
   if (!p) return false
   return haDocumentiIdentita(p)
+}
+
+/**
+ * Apre una sessione di upload su SharePoint per un file nella cartella indicata
+ * e ritorna l'URL pre-autorizzato che il browser userà per il PUT diretto.
+ *
+ * È il sostituto di `uploadAllegato` per i file che arrivano dal browser: così
+ * i byte non passano più dalla funzione serverless (e cade il limite dei 4 MB).
+ * `uploadAllegato` resta per i file generati dal server (contratti, notula).
+ *
+ * ⚠️ L'`uploadUrl` è di fatto una credenziale a tempo: non va mai loggato né
+ * restituito a chi non è autorizzato a scrivere in quella cartella.
+ */
+export async function creaSessioneUpload(
+  folderPath: string,
+  filename: string,
+): Promise<SessioneUpload> {
+  const driveId = await getDriveId()
+  const safeName = sanitizeFolderName(filename) || 'allegato'
+  const res = await graphPost<{ uploadUrl: string; expirationDateTime: string }>(
+    `/drives/${driveId}/root:/${encodePath(`${folderPath}/${safeName}`)}:/createUploadSession`,
+    { item: { '@microsoft.graph.conflictBehavior': 'replace', name: safeName } },
+  )
+  return { uploadUrl: res.uploadUrl, scadeIl: res.expirationDateTime, nomeFile: safeName }
+}
+
+/**
+ * webUrl di un file già presente in una cartella (serve nel passo di conferma,
+ * quando il browser ha caricato direttamente e il server deve salvare il link).
+ */
+export async function getWebUrlFile(
+  folderPath: string,
+  nomeFile: string,
+): Promise<string | null> {
+  const driveId = await getDriveId()
+  const res = await graphGetOrNull<{ webUrl: string }>(
+    `/drives/${driveId}/root:/${encodePath(`${folderPath}/${nomeFile}`)}?$select=webUrl`,
+  )
+  return res?.webUrl ?? null
 }
 
 /** Carica un file (< 4 MB) nella cartella indicata */

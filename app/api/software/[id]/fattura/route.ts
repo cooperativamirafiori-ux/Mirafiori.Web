@@ -1,20 +1,25 @@
 /**
- * POST /api/software/[id]/fattura — carica la fattura di un software.
- * Multipart form-data con campo "file". Max ~4 MB (upload semplice Graph).
+ * POST /api/software/[id]/fattura — apre la sessione di upload della fattura.
+ *
+ * Body JSON: { filename: string, dimensione?: number }
+ * Risposta:  { uploadUrl, scadeIl, nomeFile }
+ *
+ * Il browser fa poi il PUT diretto a SharePoint e chiama
+ * POST /api/software/[id]/fattura/conferma. Il file non passa più da Vercel,
+ * quindi non vale più il limite dei 4 MB dell'upload semplice di Graph.
  *
  * Protetta: solo chi ha il permesso "Amministrazione".
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { guardArea } from '@/lib/api-guard'
-import { getSoftwareById, caricaFattura } from '@/lib/software'
-import { logAzione } from '@/lib/audit'
+import { getSoftwareById, creaSessioneUploadFattura } from '@/lib/software'
+import { MAX_UPLOAD_BYTES, maxUploadMb } from '@/lib/upload-diretto'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const AREA = 'Amministrazione'
-const MAX_BYTES = 4 * 1024 * 1024
 
 export async function POST(
   req: NextRequest,
@@ -26,43 +31,31 @@ export async function POST(
   const { id } = await params
   if (!id) return NextResponse.json({ error: 'ID mancante' }, { status: 400 })
 
-  let form: FormData
+  let body: { filename?: string; dimensione?: number }
   try {
-    form = await req.formData()
+    body = await req.json()
   } catch {
-    return NextResponse.json({ error: 'Form non valido' }, { status: 400 })
+    return NextResponse.json({ error: 'Body non valido (atteso JSON)' }, { status: 400 })
   }
 
-  const file = form.get('file')
-  if (!(file instanceof File) || file.size === 0) {
-    return NextResponse.json({ error: 'Nessun file caricato' }, { status: 400 })
+  const filename = (body.filename ?? '').trim()
+  if (!filename) {
+    return NextResponse.json({ error: 'Nome file mancante' }, { status: 400 })
   }
-  if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: 'File troppo grande (max 4 MB)' }, { status: 413 })
+  if (typeof body.dimensione === 'number' && body.dimensione > MAX_UPLOAD_BYTES) {
+    return NextResponse.json(
+      { error: `File troppo grande (max ${maxUploadMb()} MB)` },
+      { status: 413 },
+    )
   }
 
   try {
     const sw = await getSoftwareById(id)
-    const buffer = await file.arrayBuffer()
-    const software = await caricaFattura(
-      id,
-      sw.servizio || 'software',
-      file.name || 'fattura',
-      buffer,
-      file.type || 'application/octet-stream',
-    )
-    await logAzione({
-      utente: g.session.user.email,
-      nome: g.session.user.name,
-      azione: 'software.carica-fattura',
-      entita: 'Software',
-      entitaId: id,
-      dettagli: { file: file.name || 'fattura' },
-    })
-    return NextResponse.json({ software })
+    const sessione = await creaSessioneUploadFattura(sw.servizio || 'software', filename)
+    return NextResponse.json(sessione)
   } catch (e) {
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : 'Errore upload fattura' },
+      { error: e instanceof Error ? e.message : 'Errore apertura caricamento fattura' },
       { status: 500 },
     )
   }

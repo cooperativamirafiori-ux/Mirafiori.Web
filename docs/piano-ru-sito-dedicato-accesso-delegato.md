@@ -776,10 +776,34 @@ funzionano gli upload web di OneDrive, ma se una policy di rete o il CORS lo blo
 sintomo sarebbe un errore CORS nella console del browser al primo blocco — non un errore
 dell'app. In quel caso si torna al transito dal server per i file piccoli.
 
-**Restano con il limite dei 4 MB** altre aree, che caricano ancora attraverso il server:
-prestazioni occasionali (`api/prestazioni`), fatture software (`api/software/[id]/fattura`) e
-la notula pubblica (`api/notula/[token]`). Se il limite dà problemi anche lì, lo stesso schema
-si applica tale e quale.
+**Esteso a tutta l'app (31/07/2026).** Le tre aree che caricavano ancora attraverso il server
+sono state migrate allo stesso schema, e nessuna route dell'app riceve più `formData()`. Il
+ciclo a blocchi è ora un helper condiviso, `lib/upload-diretto.ts` (`inviaFileABlocchi`,
+`caricaDirettamente`, `MAX_UPLOAD_BYTES = 50 MB`), usato anche da Risorse Umane.
+
+| Area | Sessione | Conferma |
+|---|---|---|
+| Risorse Umane — cartella dipendente | `POST api/risorse-umane/dipendenti/[id]/documenti` | `.../documenti/conferma` |
+| Prestazioni — documenti d'identità | `POST api/prestazioni/[spItemId]/allegati-identita` | `api/prestazioni/[spItemId]/conferma` |
+| Prestazioni — notula pubblica | `POST api/notula/[token]/sessione` | `api/notula/[token]/conferma` |
+| Amministrazione — fattura software | `POST api/software/[id]/fattura` | `.../fattura/conferma` |
+
+Due conseguenze sul flusso "nuova prestazione", che prima faceva tutto in una richiesta:
+
+- **`POST api/prestazioni` ora riceve JSON**, non più FormData, e il record va creato *prima*
+  di poter aprire la sessione (la cartella dipende da `DataInserimento`). Il client dichiara
+  `allegheraCf` / `allegheraCi` così la verifica "primo inserimento" continua a bloccare prima
+  di creare pratiche orfane.
+- **La mail di riepilogo parte alla conferma**, non alla creazione del record: se il
+  caricamento dei documenti si interrompe, nessuno riceve il riepilogo di una pratica
+  incompleta.
+
+**La notula pubblica è il caso delicato**: è l'unico endpoint che consegna un URL scrivibile su
+SharePoint a un utente *non autenticato* (la sicurezza è il solo token). Mitigazioni adottate:
+la sessione si apre solo dopo la validazione del token; cartella e nome file li decide il
+server e il prestatore può influenzare solo l'estensione, da whitelist; la conferma rivalida il
+token e rifiuta qualsiasi `nomeFile` diverso da `{ID}_Notula_firmata.{ext}`; l'`uploadUrl` non
+viene mai scritto nei log, nemmeno in caso di errore.
 
 ### Localizzazione dei dati — accertata il 31/07/2026
 

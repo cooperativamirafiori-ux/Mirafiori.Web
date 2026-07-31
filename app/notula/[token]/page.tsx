@@ -33,8 +33,7 @@ export default async function NotulaUploadPage({
               Prestazione <strong>{p.idPrestazione}</strong> — {p.cognome} {p.nome}
             </p>
             <p className="text-sm text-gray-500 mt-4">
-              Carica la notula precompilata firmata, oppure una notula che hai redatto tu
-              (PDF, immagine o Word, max 4 MB).
+              Carica la notula precompilata firmata, oppure una notula che hai redatto tu.
             </p>
             <NotulaUploadForm token={token} giaCaricata={!!p.notulaUrl} />
           </>

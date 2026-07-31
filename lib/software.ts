@@ -300,9 +300,61 @@ async function ensureFattureFolder(driveId: string): Promise<string> {
   return FATTURE_FOLDER
 }
 
+/** Nome file della fattura: <servizio>_<originale>, deciso dal server */
+function nomeFattura(servizio: string, filename: string): string {
+  return sanitizeFileName(`${servizio}_${filename}`)
+}
+
+/**
+ * Apre una sessione di upload su SharePoint per la fattura e ritorna l'URL
+ * pre-autorizzato per il PUT diretto dal browser. Così i byte non passano dalla
+ * funzione serverless e cade il limite dei 4 MB dell'upload semplice di Graph.
+ *
+ * ⚠️ L'`uploadUrl` è di fatto una credenziale a tempo: non loggarlo.
+ */
+export async function creaSessioneUploadFattura(
+  servizio: string,
+  filename: string,
+): Promise<{ uploadUrl: string; scadeIl: string; nomeFile: string }> {
+  const driveId = await getDriveId()
+  const folder = await ensureFattureFolder(driveId)
+  const safe = nomeFattura(servizio, filename)
+  const res = await graphPost<{ uploadUrl: string; expirationDateTime: string }>(
+    `/drives/${driveId}/root:/${encodePath(`${folder}/${safe}`)}:/createUploadSession`,
+    { item: { '@microsoft.graph.conflictBehavior': 'replace', name: safe } },
+  )
+  return { uploadUrl: res.uploadUrl, scadeIl: res.expirationDateTime, nomeFile: safe }
+}
+
+/**
+ * Registra sulla riga SP la fattura che il browser ha già caricato direttamente
+ * (legge il webUrl dal file su SharePoint). Ritorna il software aggiornato.
+ */
+export async function confermaFattura(
+  spItemId: string,
+  nomeFile: string,
+): Promise<Software> {
+  const driveId = await getDriveId()
+  const safe = sanitizeFileName(nomeFile)
+  const file = await graphGetOrNull<{ webUrl: string; name: string }>(
+    `/drives/${driveId}/root:/${encodePath(`${FATTURE_FOLDER}/${safe}`)}?$select=webUrl,name`,
+  )
+  if (!file) {
+    throw new Error('File non trovato su SharePoint: riprova il caricamento')
+  }
+  await patchSoftwareFields(spItemId, {
+    FatturaUrl: file.webUrl,
+    FatturaNome: file.name ?? safe,
+  })
+  return getSoftwareById(spItemId)
+}
+
 /**
  * Carica la fattura (< 4 MB) nella cartella "Gestione Software" e aggiorna
  * la riga SP con URL e nome file. Ritorna il software aggiornato.
+ *
+ * Resta per eventuali file generati dal server: quelli che arrivano dal browser
+ * usano `creaSessioneUploadFattura` + `confermaFattura`.
  */
 export async function caricaFattura(
   spItemId: string,
@@ -314,7 +366,7 @@ export async function caricaFattura(
   const driveId = await getDriveId()
   const folder = await ensureFattureFolder(driveId)
   // Nome file: <servizio>_<originale> per ritrovarla facilmente
-  const safe = sanitizeFileName(`${servizio}_${filename}`)
+  const safe = nomeFattura(servizio, filename)
   const res = await graphPutBinary<{ webUrl: string; name: string }>(
     `/drives/${driveId}/root:/${encodePath(`${folder}/${safe}`)}:/content`,
     data,

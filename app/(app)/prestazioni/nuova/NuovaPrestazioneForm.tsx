@@ -3,6 +3,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CASISTICHE_GDPR } from '@/lib/casistiche-gdpr'
+import {
+  MAX_UPLOAD_BYTES,
+  maxUploadMb,
+  inviaFileABlocchi,
+  erroreRisposta,
+} from '@/lib/upload-diretto'
 
 const CF_REGEX = /^[A-Z]{6}\d{2}[A-EHLMPR-T]{1}\d{2}[A-Z]{1}\d{3}[A-Z]{1}$/
 
@@ -24,6 +30,9 @@ export function NuovaPrestazioneForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  // Avanzamento del caricamento diretto a SharePoint (null = nessun upload in corso)
+  const [faseUpload, setFaseUpload] = useState<string | null>(null)
+  const [avanzamento, setAvanzamento] = useState<number | null>(null)
 
   const [form, setForm] = useState({
     // Anagrafica prestatore
@@ -162,7 +171,41 @@ export function NuovaPrestazioneForm() {
       if (!copiaCi) return '⚠️ Allega la copia della carta d’identità.'
     }
 
+    for (const f of [copiaCf, copiaCi]) {
+      if (f && f.size > MAX_UPLOAD_BYTES)
+        return `⚠️ Allegato troppo grande (max ${maxUploadMb()} MB): ${f.name}`
+    }
+
     return null
+  }
+
+  /**
+   * Carica un documento d'identità DIRETTAMENTE su SharePoint, a blocchi.
+   * Il nostro server apre solo la sessione: i byte non passano da Vercel, quindi
+   * non vale più il vecchio limite dei 4 MB.
+   */
+  async function caricaDocumento(spItemId: string, tipo: 'cf' | 'ci', file: File) {
+    const etichetta = tipo === 'cf' ? 'codice fiscale' : 'carta d’identità'
+    setFaseUpload(`Caricamento ${etichetta}…`)
+    setAvanzamento(0)
+
+    const resSessione = await fetch(`/api/prestazioni/${spItemId}/allegati-identita`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tipo, filename: file.name, dimensione: file.size }),
+    })
+    if (!resSessione.ok) {
+      throw new Error(
+        await erroreRisposta(resSessione, `Errore apertura caricamento ${etichetta}`),
+      )
+    }
+    const { uploadUrl, nomeFile } = (await resSessione.json()) as {
+      uploadUrl: string
+      nomeFile: string
+    }
+
+    await inviaFileABlocchi(uploadUrl, file, setAvanzamento)
+    return nomeFile
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -178,14 +221,41 @@ export function NuovaPrestazioneForm() {
 
     setLoading(true)
     try {
-      const fd = new FormData()
-      Object.entries(form).forEach(([k, v]) => fd.append(k, v))
-      if (copiaCf) fd.append('copiaCf', copiaCf)
-      if (copiaCi) fd.append('copiaCi', copiaCi)
-
-      const res = await fetch('/api/prestazioni', { method: 'POST', body: fd })
+      // 1. Record + cartelle (solo dati, nessun file: body JSON)
+      setFaseUpload('Creazione pratica…')
+      const res = await fetch('/api/prestazioni', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          allegheraCf: !!copiaCf,
+          allegheraCi: !!copiaCi,
+        }),
+      })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Errore durante il salvataggio')
+
+      // 2. Documenti d'identità: PUT diretto a SharePoint
+      const caricati: string[] = []
+      if (copiaCf) caricati.push(await caricaDocumento(data.spItemId, 'cf', copiaCf))
+      if (copiaCi) caricati.push(await caricaDocumento(data.spItemId, 'ci', copiaCi))
+
+      // 3. Conferma: mail di riepilogo + log
+      setFaseUpload('Invio riepilogo…')
+      setAvanzamento(null)
+      const resConferma = await fetch(`/api/prestazioni/${data.spItemId}/conferma`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documentiCaricati: caricati }),
+      })
+      if (!resConferma.ok) {
+        throw new Error(
+          await erroreRisposta(
+            resConferma,
+            `Pratica ${data.idPrestazione} creata, ma l'invio del riepilogo è fallito.`,
+          ),
+        )
+      }
 
       setSuccess(
         `✅ Prestazione creata: ${data.idPrestazione}. Cartella SharePoint creata e mail di riepilogo inviata.`,
@@ -203,6 +273,8 @@ export function NuovaPrestazioneForm() {
       setError(err?.message ?? 'Errore imprevisto')
     } finally {
       setLoading(false)
+      setFaseUpload(null)
+      setAvanzamento(null)
     }
   }
 
@@ -461,6 +533,20 @@ export function NuovaPrestazioneForm() {
           </>
         )}
       </fieldset>
+
+      {faseUpload && (
+        <div className="bg-accent-purple/5 border border-accent-purple/20 rounded-lg p-3">
+          <p className="text-sm text-accent-purple font-medium">{faseUpload}</p>
+          {avanzamento !== null && (
+            <div className="mt-2 h-2 bg-accent-purple/15 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-accent-purple transition-all"
+                style={{ width: `${avanzamento}%` }}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       <button
         type="submit"

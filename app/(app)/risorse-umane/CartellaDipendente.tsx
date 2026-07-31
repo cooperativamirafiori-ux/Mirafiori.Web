@@ -1,6 +1,7 @@
 'use client'
 
 import { messaggioErrore } from '@/lib/ru-fetch'
+import { inviaFileABlocchi, MAX_UPLOAD_BYTES } from '@/lib/upload-diretto'
 import { useEffect, useRef, useState } from 'react'
 
 interface Documento {
@@ -20,17 +21,8 @@ const CATEGORIE_DOC = [
   'Altro',
 ] as const
 
-/**
- * Dimensione dei blocchi del caricamento diretto: 5 MiB.
- *
- * Graph richiede che ogni blocco, tranne l'ultimo, sia un multiplo di 320 KiB —
- * 5 MiB lo è esattamente (16 × 320 KiB). Blocchi più piccoli danno una barra di
- * avanzamento più fluida ma più round trip; questo è un compromesso ragionevole.
- */
-const BLOCCO = 5 * 1024 * 1024
-
-/** Tetto lato client, allineato a quello della route. */
-const MAX_BYTES = 50 * 1024 * 1024
+/** Tetto lato client, allineato a quello della route (vedi lib/upload-diretto). */
+const MAX_BYTES = MAX_UPLOAD_BYTES
 
 function formatKb(bytes?: number): string {
   if (!bytes) return ''
@@ -122,27 +114,8 @@ export function CartellaDipendente({ spItemId }: { spItemId: string }) {
         nomeFile: string
       }
 
-      // 2. blocchi verso SharePoint
-      for (let inizio = 0; inizio < file.size; inizio += BLOCCO) {
-        const fine = Math.min(inizio + BLOCCO, file.size)
-        const parte = file.slice(inizio, fine)
-        const r = await fetch(uploadUrl, {
-          method: 'PUT',
-          headers: {
-            'Content-Range': `bytes ${inizio}-${fine - 1}/${file.size}`,
-          },
-          body: parte,
-        })
-        // 202 = blocco accettato, ne aspetta altri. 200/201 = file completo.
-        if (r.status !== 202 && r.status !== 200 && r.status !== 201) {
-          const dettaglio = await r.text().catch(() => '')
-          throw new Error(
-            `Caricamento interrotto al ${Math.round((inizio / file.size) * 100)}% ` +
-              `(${r.status}). ${dettaglio.slice(0, 160)}`,
-          )
-        }
-        setAvanzamento(Math.round((fine / file.size) * 100))
-      }
+      // 2. blocchi verso SharePoint (helper condiviso con prestazioni e software)
+      await inviaFileABlocchi(uploadUrl, file, setAvanzamento)
 
       // 3. conferma: registra l'azione nel log e rinfresca l'elenco
       const resConferma = await fetch(`${base}/documenti/conferma`, {

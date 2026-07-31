@@ -1,13 +1,20 @@
 /**
  * POST /api/prestazioni — Attiva una nuova prestazione occasionale.
  *
- * Riceve FormData (per gli allegati). Flusso "Salva":
- *   1. Crea il record su SharePoint (Stato="Bozza") e genera ID PREST-YYYY-XXX
- *   2. Crea/usa la cartella del prestatore + sottocartella della prestazione
- *   3. Carica gli allegati (copia CF + carta d'identità) nella sottocartella
- *   4. Invia la mail di riepilogo a info@ (Luca) e claudia.carena@
+ * Riceve JSON (NON più FormData): i documenti d'identità vengono caricati dal
+ * browser direttamente su SharePoint, quindi qui non transitano byte di file e
+ * non vale più il limite dei 4 MB dell'upload semplice di Graph.
  *
- * NB: la generazione contratto + invio DocuSign è un modulo separato, da collegare in seguito.
+ * Flusso completo lato client:
+ *   1. POST /api/prestazioni                                  ← questa route
+ *      crea il record (Stato="Bozza"), l'ID PREST-YYYY-XXX e le cartelle
+ *   2. POST /api/prestazioni/[spItemId]/allegati-identita      (per ogni file)
+ *      apre la sessione, il browser fa il PUT diretto a SharePoint
+ *   3. POST /api/prestazioni/[spItemId]/conferma
+ *      invia la mail di riepilogo e scrive nel log
+ *
+ * La mail parte solo al passo 3: se il caricamento dei documenti si interrompe,
+ * nessuno riceve un riepilogo di una pratica incompleta.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -16,19 +23,16 @@ import {
   creaPrestazione,
   aggiornaPrestazione,
   ensureCartellaPrestazione,
-  ensureCartellaDocumentiIdentita,
   haDocumentiIdentita,
-  uploadAllegato,
 } from '@/lib/prestazioni'
-import { notificaRiepilogoPrestazione } from '@/lib/notifications'
-import { logAzione } from '@/lib/audit'
 import { CASISTICHE_GDPR_KEYS } from '@/lib/casistiche-gdpr'
 
 const CF_REGEX = /^[A-Z]{6}\d{2}[A-EHLMPR-T]\d{2}[A-Z]\d{3}[A-Z]$/
-const MAX_FILE_BYTES = 4 * 1024 * 1024 // 4 MB (upload semplice Graph)
 
-function str(fd: FormData, key: string): string {
-  const v = fd.get(key)
+export const dynamic = 'force-dynamic'
+
+function str(body: Record<string, unknown>, key: string): string {
+  const v = body[key]
   return typeof v === 'string' ? v.trim() : ''
 }
 
@@ -38,31 +42,36 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
   }
 
-  let fd: FormData
+  let body: Record<string, unknown>
   try {
-    fd = await req.formData()
+    body = await req.json()
   } catch {
-    return NextResponse.json({ error: 'Body non valido (atteso FormData)' }, { status: 400 })
+    return NextResponse.json({ error: 'Body non valido (atteso JSON)' }, { status: 400 })
   }
 
   const dati = {
-    nome: str(fd, 'nome'),
-    cognome: str(fd, 'cognome'),
-    dataNascita: str(fd, 'dataNascita'),
-    luogoNascita: str(fd, 'luogoNascita'),
-    codiceFiscale: str(fd, 'codiceFiscale').toUpperCase(),
-    residenza: str(fd, 'residenza'),
-    ruolo: str(fd, 'ruolo'),
-    email: str(fd, 'email'),
-    telefono: str(fd, 'telefono'),
-    iban: str(fd, 'iban').toUpperCase().replace(/\s+/g, ''),
-    giorni: Number(str(fd, 'giorni')),
-    dataInizio: str(fd, 'dataInizio'),
-    dataFine: str(fd, 'dataFine'),
-    attivita: str(fd, 'attivita'),
-    compensoPrevisto: Number(str(fd, 'compensoPrevisto').replace(',', '.')),
-    casisticaGdpr: str(fd, 'casisticaGdpr'),
+    nome: str(body, 'nome'),
+    cognome: str(body, 'cognome'),
+    dataNascita: str(body, 'dataNascita'),
+    luogoNascita: str(body, 'luogoNascita'),
+    codiceFiscale: str(body, 'codiceFiscale').toUpperCase(),
+    residenza: str(body, 'residenza'),
+    ruolo: str(body, 'ruolo'),
+    email: str(body, 'email'),
+    telefono: str(body, 'telefono'),
+    iban: str(body, 'iban').toUpperCase().replace(/\s+/g, ''),
+    giorni: Number(str(body, 'giorni')),
+    dataInizio: str(body, 'dataInizio'),
+    dataFine: str(body, 'dataFine'),
+    attivita: str(body, 'attivita'),
+    compensoPrevisto: Number(str(body, 'compensoPrevisto').replace(',', '.')),
+    casisticaGdpr: str(body, 'casisticaGdpr'),
   }
+
+  // Il client dichiara quali documenti sta per caricare: serve per la verifica
+  // "primo inserimento" prima di creare il record.
+  const allegheraCf = body.allegheraCf === true
+  const allegheraCi = body.allegheraCi === true
 
   // --- Validazione server-side ---
   const mancanti = Object.entries({
@@ -115,25 +124,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Casistica GDPR non valida' }, { status: 400 })
   }
 
-  // Allegati identità: OPZIONALI (obbligatori solo al primo inserimento di
-  // questo prestatore — la verifica avviene più sotto via SharePoint).
-  const fileCf =
-    fd.get('copiaCf') instanceof File && (fd.get('copiaCf') as File).size > 0
-      ? (fd.get('copiaCf') as File)
-      : null
-  const fileCi =
-    fd.get('copiaCi') instanceof File && (fd.get('copiaCi') as File).size > 0
-      ? (fd.get('copiaCi') as File)
-      : null
-  for (const f of [fileCf, fileCi]) {
-    if (f && f.size > MAX_FILE_BYTES) {
-      return NextResponse.json(
-        { error: `Allegato troppo grande (max 4 MB): ${f.name}` },
-        { status: 400 },
-      )
-    }
-  }
-
   try {
     const responsabile = {
       email: session.user.email,
@@ -147,9 +137,10 @@ export async function POST(req: NextRequest) {
     }
 
     // 0. Documenti d'identità già archiviati per questo prestatore?
-    //    Se no e non sono stati allegati, blocca prima di creare il record.
+    //    Se no e il client non ne sta caricando entrambi, blocca prima di
+    //    creare il record (per non lasciare pratiche orfane).
     const docsGiaPresenti = await haDocumentiIdentita(prestatore)
-    if (!docsGiaPresenti && (!fileCf || !fileCi)) {
+    if (!docsGiaPresenti && (!allegheraCf || !allegheraCi)) {
       return NextResponse.json(
         {
           error:
@@ -170,48 +161,15 @@ export async function POST(req: NextRequest) {
       dataCartella: dataInserimento,
     })
 
-    // 3. Documenti d'identità → cartella "Documenti Identità" (a livello prestatore).
-    //    Caricati solo se forniti; se già presenti e non riallegati, si saltano.
-    if (fileCf || fileCi) {
-      const cartellaDocs = await ensureCartellaDocumentiIdentita(prestatore)
-      if (fileCf) {
-        const cfBuf = new Uint8Array(await fileCf.arrayBuffer())
-        const extCf = fileCf.name.includes('.') ? fileCf.name.split('.').pop() : 'pdf'
-        await uploadAllegato(cartellaDocs.path, `CodiceFiscale_${dati.codiceFiscale}.${extCf}`, cfBuf, fileCf.type)
-      }
-      if (fileCi) {
-        const ciBuf = new Uint8Array(await fileCi.arrayBuffer())
-        const extCi = fileCi.name.includes('.') ? fileCi.name.split('.').pop() : 'pdf'
-        await uploadAllegato(cartellaDocs.path, `CartaIdentita_${dati.codiceFiscale}.${extCi}`, ciBuf, fileCi.type)
-      }
-    }
-
-    // 4. Aggiorna Title + URL cartella
+    // 3. Title + URL cartella
     await aggiornaPrestazione(spItemId, {
       Title: idPrestazione,
       CartellaUrl: cartella.webUrl,
     })
 
-    // 5. Mail di riepilogo (non bloccante)
-    await notificaRiepilogoPrestazione({
-      idPrestazione,
-      ...dati,
-      responsabileNome: responsabile.nome,
-      responsabileEmail: responsabile.email,
-      cartellaUrl: cartella.webUrl,
-    }).catch((e) => console.error('[prestazioni] invio riepilogo fallito', e))
-
-    await logAzione({
-      utente: session.user.email,
-      nome: session.user.name,
-      azione: 'prestazione.crea',
-      entita: 'PrestazioneOccasionale',
-      entitaId: idPrestazione,
-      dettagli: { prestatore: `${dati.cognome} ${dati.nome}`.trim(), ruolo: dati.ruolo },
-    })
-
+    // Mail di riepilogo e log: al passo di conferma, dopo gli upload diretti.
     return NextResponse.json(
-      { idPrestazione, spItemId, cartellaUrl: cartella.webUrl },
+      { idPrestazione, spItemId, cartellaUrl: cartella.webUrl, documentiGiaPresenti: docsGiaPresenti },
       { status: 201 },
     )
   } catch (err: any) {

@@ -7,6 +7,7 @@ import {
   STATI_SOFTWARE,
   type Software,
 } from '@/types/software'
+import { caricaDirettamente, maxUploadMb } from '@/lib/upload-diretto'
 
 interface Props {
   iniziali: Software[]
@@ -100,6 +101,8 @@ export function GestioneSoftware({ iniziali }: Props) {
   const [errore, setErrore] = useState<string | null>(null)
   const [mostraPwd, setMostraPwd] = useState<Record<string, boolean>>({})
   const [uploadId, setUploadId] = useState<string | null>(null)
+  // Percentuale del caricamento diretto a SharePoint (null = nessuno in corso)
+  const [avanzamento, setAvanzamento] = useState<number | null>(null)
 
   const listaOrdinata = useMemo(() => {
     return [...lista].sort((a, b) => {
@@ -183,23 +186,27 @@ export function GestioneSoftware({ iniziali }: Props) {
     }
   }
 
+  /**
+   * Carica la fattura DIRETTAMENTE su SharePoint, a blocchi: il nostro server
+   * apre solo la sessione, quindi non vale più il vecchio limite dei 4 MB.
+   */
   async function caricaFattura(s: Software, file: File) {
     setUploadId(s.spItemId)
     setErrore(null)
+    setAvanzamento(0)
     try {
-      const fd = new FormData()
-      fd.append('file', file)
-      const res = await fetch(`/api/software/${s.spItemId}/fattura`, {
-        method: 'POST',
-        body: fd,
+      const { software } = await caricaDirettamente<{ software: Software }>({
+        file,
+        urlSessione: `/api/software/${s.spItemId}/fattura`,
+        urlConferma: `/api/software/${s.spItemId}/fattura/conferma`,
+        onAvanzamento: setAvanzamento,
       })
-      if (!res.ok) throw new Error((await res.json()).error ?? 'Errore upload')
-      const { software } = await res.json()
       setLista((prev) => prev.map((x) => (x.spItemId === s.spItemId ? software : x)))
     } catch (e) {
       setErrore(e instanceof Error ? e.message : 'Errore di rete')
     } finally {
       setUploadId(null)
+      setAvanzamento(null)
     }
   }
 
@@ -478,7 +485,13 @@ export function GestioneSoftware({ iniziali }: Props) {
                     <span className="text-sm text-gray-400">Nessuna fattura</span>
                   )}
                   <label className="text-xs font-semibold text-slate-600 hover:text-slate-800 cursor-pointer underline">
-                    {uploadId === s.spItemId ? 'Caricamento…' : s.fatturaUrl ? 'Sostituisci fattura' : 'Carica fattura'}
+                    {uploadId === s.spItemId
+                      ? avanzamento !== null
+                        ? `Caricamento… ${avanzamento}%`
+                        : 'Caricamento…'
+                      : s.fatturaUrl
+                        ? 'Sostituisci fattura'
+                        : 'Carica fattura'}
                     <input
                       type="file"
                       className="hidden"
@@ -490,7 +503,16 @@ export function GestioneSoftware({ iniziali }: Props) {
                       }}
                     />
                   </label>
+                  <span className="text-xs text-gray-400">max {maxUploadMb()} MB</span>
                 </div>
+                {uploadId === s.spItemId && avanzamento !== null && (
+                  <div className="mt-2 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-slate-500 transition-all"
+                      style={{ width: `${avanzamento}%` }}
+                    />
+                  </div>
+                )}
               </div>
             )
           })}
