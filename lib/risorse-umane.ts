@@ -273,11 +273,13 @@ export async function getDocumentiDipendente(g: GraphClient, spItemId: string): 
   const driveId = await getDriveId(g)
   const relPath = `${folderRoot()}/${nomeCartella(dip)}`
   const res = await g.getOrNull<{ value: any[] }>(
-    `/drives/${driveId}/root:/${encodePath(relPath)}:/children?$select=id,name,webUrl,size,lastModifiedDateTime&$top=200`,
+    // ⚠️ `file` e `folder` vanno chiesti esplicitamente: senza di loro nel
+    // $select, Graph non li restituisce e il filtro qui sotto scarterebbe tutto.
+    `/drives/${driveId}/root:/${encodePath(relPath)}:/children?$select=id,name,webUrl,size,lastModifiedDateTime,file,folder&$top=200`,
   )
   if (!res) return []
   return (res.value || [])
-    .filter((c) => c.file) // solo file, non sottocartelle
+    .filter((c) => !c.folder) // solo file, non sottocartelle
     .map((c) => ({
       id: c.id,
       nome: c.name,
