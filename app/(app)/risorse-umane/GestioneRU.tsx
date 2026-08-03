@@ -560,6 +560,18 @@ export function GestioneRU({ entity, iniziali }: Props) {
           </div>
         )}
 
+        {/* Salvando dalla scheda si resta qui: l'avviso va mostrato anche in
+            questa vista, altrimenti resterebbe invisibile (es. "manca la mail
+            aziendale" dopo aver attivato la timbratura). */}
+        {avviso && (
+          <div className="flex items-start justify-between gap-3 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-xl px-4 py-3">
+            <span>{avviso}</span>
+            <button onClick={() => setAvviso(null)} className="shrink-0 text-amber-600 font-bold" aria-label="Chiudi">
+              ×
+            </button>
+          </div>
+        )}
+
         {entity === 'dipendenti' && <CartellaDipendente spItemId={dettaglio.spItemId} />}
 
         {sezioni(fields).map(({ nome, campi }) => {
