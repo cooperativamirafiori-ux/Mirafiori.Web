@@ -29,7 +29,11 @@ import {
   linkGestione,
 } from '@/lib/acquisti-flusso'
 import { getSPUserLookupId, getStrutture } from '@/lib/sharepoint'
-import { notificaEsitoValutazione, notificaOrdineEffettuato } from '@/lib/notifications'
+import {
+  notificaAssegnazioneAcquisto,
+  notificaEsitoValutazione,
+  notificaOrdineEffettuato,
+} from '@/lib/notifications'
 import { logAzione } from '@/lib/audit'
 import {
   ALIQUOTE_IVA,
@@ -43,6 +47,15 @@ import {
 export const dynamic = 'force-dynamic'
 
 const err = (msg: string, status = 400) => NextResponse.json({ error: msg }, { status })
+
+/**
+ * Nome di cortesia dal solo indirizzo email: la lista dei permessi contiene
+ * indirizzi, non nomi, e un "Ciao mario.rossi@..." in apertura di mail stona.
+ */
+function nomeDaEmail(email: string): string {
+  const nome = email.split('@')[0].split(/[._-]/)[0]
+  return nome ? nome.charAt(0).toUpperCase() + nome.slice(1) : ''
+}
 
 /** Azioni riservate a chi ha l'area "Acquisti". */
 const AZIONI_GESTORE = new Set([
@@ -103,10 +116,30 @@ export async function PATCH(
           return err('L’utente indicato non ha il permesso "Acquisti".')
         }
         const lookupId = await getSPUserLookupId(email)
+        const statoDopoAssegnazione = a.stato === 'Inviata' ? 'Presa in carico' : a.stato
         await aggiornaAcquisto(id, {
           AssegnatoLookupId: lookupId,
-          Stato: a.stato === 'Inviata' ? 'Presa in carico' : a.stato,
+          Stato: statoDopoAssegnazione,
         })
+        // Chi assegna una richiesta a sé stesso non ha bisogno di una mail.
+        if (lookupId !== mioLookupId) {
+          notificaAssegnazioneAcquisto({
+            to: email,
+            assegnatoNome: nomeDaEmail(email),
+            assegnataDa: session.user.name ?? session.user.email,
+            codice: a.codice,
+            descrizione: a.descrizione,
+            quantita: a.quantita,
+            struttura: a.struttura.value,
+            richiedente: a.richiedenteNome,
+            categoria: a.categoria,
+            urgenza: a.urgenza,
+            serveEntro: a.serveEntro ? dataBreve(a.serveEntro) : undefined,
+            stato: statoDopoAssegnazione,
+            link: a.link,
+            linkApp: linkGestione(),
+          }).catch(console.error)
+        }
         break
       }
 

@@ -399,6 +399,60 @@ export async function notificaAcquistoUrgente(opts: {
   })
 }
 
+/**
+ * Richiesta assegnata → solo all'operatore assegnato, subito.
+ *
+ * Non passa dal digest: il digest dice "c'è del lavoro", questa dice "il lavoro
+ * è tuo". Chi si assegna una richiesta da sé non viene notificato: lo sa già.
+ */
+export async function notificaAssegnazioneAcquisto(opts: {
+  to: string
+  assegnatoNome?: string
+  assegnataDa: string
+  codice: string
+  descrizione: string
+  quantita: number
+  struttura: string
+  richiedente: string
+  categoria: string
+  urgenza: string
+  serveEntro?: string
+  stato: string
+  link?: string
+  linkApp: string
+}): Promise<void> {
+  const colore =
+    opts.urgenza === 'Urgente' ? '#C00000' : opts.urgenza === 'Alta' ? '#E36C09' : '#1F4E79'
+
+  await sendEmail({
+    to: opts.to,
+    subject: `${opts.codice} — assegnata a te${opts.urgenza === 'Urgente' ? ' [URGENTE]' : ''}`,
+    html: BOX(`
+      <p style="margin:0 0 8px;font-size:16px;font-weight:700;color:${colore}">
+        📌 Richiesta di acquisto assegnata a te
+      </p>
+      ${opts.assegnatoNome ? `<p style="margin:0 0 6px">Ciao ${opts.assegnatoNome},</p>` : ''}
+      <p style="margin:0 0 4px"><strong>${opts.assegnataDa}</strong> ti ha assegnato la richiesta
+      <strong>${opts.codice}</strong>.</p>
+      ${TABELLA(
+        RIGA('Cosa serve', `${opts.descrizione} — quantità ${opts.quantita}`) +
+        RIGA('Richiedente', opts.richiedente) +
+        RIGA('Struttura', opts.struttura) +
+        RIGA('Categoria', opts.categoria) +
+        RIGA('Urgenza', `<span style="color:${colore}">${opts.urgenza}</span>`) +
+        (opts.serveEntro ? RIGA('Serve entro', opts.serveEntro) : '') +
+        RIGA('Stato', opts.stato) +
+        (opts.link ? RIGA('Link', `<a href="${opts.link}">${opts.link}</a>`) : ''),
+      )}
+      <p style="margin:16px 0 0">
+        <a href="${opts.linkApp}" style="background:${colore};color:#fff;text-decoration:none;font-weight:700;padding:11px 20px;border-radius:10px;display:inline-block">
+          Gestisci la richiesta →
+        </a>
+      </p>
+    `),
+  })
+}
+
 /** Digest giornaliero delle nuove richieste → ufficio + gestori. */
 export async function notificaDigestAcquisti(opts: {
   to: string[]
