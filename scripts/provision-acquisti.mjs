@@ -7,6 +7,8 @@
  *      colonne usate da lib/acquisti.ts;
  *   2. aggiunge i due lookup verso la lista Strutture (Graph non li accetta in
  *      fase di creazione della lista, servono chiamate separate);
+ *   2b. allinea i valori delle colonne Choice della lista, così chi ha già
+ *      eseguito lo script recupera i valori aggiunti dopo rilanciandolo;
  *   3. estende le colonne Choice della lista "Costi Strutture" con i valori
  *      "Acquisti" (Categoria) e "Acquisto" (Fonte), necessari perché la spesa
  *      di un acquisto consegnato possa entrare nel cruscotto costi.
@@ -50,7 +52,9 @@ const CATEGORIE = [
   'Pulizia e igiene', 'Alimentari', 'DPI e sicurezza', 'Manutenzione', 'Servizi', 'Altro',
 ]
 const PAGAMENTI = ['Fattura posticipata', 'Bonifico', 'Carta', 'Contanti']
-const ESITI = ['Tutto ok', 'Da restituire', 'Non arrivato']
+// I primi tre sono i pulsanti nella mail al richiedente; l'ultimo lo scrive solo
+// la chiusura d'ufficio del cron. Devono coincidere con ESITI_SP in types/acquisti.ts.
+const ESITI = ['Tutto ok', 'Da restituire', 'Non arrivato', 'Consegnata senza riscontro']
 
 // I `name` DEVONO coincidere con quelli usati in lib/acquisti.ts
 const COLUMNS = [
@@ -180,6 +184,7 @@ async function main() {
   }
 
   await ensureLookups(token, site, listId, listaStrutture)
+  await allineaChoiceAcquisti(token, site, listId)
   await estendiCostiStrutture(token, site)
 
   scriviEnvLocal(listId)
@@ -258,6 +263,55 @@ async function ensureLookups(token, site, listId, listaStrutture) {
 }
 
 /**
+ * Aggiunge a una colonna Choice i valori che le mancano, senza toccare quelli
+ * già presenti. Serve sulle liste già create: `ensureColumns` aggiunge le
+ * colonne mancanti, non i valori mancanti di una colonna che esiste già.
+ */
+async function estendiChoice(token, site, listId, etichetta, colonna, valori) {
+  const cols = await graph(
+    token, 'GET', `/sites/${site}/lists/${listId}/columns?$select=id,name,choice&$top=200`,
+  )
+  const col = (cols.value || []).find((c) => c.name === colonna)
+  if (!col) {
+    console.log(`⚠ ${etichetta}: colonna "${colonna}" non trovata, salto.`)
+    return
+  }
+  if (!col.choice) {
+    console.log(`✓ ${etichetta}: "${colonna}" non è una Choice, nessuna modifica necessaria.`)
+    return
+  }
+
+  const scelte = col.choice.choices || []
+  const mancanti = valori.filter((v) => !scelte.includes(v))
+  if (!mancanti.length) {
+    console.log(`✓ ${etichetta}: "${colonna}" ha già tutti i valori previsti.`)
+    return
+  }
+
+  await graph(token, 'PATCH', `/sites/${site}/lists/${listId}/columns/${col.id}`, {
+    choice: { ...col.choice, choices: [...scelte, ...mancanti] },
+  })
+  console.log(`  + ${etichetta}.${colonna}: aggiunti ${mancanti.map((v) => `"${v}"`).join(', ')}`)
+}
+
+/**
+ * Allinea le Choice della lista Richieste Acquisto. Chi ha già eseguito lo
+ * script prima di un'aggiunta di valori li recupera rilanciandolo.
+ */
+async function allineaChoiceAcquisti(token, site, listId) {
+  const daAllineare = [
+    ['Stato', STATI],
+    ['Urgenza', URGENZE],
+    ['Categoria', CATEGORIE],
+    ['Pagamento', PAGAMENTI],
+    ['EsitoConsegna', ESITI],
+  ]
+  for (const [colonna, valori] of daAllineare) {
+    await estendiChoice(token, site, listId, LIST_NAME, colonna, valori)
+  }
+}
+
+/**
  * Estende le Choice di "Costi Strutture" con i valori usati dagli acquisti.
  * Senza questo, la riga di costo generata alla consegna verrebbe rifiutata da SP.
  */
@@ -269,34 +323,8 @@ async function estendiCostiStrutture(token, site) {
     return
   }
 
-  const daAggiungere = [
-    { colonna: 'Categoria', valore: 'Acquisti' },
-    { colonna: 'Fonte', valore: 'Acquisto' },
-  ]
-
-  const cols = await graph(
-    token, 'GET', `/sites/${site}/lists/${listaCosti}/columns?$select=id,name,choice&$top=200`,
-  )
-  for (const { colonna, valore } of daAggiungere) {
-    const col = (cols.value || []).find((c) => c.name === colonna)
-    if (!col) {
-      console.log(`⚠ Costi Strutture: colonna "${colonna}" non trovata, salto.`)
-      continue
-    }
-    if (!col.choice) {
-      console.log(`✓ Costi Strutture: "${colonna}" non è una Choice, nessuna modifica necessaria.`)
-      continue
-    }
-    const scelte = col.choice.choices || []
-    if (scelte.includes(valore)) {
-      console.log(`✓ Costi Strutture: "${colonna}" contiene già "${valore}".`)
-      continue
-    }
-    await graph(token, 'PATCH', `/sites/${site}/lists/${listaCosti}/columns/${col.id}`, {
-      choice: { ...col.choice, choices: [...scelte, valore] },
-    })
-    console.log(`  + Costi Strutture: aggiunto "${valore}" a ${colonna}`)
-  }
+  await estendiChoice(token, site, listaCosti, 'Costi Strutture', 'Categoria', ['Acquisti'])
+  await estendiChoice(token, site, listaCosti, 'Costi Strutture', 'Fonte', ['Acquisto'])
 }
 
 /**

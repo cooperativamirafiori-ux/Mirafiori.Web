@@ -55,8 +55,21 @@ export const MODALITA_PAGAMENTO = [
 
 export const ALIQUOTE_IVA = [22, 10, 4, 0] as const
 
+/** Esiti che il richiedente può scegliere: sono i tre pulsanti della mail. */
 export const ESITI_CONSEGNA = ['Tutto ok', 'Da restituire', 'Non arrivato'] as const
 export type EsitoConsegna = (typeof ESITI_CONSEGNA)[number]
+
+/**
+ * Esito scritto dalla chiusura d'ufficio, non selezionabile da nessuno.
+ *
+ * Tenuto distinto da "Tutto ok" di proposito: la richiesta viene chiusa perché
+ * nessuno ha risposto, non perché qualcuno ha verificato. Nei report le due
+ * cose non vanno confuse.
+ */
+export const ESITO_SENZA_RISCONTRO = 'Consegnata senza riscontro'
+
+/** Tutti i valori ammessi dalla colonna Choice EsitoConsegna su SharePoint. */
+export const ESITI_SP = [...ESITI_CONSEGNA, ESITO_SENZA_RISCONTRO] as const
 
 /** Giorni dopo la consegna prevista oltre i quali si sollecita il richiedente. */
 export const GIORNI_SOLLECITO = 3

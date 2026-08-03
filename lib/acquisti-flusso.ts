@@ -19,7 +19,12 @@ import {
   notificaEsitoConsegna,
   notificaConfermaConsegna,
 } from '@/lib/notifications'
-import { dataBreve, type EsitoConsegna, type RichiestaAcquisto } from '@/types/acquisti'
+import {
+  ESITO_SENZA_RISCONTRO,
+  dataBreve,
+  type EsitoConsegna,
+  type RichiestaAcquisto,
+} from '@/types/acquisti'
 
 export const baseApp = () =>
   (process.env.APP_BASE_URL || 'https://mirafiori-web.vercel.app').replace(/\/$/, '')
@@ -139,20 +144,22 @@ export async function inviaRichiestaConferma(
 
 /**
  * Chiusura d'ufficio: nessun riscontro dopo la finestra prevista.
- * Meglio una richiesta chiusa con una nota che una coda che cresce e che
- * nessuno guarda più.
+ *
+ * Meglio una richiesta chiusa con una nota che una coda che cresce e che nessuno
+ * guarda più. L'esito è però ESITO_SENZA_RISCONTRO, non "Tutto ok": la consegna
+ * è presunta, non verificata, e nei report la differenza conta.
  */
 export async function chiudiSenzaRiscontro(a: RichiestaAcquisto): Promise<void> {
   const nota = [
     a.noteEsito,
-    `Chiusa automaticamente il ${dataBreve(new Date().toISOString())}: nessun riscontro dal richiedente entro i giorni previsti.`,
+    `Chiusa automaticamente il ${dataBreve(new Date().toISOString())}: nessun riscontro dal richiedente entro i giorni previsti. La consegna è presunta, non confermata.`,
   ]
     .filter(Boolean)
     .join('\n')
 
   await aggiornaAcquisto(a.spItemId, {
     Stato: 'Consegnata',
-    EsitoConsegna: 'Tutto ok',
+    EsitoConsegna: ESITO_SENZA_RISCONTRO,
     NoteEsito: nota,
     DataConsegnaEffettiva: new Date().toISOString(),
   })
