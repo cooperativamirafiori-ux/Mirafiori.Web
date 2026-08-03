@@ -394,7 +394,7 @@ export async function isAdmin(email: string): Promise<boolean> {
 // Il cruscotto HR delle timbrature, che legge da Supabase e con SharePoint non
 // c'entra, ha invece il suo permesso: "Timbrature HR". Vedi il punto 14 di
 // docs/piano-ru-sito-dedicato-accesso-delegato.md.
-export const AREE_PERMESSI = ['Amministrazione', 'Prestazioni Occasionali', 'Timbrature HR'] as const
+export const AREE_PERMESSI = ['Amministrazione', 'Prestazioni Occasionali', 'Timbrature HR', 'Acquisti'] as const
 export type AreaPermesso = (typeof AREE_PERMESSI)[number]
 
 // Fallback usato se la lista SP non esiste ancora o Graph fallisce.
@@ -470,4 +470,24 @@ export async function aggiungiAutorizzazione(
 /** Revoca un'autorizzazione dato l'ID della riga SP. */
 export async function rimuoviAutorizzazione(itemId: string): Promise<void> {
   await graphDelete(`${listBase('autorizzazioni')}/${itemId}`)
+}
+
+/**
+ * Email di chi ha accesso a un'area. Serve per sapere a chi notificare senza
+ * dover manutenere una seconda lista di destinatari: chi gestisce l'area è
+ * esattamente chi riceve gli avvisi dell'area.
+ *
+ * Non lancia: in caso di errore ritorna un array vuoto, così una notifica
+ * mancata non blocca l'operazione dell'utente.
+ */
+export async function getUtentiPerArea(area: string): Promise<string[]> {
+  try {
+    const tutte = await getTutteAutorizzazioni()
+    return Array.from(
+      new Set(tutte.filter((a) => a.area === area).map((a) => a.utente)),
+    )
+  } catch (err) {
+    console.error('[SP] getUtentiPerArea fallito', area, err)
+    return []
+  }
 }

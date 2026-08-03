@@ -9,6 +9,10 @@
     {
       "path": "/api/cron/sollecito-timbrature",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/acquisti",
+      "schedule": "30 7 * * *"
     }
   ]
 }

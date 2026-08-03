@@ -62,7 +62,6 @@ export default async function HomePage() {
             accent="orange"
             titolo="Richieste Acquisto"
             sottotitolo="Richiedi materiali e forniture"
-            badge="Presto"
           />
           {puoPrestazioni && (
             <FunzioneCard
