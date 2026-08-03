@@ -29,10 +29,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       {
         data: String(body.data).slice(0, 10),
         servizioId: Number(body.servizioId),
-        ore: body.ore ?? null,
         oraInizio: body.oraInizio ?? null,
         oraFine: body.oraFine ?? null,
-        notte: !!body.notte,
         mutua: !!body.mutua,
         note: body.note ?? null,
       },

@@ -25,6 +25,7 @@ import {
   validaInput,
 } from '@/lib/risorse-umane'
 import { graphRU, isRiautenticazione, isAccessoNegato } from '@/lib/graph-delegato'
+import { sincronizzaRecordRU } from '@/lib/timbrature-sync'
 import { logAzione } from '@/lib/audit'
 import { generaExportBuffer, nomeFileExport } from '@/lib/ru-export-xlsx'
 import { RU_CONFIG, type RUEntity, type RURecord } from '@/types/risorse-umane'
@@ -107,15 +108,16 @@ export function listHandlers(entity: RUEntity) {
     try {
       const gc = await graphRU(g.session.user.email)
       const item = await creaItem(gc, entity, body)
+      const sync = await sincronizzaRecordRU(item)
       await logAzione({
         utente: g.session.user.email,
         nome: g.session.user.name,
         azione: `ru.${ENTITA_SINGOLARE[entity]}.crea`,
         entita: ENTITA_SINGOLARE[entity],
         entitaId: item.spItemId,
-        dettagli: { nominativo: nominativoDa(item) || nominativoDa(body) },
+        dettagli: { nominativo: nominativoDa(item) || nominativoDa(body), timbrature: sync.azione },
       })
-      return NextResponse.json({ item })
+      return NextResponse.json({ item, avviso: sync.avviso })
     } catch (e) {
       return errore(e, 'Errore salvataggio')
     }
@@ -229,15 +231,16 @@ export function itemHandlers(entity: RUEntity) {
     try {
       const gc = await graphRU(g.session.user.email)
       const item = await aggiornaItem(gc, entity, id, body)
+      const sync = await sincronizzaRecordRU(item)
       await logAzione({
         utente: g.session.user.email,
         nome: g.session.user.name,
         azione: `ru.${ENTITA_SINGOLARE[entity]}.aggiorna`,
         entita: ENTITA_SINGOLARE[entity],
         entitaId: id,
-        dettagli: { nominativo: nominativoDa(item), campi: Object.keys(body) },
+        dettagli: { nominativo: nominativoDa(item), campi: Object.keys(body), timbrature: sync.azione },
       })
-      return NextResponse.json({ item })
+      return NextResponse.json({ item, avviso: sync.avviso })
     } catch (e) {
       return errore(e, 'Errore aggiornamento')
     }

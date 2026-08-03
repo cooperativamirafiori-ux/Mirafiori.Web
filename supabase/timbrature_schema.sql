@@ -59,7 +59,9 @@ create table if not exists timbratura (
   servizio_id    int         not null references servizio(id),
   tipo_voce      text        not null default 'lavoro'
                   check (tipo_voce in ('lavoro','giustificativo')),
-  ora_inizio     time,                              -- null per giustificativo a giornata
+  -- Voce di lavoro: ingresso e uscita OBBLIGATORI (le ore sono derivate).
+  -- Giustificativo: nessun orario, occupa il monte ore atteso del giorno.
+  ora_inizio     time,
   ora_fine       time,
   -- ore esatte, senza arrotondamento; per il giustificativo si valorizza a monte-ore
   ore            numeric     not null default 0,
@@ -68,7 +70,11 @@ create table if not exists timbratura (
   note           text,
   creata_da      text,                              -- email di chi ha inserito
   created_at     timestamptz not null default now(),
-  updated_at     timestamptz not null default now()
+  updated_at     timestamptz not null default now(),
+  constraint timbratura_orari_coerenti check (
+    (tipo_voce = 'lavoro'         and ora_inizio is not null and ora_fine is not null) or
+    (tipo_voce = 'giustificativo' and ora_inizio is null     and ora_fine is null)
+  )
 );
 
 create index if not exists idx_timbratura_dip_data on timbratura (dipendente_id, data);
@@ -118,8 +124,8 @@ insert into servizio (nome, centro_costo, categoria, tipo_voce, ordine) values
   ('CASA ARTEMISIA',                        4, 'Educativi / sociali','lavoro', 41),
   ('CENTRO ANTIVIOLENZA IN RETE',           4, 'Educativi / sociali','lavoro', 42),
   ('CISA 12',                               4, 'Educativi / sociali','lavoro', 43),
-  ('CODOMINIO SOLIDALE VIA GESSI',          4, 'Educativi / sociali','lavoro', 44),
-  ('COMUNITA'' GIULIA',                     4, 'Educativi / sociali','lavoro', 45),
+  ('CONDOMINIO SOLIDALE VIA GESSI',         4, 'Educativi / sociali','lavoro', 44),
+  ('COMUNITÀ GIULIA',                       4, 'Educativi / sociali','lavoro', 45),
   ('CUAV',                                  4, 'Educativi / sociali','lavoro', 46),
   ('EDUCATIVA SPECIALISTICA SCUOLE',        4, 'Educativi / sociali','lavoro', 47),
   ('IET/IEPD',                              4, 'Educativi / sociali','lavoro', 48),

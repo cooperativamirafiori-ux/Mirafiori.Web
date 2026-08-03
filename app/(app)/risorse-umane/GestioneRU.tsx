@@ -225,6 +225,8 @@ export function GestioneRU({ entity, iniziali }: Props) {
   const [form, setForm] = useState<Record<string, string>>(() => formInizialeDa(null, fields))
   const [busy, setBusy] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
+  /** Avviso non bloccante restituito dal salvataggio (es. sincronizzazione timbrature). */
+  const [avviso, setAvviso] = useState<string | null>(null)
 
   // ---- Export Excel ----
   const [exportAperto, setExportAperto] = useState(false)
@@ -425,12 +427,13 @@ export function GestioneRU({ entity, iniziali }: Props) {
         body: JSON.stringify(form),
       })
       if (!res.ok) throw new Error(await messaggioErrore(res, 'Errore salvataggio'))
-      const { item } = await res.json()
+      const { item, avviso: avvisoSalvataggio } = await res.json()
       setLista((prev) =>
         editId ? prev.map((r) => (r.spItemId === editId ? item : r)) : [item, ...prev],
       )
       if (dettaglio && editId === dettaglio.spItemId) setDettaglio(item)
       chiudiForm()
+      setAvviso(typeof avvisoSalvataggio === 'string' ? avvisoSalvataggio : null)
     } catch (e) {
       setErrore(e instanceof Error ? e.message : 'Errore di rete')
     } finally {
@@ -807,6 +810,15 @@ export function GestioneRU({ entity, iniziali }: Props) {
       {errore && (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
           {errore}
+        </div>
+      )}
+
+      {avviso && (
+        <div className="flex items-start justify-between gap-3 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-xl px-4 py-3">
+          <span>{avviso}</span>
+          <button onClick={() => setAvviso(null)} className="shrink-0 text-amber-600 font-bold" aria-label="Chiudi">
+            ×
+          </button>
         </div>
       )}
 

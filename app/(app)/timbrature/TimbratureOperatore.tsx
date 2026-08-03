@@ -24,7 +24,34 @@ function dataEstesa(dataYmd: string) {
 const oreFmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, ''))
 const oreLabel = (n: number) => oreFmt(n).replace('.', ',')
 const segno = (n: number) => (n >= 0 ? '+' : '') + oreLabel(n)
-function parseOre(v: string): number { return parseFloat(v.replace(',', '.')) }
+
+// ---- orari HH:mm ----
+/** 'HH:mm' → minuti dalla mezzanotte, oppure null se non valido. */
+function hhmmToMin(v: string): number | null {
+  const m = (v || '').trim().match(/^(\d{1,2}):(\d{1,2})$/)
+  if (!m) return null
+  const h = Number(m[1]); const min = Number(m[2])
+  if (h > 23 || min > 59) return null
+  return h * 60 + min
+}
+/** Minuti dalla mezzanotte → 'HH:mm' (con rientro sulle 24h). */
+function minToHhmm(min: number): string {
+  const m = ((min % 1440) + 1440) % 1440
+  return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`
+}
+/**
+ * Ore tra due orari, con la stessa regola del server: se l'uscita non è
+ * successiva all'ingresso si assume un turno oltre la mezzanotte.
+ */
+function oreTra(oraInizio: string, oraFine: string): { ore: number; notte: boolean } | null {
+  const a = hhmmToMin(oraInizio)
+  const b = hhmmToMin(oraFine)
+  if (a == null || b == null) return null
+  let diff = b - a
+  let notte = false
+  if (diff <= 0) { diff += 1440; notte = true }
+  return { ore: Math.round((diff / 60) * 10000) / 10000, notte }
+}
 function fmtRange(from: string, to: string) {
   const f = `${from.slice(8, 10)}/${from.slice(5, 7)}`
   const t = `${to.slice(8, 10)}/${to.slice(5, 7)}`
@@ -47,7 +74,8 @@ interface FormRiga {
   id?: string
   data: string
   servizioId: number | ''
-  ore: string
+  oraInizio: string
+  oraFine: string
   mutua: boolean
   note: string
 }
@@ -177,33 +205,61 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
     setMese(m); setAnno(y)
   }
 
+  /**
+   * Nuova riga. Gli orari vengono precompilati per ridurre la digitazione:
+   * l'ingresso riprende l'ultima uscita già registrata nella giornata (così una
+   * giornata spezzata si costruisce riga dopo riga), e l'uscita copre le ore che
+   * restano da coprire rispetto al monte ore.
+   */
   function nuovaRiga(data: string) {
+    const righe = timbPerGiorno.get(data) ?? []
+    const ultimaUscita = righe
+      .map((t) => (t.oraFine ? hhmmToMin(t.oraFine) : null))
+      .filter((m): m is number => m != null)
+      .sort((a, b) => b - a)[0]
+    const inizioMin = ultimaUscita ?? hhmmToMin('09:00')!
+
     const g = giornoRiep.get(data)
-    const oreGia = (timbPerGiorno.get(data) ?? []).reduce((s, t) => s + t.ore, 0)
+    const oreGia = righe.reduce((s, t) => s + t.ore, 0)
     const restanti = g ? Math.max(g.oreAttese - oreGia, 0) : 0
-    const suggerite = restanti > 0 ? Math.round(restanti * 2) / 2 : 4
-    setForm({ data, servizioId: '', ore: oreLabel(suggerite), mutua: false, note: '' })
+    const durata = restanti > 0.001 ? restanti : 4
+
+    setForm({
+      data,
+      servizioId: '',
+      oraInizio: minToHhmm(inizioMin),
+      oraFine: minToHhmm(inizioMin + Math.round(durata * 60)),
+      mutua: false,
+      note: '',
+    })
   }
   function modificaRiga(t: Timbratura) {
     setForm({
       id: t.id, data: t.data, servizioId: t.servizioId,
-      ore: oreLabel(t.ore), mutua: t.mutua, note: t.note ?? '',
+      oraInizio: t.oraInizio ?? '', oraFine: t.oraFine ?? '',
+      mutua: t.mutua, note: t.note ?? '',
     })
   }
 
   const servSelezionato = form && form.servizioId ? servizioById.get(Number(form.servizioId)) : undefined
   const isGiust = servSelezionato?.tipoVoce === 'giustificativo'
+  // Ore della riga in compilazione: sempre derivate dagli orari, mai digitate.
+  const calcForm = form && !isGiust ? oreTra(form.oraInizio, form.oraFine) : null
 
   async function salva() {
     if (!form) return
     if (!form.servizioId) { setErrore('Seleziona un servizio'); return }
-    const oreNum = parseOre(form.ore)
-    if (!isGiust && (!Number.isFinite(oreNum) || oreNum <= 0)) { setErrore('Inserisci le ore lavorate'); return }
+    if (!isGiust) {
+      if (!form.oraInizio || !form.oraFine) { setErrore('Inserisci orario di ingresso e di uscita'); return }
+      if (!calcForm) { setErrore('Orario non valido (formato atteso HH:mm)'); return }
+      if (form.oraInizio === form.oraFine) { setErrore('Ingresso e uscita non possono coincidere'); return }
+    }
     setSalvando(true); setErrore('')
     try {
       const payload = {
         data: form.data, servizioId: Number(form.servizioId),
-        ore: isGiust ? null : oreNum,
+        oraInizio: isGiust ? null : form.oraInizio,
+        oraFine: isGiust ? null : form.oraFine,
         mutua: isGiust ? false : form.mutua, note: form.note || null,
       }
       const url = form.id ? `/api/timbrature/${form.id}` : '/api/timbrature'
@@ -499,26 +555,69 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
               </optgroup>
             </select>
 
-            {/* Ore (solo lavoro) */}
+            {/* Ingresso / uscita (solo lavoro) */}
             {!isGiust && (
               <>
-                <label className="block text-sm font-semibold text-gray-600 mb-2">Ore</label>
-                <StepperOre value={form.ore} onChange={(v) => setForm({ ...form, ore: v })} />
-                <div className="flex gap-2 mt-2 mb-4">
+                <div className="flex gap-3 mb-2">
+                  <div className="flex-1">
+                    <label className="block text-sm font-semibold text-gray-600 mb-1">Ingresso</label>
+                    <input
+                      type="time"
+                      value={form.oraInizio}
+                      onChange={(e) => setForm({ ...form, oraInizio: e.target.value })}
+                      className="w-full h-12 text-center text-xl font-bold border border-gray-300 rounded-xl"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-sm font-semibold text-gray-600 mb-1">Uscita</label>
+                    <input
+                      type="time"
+                      value={form.oraFine}
+                      onChange={(e) => setForm({ ...form, oraFine: e.target.value })}
+                      className="w-full h-12 text-center text-xl font-bold border border-gray-300 rounded-xl"
+                    />
+                  </div>
+                </div>
+
+                {/* Ore: valore derivato, non modificabile */}
+                <div className="mb-3 rounded-xl bg-gray-50 px-3 py-2 flex items-center justify-between">
+                  <span className="text-xs text-gray-500">Ore conteggiate</span>
+                  <span className="flex items-center gap-2">
+                    {calcForm?.notte && (
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                        oltre mezzanotte
+                      </span>
+                    )}
+                    <span className="text-lg font-bold text-brand-cyan-dark">
+                      {calcForm ? `${oreLabel(calcForm.ore)} h` : '—'}
+                    </span>
+                  </span>
+                </div>
+
+                {/* Durate rapide: spostano l'uscita, l'ingresso resta quello scelto */}
+                <div className="flex gap-2 mb-4">
                   {[2, 4, 6, 8].map((p) => (
                     <button
                       key={p}
-                      onClick={() => setForm({ ...form, ore: String(p) })}
+                      onClick={() => {
+                        const a = hhmmToMin(form.oraInizio)
+                        if (a == null) return
+                        setForm({ ...form, oraFine: minToHhmm(a + p * 60) })
+                      }}
                       className="flex-1 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:border-brand-cyan hover:text-brand-cyan-dark"
                     >
                       {p}h
                     </button>
                   ))}
                 </div>
+
                 <label className="flex items-center gap-2 text-sm text-gray-700 mb-4">
                   <input type="checkbox" checked={form.mutua} onChange={(e) => setForm({ ...form, mutua: e.target.checked })} />
                   Malattia (Mutua)
                 </label>
+                <p className="text-xs text-gray-500 mb-4 bg-gray-50 rounded-lg px-3 py-2">
+                  Se la giornata è spezzata (es. mattina e pomeriggio) inserisci una riga per ogni fascia oraria.
+                </p>
               </>
             )}
             {isGiust && (
@@ -549,7 +648,16 @@ function RigaVoce({ t, bloccato, onEdit, onDelete, compact }: { t: Timbratura; b
           {t.servizioNome}{t.mutua ? ' (Mutua)' : ''}
         </span>
         <span className="text-gray-400 ml-2 font-semibold">{oreLabel(t.ore)} h</span>
-        {t.note && <div className="text-xs text-gray-400 truncate">{t.note}</div>}
+        <div className="text-xs text-gray-400 truncate">
+          {t.oraInizio && t.oraFine && (
+            <span>
+              {t.oraInizio}–{t.oraFine}
+              {t.notte && <span className="text-indigo-500"> (oltre mezzanotte)</span>}
+              {t.note ? ' · ' : ''}
+            </span>
+          )}
+          {t.note}
+        </div>
       </div>
       {!bloccato && (
         <div className="flex gap-3 text-xs shrink-0">
@@ -557,27 +665,6 @@ function RigaVoce({ t, bloccato, onEdit, onDelete, compact }: { t: Timbratura; b
           <button onClick={onDelete} className="text-red-500 hover:text-red-700">Elimina</button>
         </div>
       )}
-    </div>
-  )
-}
-
-function StepperOre({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const num = parseFloat(value.replace(',', '.'))
-  const step = (delta: number) => {
-    const base = Number.isFinite(num) ? num : 0
-    const next = Math.max(0.5, Math.round((base + delta) * 2) / 2)
-    onChange(String(next).replace('.', ','))
-  }
-  return (
-    <div className="flex items-center gap-3">
-      <button onClick={() => step(-0.5)} className="w-12 h-12 rounded-xl border border-gray-300 text-2xl font-bold text-gray-600 hover:border-brand-cyan active:scale-95">−</button>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        inputMode="decimal"
-        className="flex-1 h-12 text-center text-xl font-bold border border-gray-300 rounded-xl"
-      />
-      <button onClick={() => step(0.5)} className="w-12 h-12 rounded-xl border border-gray-300 text-2xl font-bold text-gray-600 hover:border-brand-cyan active:scale-95">+</button>
     </div>
   )
 }

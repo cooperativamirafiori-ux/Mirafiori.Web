@@ -11,26 +11,40 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import type { Session } from 'next-auth'
-import { ensureDipendente } from '@/lib/timbrature'
+import { dipendenteAbilitato } from '@/lib/timbrature'
 import type { Dipendente } from '@/types/timbrature'
 
 export const AREA_HR = 'Timbrature HR'
+
+/** Messaggio unico per chi non è abilitato: deve dire cosa fare, non solo "no". */
+export const MSG_NON_ABILITATO =
+  'Timbrature non attive per il tuo profilo. Chiedi alle Risorse Umane di attivarle sulla tua scheda.'
 
 type OperatoreResult =
   | { session: Session; dipendente: Dipendente; error: null }
   | { session: null; dipendente: null; error: NextResponse }
 
 /**
- * Timbrature accessibili a TUTTI gli utenti autenticati (ogni dipendente timbra).
- * Nessun permesso d'area richiesto: basta la sessione. Risolve (creando al primo
- * accesso) il dipendente collegato all'email.
+ * Timbrature accessibili solo a chi è ABILITATO dall'anagrafica Risorse Umane
+ * (campo "Timbratura attiva" sulla scheda della persona, collegato per mail
+ * aziendale — vedi lib/timbrature-sync.ts).
+ *
+ * Non esiste più l'auto-provisioning al primo accesso: creava nel cruscotto HR
+ * persone senza monte ore, quindi con conteggi privi di significato.
  */
 export async function guardOperatore(): Promise<OperatoreResult> {
   const session = await auth()
   if (!session?.user?.email) {
     return { session: null, dipendente: null, error: NextResponse.json({ error: 'Non autenticato' }, { status: 401 }) }
   }
-  const dipendente = await ensureDipendente(session.user.email, session.user.name ?? '')
+  const dipendente = await dipendenteAbilitato(session.user.email)
+  if (!dipendente) {
+    return {
+      session: null,
+      dipendente: null,
+      error: NextResponse.json({ error: MSG_NON_ABILITATO, codice: 'non-abilitato' }, { status: 403 }),
+    }
+  }
   return { session, dipendente, error: null }
 }
 

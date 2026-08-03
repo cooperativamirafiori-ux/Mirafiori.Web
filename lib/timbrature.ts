@@ -66,13 +66,18 @@ export function calcolaOre(oraInizio: string, oraFine: string): { ore: number; n
   return { ore: Math.round((diff / 60) * 10000) / 10000, notte } // esatto (no arrotondamento a intervalli)
 }
 
-/** Ore inserite dall'operatore: positive, arrotondate alla mezz'ora, cap 24. */
-function normalizzaOre(v: unknown): number | null {
-  if (v == null || (v as unknown) === '') return null
-  const n = Number(v)
-  if (!Number.isFinite(n) || n <= 0) return null
-  const mezzora = Math.round(n * 2) / 2
-  return Math.min(mezzora, 24)
+/**
+ * Normalizza un orario in 'HH:mm'. Accetta 'H:m', 'HH:mm', 'HH:mm:ss'.
+ * Restituisce null se il valore è assente; lancia se è presente ma non valido.
+ */
+function normalizzaOrario(v: unknown, campo: string): string | null {
+  if (v == null || v === '') return null
+  const m = String(v).trim().match(/^(\d{1,2}):(\d{1,2})(?::\d{1,2})?$/)
+  if (!m) throw new Error(`${campo} non valido (formato atteso HH:mm)`)
+  const h = Number(m[1])
+  const min = Number(m[2])
+  if (h > 23 || min > 59) throw new Error(`${campo} non valido (formato atteso HH:mm)`)
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`
 }
 
 function primoUltimoGiorno(anno: number, mese: number): { from: string; to: string } {
@@ -140,20 +145,69 @@ export async function getDipendenteByEmail(email: string): Promise<Dipendente | 
 }
 
 /**
- * Ritorna il dipendente per email; se non esiste lo crea (auto-provisioning al
- * primo accesso dell'operatore). Il monte ore e il referente li imposta poi HR.
+ * Dipendente abilitato alle timbrature, oppure null.
+ *
+ * Non crea nulla: l'anagrafica timbrature è alimentata SOLO dall'anagrafica
+ * Risorse Umane, spuntando "Timbratura attiva" sulla scheda della persona
+ * (vedi lib/timbrature-sync.ts). Prima si usava un auto-provisioning al primo
+ * accesso, che riempiva il cruscotto HR di persone senza monte ore.
  */
-export async function ensureDipendente(email: string, cognomeNome: string): Promise<Dipendente> {
-  const em = email.toLowerCase()
+export async function dipendenteAbilitato(email: string): Promise<Dipendente | null> {
+  const d = await getDipendenteByEmail(email)
+  return d && d.attivo ? d : null
+}
+
+/** Dati che l'anagrafica RU detta all'anagrafica timbrature. */
+export interface DatiDaRU {
+  cognomeNome: string
+  /** Mail del referente, finisce nell'intestazione del foglio ore. */
+  referenteEmail: string | null
+  attivo: boolean
+}
+
+export type AzioneSync = 'creato' | 'attivato' | 'disattivato' | 'aggiornato' | 'invariato'
+
+/**
+ * Allinea l'anagrafica timbrature a una scheda dell'anagrafica RU.
+ * La chiave è l'email (mail aziendale).
+ *
+ * L'anagrafica RU è la fonte di verità per nominativo, referente e stato attivo:
+ * se il referente è vuoto in RU viene svuotato anche qui. Il monte ore
+ * settimanale invece resta di competenza delle HR e non viene mai toccato.
+ *
+ * Se la persona non è abilitata e non esiste ancora non viene creata: il
+ * cruscotto contiene esattamente le persone volute.
+ */
+export async function upsertDipendenteDaRU(email: string, dati: DatiDaRU): Promise<AzioneSync> {
+  const em = email.trim().toLowerCase()
+  if (!em) throw new Error('Mail aziendale mancante')
+  const nome = dati.cognomeNome.trim() || em
+  const referente = dati.referenteEmail?.trim().toLowerCase() || null
+
   const esistente = await getDipendenteByEmail(em)
-  if (esistente) return esistente
-  const { data, error } = await supabase()
+
+  if (!esistente) {
+    if (!dati.attivo) return 'invariato'
+    const { error } = await supabase()
+      .from('dipendente')
+      .insert({ email: em, cognome_nome: nome, referente_email: referente, attivo: true })
+    if (error) throw new Error(error.message)
+    return 'creato'
+  }
+
+  const cambiaAttivo = esistente.attivo !== dati.attivo
+  const cambiaAltro =
+    esistente.cognomeNome !== nome || (esistente.referenteEmail ?? null) !== referente
+  if (!cambiaAttivo && !cambiaAltro) return 'invariato'
+
+  const { error } = await supabase()
     .from('dipendente')
-    .insert({ email: em, cognome_nome: cognomeNome || em })
-    .select('*')
-    .single()
+    .update({ cognome_nome: nome, referente_email: referente, attivo: dati.attivo })
+    .eq('id', esistente.id)
   if (error) throw new Error(error.message)
-  return mapDip(data)
+
+  if (cambiaAttivo) return dati.attivo ? 'attivato' : 'disattivato'
+  return 'aggiornato'
 }
 
 // --------------------------------------------------------------- monte ore
@@ -311,6 +365,39 @@ async function servizioById(id: number): Promise<Servizio> {
   return mapServizio(data)
 }
 
+/**
+ * Determina orari, ore e flag notte di una voce.
+ *
+ * - giustificativo: nessun orario, ore = monte ore atteso di quel giorno
+ * - lavoro: ingresso e uscita OBBLIGATORI, ore calcolate dagli orari al minuto
+ *   esatto. Il campo `ore` eventualmente ricevuto in input viene ignorato:
+ *   le ore non sono un dato inserito ma un dato derivato.
+ */
+async function risolviVoce(
+  dipendenteId: number,
+  input: TimbraturaInput,
+  serv: Servizio,
+): Promise<{ oraInizio: string | null; oraFine: string | null; ore: number; notte: boolean }> {
+  if (serv.tipoVoce === 'giustificativo') {
+    const prof = await profiloVigente(dipendenteId, input.data)
+    const monte = monteToSettimana(prof)
+    return {
+      oraInizio: null,
+      oraFine: null,
+      ore: monte[weekdayIso(input.data)],
+      notte: false,
+    }
+  }
+
+  const oraInizio = normalizzaOrario(input.oraInizio, 'Orario di ingresso')
+  const oraFine = normalizzaOrario(input.oraFine, 'Orario di uscita')
+  if (!oraInizio || !oraFine) throw new Error('Inserisci orario di ingresso e di uscita')
+  if (oraInizio === oraFine) throw new Error('Ingresso e uscita non possono coincidere')
+
+  const calc = calcolaOre(oraInizio, oraFine)
+  return { oraInizio, oraFine, ore: calc.ore, notte: calc.notte }
+}
+
 export async function creaTimbratura(
   dipendenteId: number,
   input: TimbraturaInput,
@@ -318,36 +405,7 @@ export async function creaTimbratura(
 ): Promise<Timbratura> {
   await assertModificabile(dipendenteId, input.data)
   const serv = await servizioById(input.servizioId)
-
-  let ore = 0
-  let notte = !!input.notte
-  let oraInizio: string | null = input.oraInizio ?? null
-  let oraFine: string | null = input.oraFine ?? null
-
-  if (serv.tipoVoce === 'giustificativo') {
-    // occupa il monte ore atteso del giorno
-    const prof = await profiloVigente(dipendenteId, input.data)
-    const monte = monteToSettimana(prof)
-    ore = monte[weekdayIso(input.data)]
-    oraInizio = null
-    oraFine = null
-  } else {
-    // Voce di lavoro: le ore inserite direttamente hanno priorità (mezze ore
-    // supportate). In assenza, ripiego sul calcolo da oraInizio/oraFine.
-    const oreDirette = normalizzaOre(input.ore)
-    if (oreDirette != null) {
-      ore = oreDirette
-      notte = !!input.notte
-      oraInizio = null
-      oraFine = null
-    } else if (oraInizio && oraFine) {
-      const calc = calcolaOre(oraInizio, oraFine)
-      ore = calc.ore
-      notte = input.notte ?? calc.notte
-    } else {
-      throw new Error('Inserisci le ore lavorate')
-    }
-  }
+  const { oraInizio, oraFine, ore, notte } = await risolviVoce(dipendenteId, input, serv)
 
   const { data, error } = await supabase()
     .from('timbratura')
@@ -378,34 +436,7 @@ export async function aggiornaTimbratura(
 ): Promise<Timbratura> {
   await assertModificabile(dipendenteId, input.data)
   const serv = await servizioById(input.servizioId)
-
-  let ore = 0
-  let notte = !!input.notte
-  let oraInizio: string | null = input.oraInizio ?? null
-  let oraFine: string | null = input.oraFine ?? null
-
-  if (serv.tipoVoce === 'giustificativo') {
-    const prof = await profiloVigente(dipendenteId, input.data)
-    ore = monteToSettimana(prof)[weekdayIso(input.data)]
-    oraInizio = null
-    oraFine = null
-  } else {
-    // Voce di lavoro: le ore inserite direttamente hanno priorità (mezze ore
-    // supportate). In assenza, ripiego sul calcolo da oraInizio/oraFine.
-    const oreDirette = normalizzaOre(input.ore)
-    if (oreDirette != null) {
-      ore = oreDirette
-      notte = !!input.notte
-      oraInizio = null
-      oraFine = null
-    } else if (oraInizio && oraFine) {
-      const calc = calcolaOre(oraInizio, oraFine)
-      ore = calc.ore
-      notte = input.notte ?? calc.notte
-    } else {
-      throw new Error('Inserisci le ore lavorate')
-    }
-  }
+  const { oraInizio, oraFine, ore, notte } = await risolviVoce(dipendenteId, input, serv)
 
   const { data, error } = await supabase()
     .from('timbratura')
@@ -648,11 +679,51 @@ export async function riapriMese(
 }
 
 /** Cruscotto HR: stato del mese per tutti i dipendenti attivi. */
+/**
+ * Dipendenti da mostrare nel cruscotto per un mese: gli abilitati, più i
+ * disattivati che in quel mese hanno lasciato qualcosa (righe di ore o una
+ * chiusura). Senza questi ultimi, chiudere l'ultimo mese di chi è appena
+ * cessato — e quindi generare il suo foglio ore finale — sarebbe impossibile.
+ */
+async function dipendentiDelMese(
+  anno: number,
+  mese: number,
+  from: string,
+  to: string,
+): Promise<{ dip: Dipendente; disattivato: boolean }[]> {
+  const attivi = await getDipendenti(true)
+  const noti = new Set(attivi.map((d) => d.id))
+
+  const [righe, chiusure] = await Promise.all([
+    supabase().from('timbratura').select('dipendente_id').gte('data', from).lte('data', to),
+    supabase().from('chiusura_mese').select('dipendente_id').eq('anno', anno).eq('mese', mese),
+  ])
+  if (righe.error) throw new Error(righe.error.message)
+  if (chiusure.error) throw new Error(chiusure.error.message)
+
+  const conAttivita = new Set<number>(
+    [...(righe.data ?? []), ...(chiusure.data ?? [])].map((r: any) => Number(r.dipendente_id)),
+  )
+  const daRecuperare = [...conAttivita].filter((id) => !noti.has(id))
+
+  const out = attivi.map((dip) => ({ dip, disattivato: false }))
+  if (daRecuperare.length) {
+    const { data, error } = await supabase()
+      .from('dipendente')
+      .select('*')
+      .in('id', daRecuperare)
+      .order('cognome_nome', { ascending: true })
+    if (error) throw new Error(error.message)
+    for (const r of data ?? []) out.push({ dip: mapDip(r), disattivato: true })
+  }
+  return out
+}
+
 export async function statoMeseTutti(anno: number, mese: number): Promise<StatoDipendenteMese[]> {
   const { from, to } = primoUltimoGiorno(anno, mese)
-  const dips = await getDipendenti(true)
+  const dips = await dipendentiDelMese(anno, mese, from, to)
   const out: StatoDipendenteMese[] = []
-  for (const d of dips) {
+  for (const { dip: d, disattivato } of dips) {
     const [rp, ch] = await Promise.all([
       riepilogoPeriodo(d.id, from, to),
       getChiusura(d.id, anno, mese),
@@ -668,6 +739,7 @@ export async function statoMeseTutti(anno: number, mese: number): Promise<StatoD
       stato: ch?.stato ?? 'aperto',
       fileUrl: ch?.fileUrl ?? null,
       settimane: rp.settimane,
+      disattivato,
     })
   }
   return out

@@ -38,6 +38,8 @@ export default function CruscottoTimbrature() {
   const [dettaglio, setDettaglio] = useState<Dettaglio | null>(null)
   const [azione, setAzione] = useState(false)
   const [profiloForm, setProfiloForm] = useState<Record<number, string>>({})
+  const [sincronizzando, setSincronizzando] = useState(false)
+  const [esitoSync, setEsitoSync] = useState<string>('')
 
   // Giorni festivi del mese (per segnalare il lavoro in festività nel dettaglio)
   const festivoByData = useMemo(() => {
@@ -127,6 +129,38 @@ export default function CruscottoTimbrature() {
     }
   }
 
+  /**
+   * Riallinea il cruscotto all'anagrafica RU. Serve per il primo popolamento e
+   * ogni volta che si vuole la certezza che le due anagrafiche coincidano.
+   */
+  async function sincronizza() {
+    setSincronizzando(true); setErrore(''); setEsitoSync('')
+    try {
+      const r = await fetch('/api/timbrature/hr/sincronizza', { method: 'POST' })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'Errore')
+      const e = d.esito as {
+        esaminati: number; creati: number; attivati: number; disattivati: number
+        aggiornati: number; decaduti: string[]; senzaMail: string[]; errori: string[]
+      }
+      const parti: string[] = [`${e.esaminati} schede esaminate`]
+      if (e.creati) parti.push(`${e.creati} aggiunte`)
+      if (e.attivati) parti.push(`${e.attivati} riattivate`)
+      if (e.disattivati) parti.push(`${e.disattivati} disattivate`)
+      if (e.aggiornati) parti.push(`${e.aggiornati} anagrafiche aggiornate`)
+      if (!e.creati && !e.attivati && !e.disattivati && !e.aggiornati) parti.push('nessuna modifica')
+      if (e.decaduti.length) parti.push(`⚠ spunta attiva ma rapporto chiuso: ${e.decaduti.join(', ')}`)
+      if (e.senzaMail.length) parti.push(`⚠ senza mail aziendale: ${e.senzaMail.join(', ')}`)
+      if (e.errori.length) parti.push(`⚠ errori: ${e.errori.join(' · ')}`)
+      setEsitoSync(parti.join(' · '))
+      await carica()
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : 'Errore')
+    } finally {
+      setSincronizzando(false)
+    }
+  }
+
   async function salvaProfilo() {
     if (!dettaglio) return
     const decorrenza = `${anno}-${String(mese).padStart(2, '0')}-01`
@@ -162,6 +196,26 @@ export default function CruscottoTimbrature() {
           <button onClick={() => cambiaMese(1)} className="text-2xl text-gray-400 hover:text-gray-700 px-2">›</button>
         </div>
 
+        {/* Allineamento con l'anagrafica RU: il cruscotto contiene chi ha la
+            spunta "Timbratura attiva" sulla propria scheda. */}
+        <div className="flex items-center justify-between gap-3 bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3 mb-4">
+          <div className="text-xs text-gray-500">
+            L&apos;elenco viene dall&apos;anagrafica Risorse Umane: compare chi ha{' '}
+            <span className="font-semibold text-gray-700">Timbratura attiva</span> sulla propria scheda.
+          </div>
+          <button
+            onClick={sincronizza}
+            disabled={sincronizzando}
+            className="shrink-0 bg-emerald-600 text-white rounded-lg px-3 py-1.5 text-sm font-semibold hover:opacity-90 disabled:bg-gray-300"
+          >
+            {sincronizzando ? 'Sincronizzo…' : 'Sincronizza da anagrafica'}
+          </button>
+        </div>
+
+        {esitoSync && (
+          <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{esitoSync}</div>
+        )}
+
         {errore && <div className="mb-4 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">{errore}</div>}
 
         {loading ? (
@@ -188,7 +242,17 @@ export default function CruscottoTimbrature() {
                   return (
                     <tr key={s.dipendenteId} className="hover:bg-gray-50">
                       <td className="px-4 py-2.5">
-                        <div className="font-medium text-gray-800">{s.cognomeNome}</div>
+                        <div className="font-medium text-gray-800">
+                          {s.cognomeNome}
+                          {s.disattivato && (
+                            <span
+                              title="Non più abilitato alle timbrature: compare per permettere la chiusura dell'ultimo mese"
+                              className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 align-middle"
+                            >
+                              non più attivo
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-gray-400">{s.email}</div>
                       </td>
                       <td className="text-right px-3">{oreFmt(s.oreLavorate)}</td>
@@ -242,7 +306,12 @@ export default function CruscottoTimbrature() {
                   )
                 })}
                 {righe.length === 0 && (
-                  <tr><td colSpan={8} className="text-center text-gray-400 py-8">Nessun dipendente. Verifica il seed dell'anagrafica.</td></tr>
+                  <tr>
+                    <td colSpan={8} className="text-center text-gray-400 py-8">
+                      Nessun dipendente abilitato. Spunta &quot;Timbratura attiva&quot; sulle schede in
+                      Risorse Umane, poi premi &quot;Sincronizza da anagrafica&quot;.
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>

@@ -63,12 +63,11 @@ export interface Timbratura {
 export interface TimbraturaInput {
   data: string
   servizioId: number
-  /** Ore inserite direttamente (voci di lavoro). Se presente, ha priorità sul
-   *  calcolo da oraInizio/oraFine. Supporta le mezze ore (step 0.5). */
-  ore?: number | null
+  /** Ingresso e uscita (HH:mm). OBBLIGATORI per le voci di lavoro: le ore sono
+   *  sempre calcolate da questi due valori, al minuto esatto. Devono restare
+   *  vuoti per i giustificativi, che occupano il monte ore atteso del giorno. */
   oraInizio?: string | null
   oraFine?: string | null
-  notte?: boolean
   mutua?: boolean
   note?: string | null
 }
@@ -128,4 +127,10 @@ export interface StatoDipendenteMese {
   stato: StatoMese
   fileUrl: string | null
   settimane: RiepilogoSettimana[]
+  /**
+   * Persona non più abilitata (rapporto chiuso o spunta togliata) che compare
+   * comunque perché ha righe o una chiusura in questo mese: le HR devono poter
+   * chiudere l'ultimo mese e generare il foglio ore finale.
+   */
+  disattivato?: boolean
 }

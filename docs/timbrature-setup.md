@@ -37,12 +37,46 @@ Nessuna nuova variabile Graph/SharePoint: si riusano quelle già presenti
 
 ## 3. Accessi
 
-- **`/timbrature`** (operatore) è aperto a **tutti gli utenti autenticati**: la
-  card in home e la pagina non richiedono alcun permesso d'area. Ogni dipendente
-  che accede viene creato automaticamente in `dipendente`.
-- **`Risorse Umane`** (permesso per area, lista SharePoint "Autorizzazioni") → dà
-  accesso al cruscotto HR `/timbrature/hr` (stato di tutti i dipendenti, monte
-  ore, chiusura mese). Già esistente.
+- **`/timbrature`** (operatore) è riservato a chi è **abilitato dall'anagrafica
+  Risorse Umane**: campo `TimbraturaAttiva` = `Si` sulla scheda della persona.
+  Chi non lo è vede una schermata che spiega di rivolgersi alle HR.
+  Il collegamento fra i due mondi è la **mail aziendale** (`MailAziendale`), che
+  è anche l'account Microsoft 365 di accesso.
+- **`Timbrature HR`** (permesso per area, lista SharePoint "Autorizzazioni") → dà
+  accesso al cruscotto `/risorse-umane/timbrature` (stato di tutti i dipendenti
+  abilitati, monte ore, chiusura mese).
+
+### Abilitare una persona
+
+1. Risorse Umane → Dipendenti (o Tirocini) → scheda della persona → **Modifica**.
+2. Sezione **Timbrature**:
+   - `Timbratura attiva` = **Si**
+   - `Referente foglio ore (mail)` → finisce nell'intestazione del foglio ore
+3. Salva. Il salvataggio crea o riattiva subito la persona nel database timbrature.
+4. Cruscotto Timbrature → **Controlla** sulla persona → imposta il **monte ore
+   settimanale**. Senza monte ore le ore attese sono 0 e i giustificativi valgono
+   0 ore: è il passaggio da non dimenticare.
+
+Il pulsante **Sincronizza da anagrafica** nel cruscotto riallinea tutto in blocco
+(primo popolamento, o dopo modifiche fatte direttamente su SharePoint). È
+idempotente.
+
+### Decadenza automatica
+
+L'accesso decade da sé, anche a spunta lasciata su `Si`, quando il rapporto si
+chiude: dipendenti con `StatoRapporto = Cessato`, tirocini con `StatoTirocinio`
+`INTERROTTO` o `TERMINATO`. Nessuno deve ricordarsi di togliere la spunta; se la
+persona rientra basta rimettere lo stato in corso.
+
+Le disattivazioni sono **morbide** (`attivo = false`): righe di ore e mesi chiusi
+non vengono mai cancellati. Chi non è più abilitato continua a comparire nel
+cruscotto **nei mesi in cui ha lasciato qualcosa**, con l'etichetta *non più
+attivo*, così le HR possono chiudere l'ultimo mese e generare il foglio ore
+finale. Queste persone sono escluse dalle mail di sollecito.
+
+L'anagrafica RU è la fonte di verità per nominativo, referente e stato attivo. Il
+**monte ore** invece resta di competenza delle HR e non viene mai sovrascritto
+dalla sincronizzazione.
 
 ## 4. Anagrafica dipendenti
 

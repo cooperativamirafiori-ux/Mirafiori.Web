@@ -184,14 +184,38 @@ const FORMAZIONE_COMUNE: readonly RUField[] = [
   { key: 'TitoloStudio', label: 'Titolo di studio', type: 'choice', choices: TITOLO_STUDIO, section: 'Formazione' },
 ]
 
+/**
+ * Sezione Timbrature: è da qui che si governa chi compila il foglio ore.
+ *
+ * `TimbraturaAttiva` è l'interruttore di accesso; `ReferenteFoglioOre` finisce
+ * nell'intestazione del foglio ore generato a fine mese. Al salvataggio della
+ * scheda entrambi vengono riportati nel database delle timbrature usando la MAIL
+ * AZIENDALE come chiave — vedi lib/timbrature-sync.ts.
+ *
+ * Attenzione: l'abilitazione decade automaticamente se il rapporto risulta
+ * chiuso (dipendenti `StatoRapporto = Cessato`, tirocini `StatoTirocinio` =
+ * `INTERROTTO`/`TERMINATO`), anche a spunta lasciata su "Si".
+ */
+const TIMBRATURE_COMUNE: readonly RUField[] = [
+  { key: 'TimbraturaAttiva', label: 'Timbratura attiva (accesso al foglio ore)', type: 'choice', choices: SINO, section: 'Timbrature' },
+  { key: 'ReferenteFoglioOre', label: 'Referente foglio ore (mail)', type: 'email', section: 'Timbrature' },
+]
+
 const NOTE_COMUNE: RUField = { key: 'Note', label: 'Note', type: 'textarea', section: 'Note' }
 
 /**
  * Compone i campi di un'entità: blocco comune (anagrafica + contatti +
- * formazione) + campi specifici dell'entità + Note in fondo.
+ * formazione) + campi specifici dell'entità + timbrature + Note in fondo.
  */
 function conComune(specifici: readonly RUField[]): readonly RUField[] {
-  return [...ANAGRAFICA_COMUNE, ...CONTATTI_COMUNE, ...FORMAZIONE_COMUNE, ...specifici, NOTE_COMUNE]
+  return [
+    ...ANAGRAFICA_COMUNE,
+    ...CONTATTI_COMUNE,
+    ...FORMAZIONE_COMUNE,
+    ...specifici,
+    ...TIMBRATURE_COMUNE,
+    NOTE_COMUNE,
+  ]
 }
 
 // ------------------------------------------------------------------

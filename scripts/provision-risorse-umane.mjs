@@ -121,6 +121,10 @@ const COMUNE_COLS = [
   { name: 'MailAziendale', ...text() },
   { name: 'MailPersonale', ...text() },
   { name: 'TitoloStudio', ...choice(TITOLO_STUDIO) },
+  // Sezione Timbrature (vedi TIMBRATURE_COMUNE in types/risorse-umane.ts).
+  // Chiave di collegamento col database timbrature: MailAziendale.
+  { name: 'TimbraturaAttiva', ...choice(SINO) },
+  { name: 'ReferenteFoglioOre', ...text() },
 ]
 const NOTE_COL = { name: 'Note', ...text(true) }
 

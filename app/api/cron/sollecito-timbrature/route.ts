@@ -41,7 +41,10 @@ export async function GET(req: NextRequest) {
 
   try {
     const stato = await statoMeseTutti(anno, mese)
-    const daAvvisare = stato.filter((s) => s.stato !== 'chiuso' && !!s.email)
+    // Esclusi i non più abilitati: compaiono nel cruscotto perché le HR devono
+    // poter chiudere il loro ultimo mese, ma non hanno più accesso all'app e
+    // sollecitarli a "completare il foglio ore" sarebbe solo fastidioso.
+    const daAvvisare = stato.filter((s) => s.stato !== 'chiuso' && !!s.email && !s.disattivato)
     let inviati = 0
     for (const s of daAvvisare) {
       await notificaSollecitoTimbrature({
