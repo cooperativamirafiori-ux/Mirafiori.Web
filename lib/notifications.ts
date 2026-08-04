@@ -5,7 +5,21 @@
 
 import { graphPost } from '@/lib/graph'
 
+/**
+ * Casella di sistema: mittente di default (acquisti, manutenzioni) e
+ * destinatario degli avvisi admin delle manutenzioni.
+ */
 const ADMIN_EMAIL = process.env.MAIL_SENDER_EMAIL!
+
+/**
+ * Mittente delle mail dell'area Timbrature.
+ *
+ * Un sollecito sul foglio ore deve arrivare da Risorse Umane, non dalla casella
+ * che gestisce gli acquisti: il dipendente risponde a chi gli scrive, e la
+ * risposta deve finire nella casella giusta.
+ */
+const TIMBRATURE_MAIL_FROM =
+  process.env.TIMBRATURE_MAIL_FROM || 'risorseumane@cooperativamirafiori.com'
 
 // Destinatari del riepilogo prestazioni (override via env, default info@ + Claudia)
 const PRESTAZIONI_MAIL_TO = (
@@ -283,7 +297,7 @@ export async function notificaPromemoriaFoglioOre(opts: {
 // ============================================================
 // Timbrature — sollecito ALERT chiusura foglio ore → dipendente
 // Inviato ogni giorno nei giorni 1-5 del mese, finché il mese precedente
-// non è chiuso. Tono perentorio.
+// non è chiuso. Tono perentorio. Mittente: Risorse Umane.
 // ============================================================
 
 export async function notificaSollecitoTimbrature(opts: {
@@ -305,6 +319,7 @@ export async function notificaSollecitoTimbrature(opts: {
 
   await sendEmail({
     to: opts.to,
+    from: TIMBRATURE_MAIL_FROM,
     subject: `⚠️ AZIONE RICHIESTA — completa il foglio ore di ${opts.meseNome} entro il ${scadFmt}`,
     html: `
       <div style="border:2px solid ${urgenza};border-radius:10px;padding:16px 18px;font-family:sans-serif">
