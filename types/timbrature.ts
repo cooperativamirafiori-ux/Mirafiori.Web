@@ -105,6 +105,17 @@ export interface RiepilogoSettimana {
   conclusa: boolean // true se la settimana è terminata (fine < oggi): scostamento definitivo
 }
 
+/**
+ * Ore consumate su una singola voce di giustificativo nel periodo.
+ * Serve a mostrare Ferie / Flessibilità / Permessi ecc. spaccati, non solo il
+ * totale: è il dato che interessa a chi compila e a chi controlla.
+ */
+export interface OrePerVoce {
+  servizioId: number
+  nome: string
+  ore: number
+}
+
 /** Cruscotto settimanale/mensile dell'operatore */
 export interface RiepilogoPeriodo {
   oreLavorate: number
@@ -113,6 +124,8 @@ export interface RiepilogoPeriodo {
   scostamento: number // (lavorate+giustificativo) - attese
   giorni: RiepilogoGiorno[]
   settimane: RiepilogoSettimana[]
+  /** Spaccato dei giustificativi usati nel periodo (solo voci con ore > 0). */
+  giustificativi: OrePerVoce[]
 }
 
 /** Riga del cruscotto HR: stato del mese per dipendente */

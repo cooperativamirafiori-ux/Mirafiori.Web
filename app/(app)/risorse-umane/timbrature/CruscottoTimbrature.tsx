@@ -335,6 +335,29 @@ export default function CruscottoTimbrature() {
               <Mini label="Scost." value={(dettaglio.riepilogo.scostamento >= 0 ? '+' : '') + oreFmt(dettaglio.riepilogo.scostamento)} rosso={dettaglio.riepilogo.scostamento < 0} />
             </div>
 
+            {/* Spaccato dei giustificativi: quante ore di Ferie, Flessibilità,
+                Permessi… nel mese. I tre numeri sopra non lo dicono. */}
+            <div className="border border-gray-200 rounded-xl p-3 mb-5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-semibold text-gray-700 text-sm">Ferie, permessi e altre voci</span>
+                <span className="text-sm font-semibold text-accent-purple">
+                  {oreFmt(dettaglio.riepilogo.oreGiustificativo)} h
+                </span>
+              </div>
+              {dettaglio.riepilogo.giustificativi.length === 0 ? (
+                <div className="text-xs text-gray-400 italic">Nessuna voce usata in questo mese.</div>
+              ) : (
+                <div className="space-y-1">
+                  {dettaglio.riepilogo.giustificativi.map((v) => (
+                    <div key={v.servizioId} className="flex items-center justify-between text-sm">
+                      <span className="text-accent-purple font-medium">{v.nome}</span>
+                      <span className="text-gray-500 font-semibold">{oreFmt(v.ore)} h</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Scostamento per settimana */}
             {dettaglio.riepilogo.settimane.length > 0 && (
               <div className="border border-gray-200 rounded-xl p-3 mb-5">

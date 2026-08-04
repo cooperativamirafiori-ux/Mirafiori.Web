@@ -27,11 +27,18 @@ update servizio
    set nome = 'COMUNITÀ GIULIA'
  where nome = 'COMUNITA'' GIULIA';
 
+-- ------------------------------------------------ 3. abbreviazione da sciogliere
+-- "Fless" → "Flessibilità": è una voce che l'operatore sceglie dal menù, e
+-- l'abbreviazione non aiuta chi la vede per la prima volta.
+update servizio
+   set nome = 'Flessibilità'
+ where nome = 'Fless';
+
 commit;
 
 -- ------------------------------------------------------------------- verifica
--- Attese: 2 righe, con i nomi corretti.
+-- Attese: 3 righe, con i nomi corretti.
 select id, nome, centro_costo, categoria, ordine
   from servizio
- where nome in ('CONDOMINIO SOLIDALE VIA GESSI', 'COMUNITÀ GIULIA')
+ where nome in ('CONDOMINIO SOLIDALE VIA GESSI', 'COMUNITÀ GIULIA', 'Flessibilità')
  order by ordine;

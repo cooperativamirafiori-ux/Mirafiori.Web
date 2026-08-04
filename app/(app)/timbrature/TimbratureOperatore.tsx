@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import type { Servizio, Timbratura, RiepilogoPeriodo } from '@/types/timbrature'
+import type { Servizio, Timbratura, RiepilogoPeriodo, OrePerVoce } from '@/types/timbrature'
 
 const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
 const GIORNI = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab']
@@ -407,11 +407,14 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
 
             {/* Riepilogo mese compatto */}
             {riepilogo && (
-              <div className="grid grid-cols-3 gap-3">
-                <Kpi label="Ore mese" value={oreLabel(riepilogo.oreLavorate)} tone="cyan" />
-                <Kpi label="Attese" value={oreLabel(riepilogo.oreAttese)} tone="slate" />
-                <Kpi label="Scost." value={segno(riepilogo.scostamento)} tone={riepilogo.scostamento < 0 ? 'red' : 'green'} />
-              </div>
+              <>
+                <div className="grid grid-cols-3 gap-3">
+                  <Kpi label="Ore mese" value={oreLabel(riepilogo.oreLavorate)} tone="cyan" />
+                  <Kpi label="Attese" value={oreLabel(riepilogo.oreAttese)} tone="slate" />
+                  <Kpi label="Scost." value={segno(riepilogo.scostamento)} tone={riepilogo.scostamento < 0 ? 'red' : 'green'} />
+                </div>
+                <Giustificativi voci={riepilogo.giustificativi} totale={riepilogo.oreGiustificativo} />
+              </>
             )}
 
             <button onClick={() => setVista('mese')} className="w-full text-center text-sm font-semibold text-brand-cyan-dark py-2">
@@ -431,11 +434,14 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
             </div>
 
             {riepilogo && (
-              <div className="grid grid-cols-3 gap-3">
-                <Kpi label="Ore lavorate" value={oreLabel(riepilogo.oreLavorate)} tone="cyan" />
-                <Kpi label="Ore attese" value={oreLabel(riepilogo.oreAttese)} tone="slate" />
-                <Kpi label="Scostamento" value={segno(riepilogo.scostamento)} tone={riepilogo.scostamento < 0 ? 'red' : 'green'} />
-              </div>
+              <>
+                <div className="grid grid-cols-3 gap-3">
+                  <Kpi label="Ore lavorate" value={oreLabel(riepilogo.oreLavorate)} tone="cyan" />
+                  <Kpi label="Ore attese" value={oreLabel(riepilogo.oreAttese)} tone="slate" />
+                  <Kpi label="Scostamento" value={segno(riepilogo.scostamento)} tone={riepilogo.scostamento < 0 ? 'red' : 'green'} />
+                </div>
+                <Giustificativi voci={riepilogo.giustificativi} totale={riepilogo.oreGiustificativo} />
+              </>
             )}
 
             {/* Scostamento per settimana */}
@@ -663,6 +669,33 @@ function RigaVoce({ t, bloccato, onEdit, onDelete, compact }: { t: Timbratura; b
         <div className="flex gap-3 text-xs shrink-0">
           <button onClick={onEdit} className="text-gray-500 hover:text-gray-800">Modifica</button>
           <button onClick={onDelete} className="text-red-500 hover:text-red-700">Elimina</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Ore usate per ogni giustificativo nel mese (Ferie, Flessibilità, Permessi…).
+ * I tre KPI da soli non dicono *cosa* è stato usato: questo riquadro sì.
+ */
+function Giustificativi({ voci, totale }: { voci: OrePerVoce[]; totale: number }) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-semibold text-gray-500">Ferie, permessi e altre voci</span>
+        <span className="text-xs font-semibold text-accent-purple">{oreLabel(totale)} h</span>
+      </div>
+      {voci.length === 0 ? (
+        <div className="text-xs text-gray-400 italic">Nessuna voce usata in questo mese.</div>
+      ) : (
+        <div className="space-y-1.5">
+          {voci.map((v) => (
+            <div key={v.servizioId} className="flex items-center justify-between text-sm">
+              <span className="text-accent-purple font-medium">{v.nome}</span>
+              <span className="text-gray-500 font-semibold">{oreLabel(v.ore)} h</span>
+            </div>
+          ))}
         </div>
       )}
     </div>

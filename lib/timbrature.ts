@@ -22,6 +22,7 @@ import type {
   RiepilogoGiorno,
   RiepilogoPeriodo,
   RiepilogoSettimana,
+  OrePerVoce,
   StatoDipendenteMese,
 } from '@/types/timbrature'
 
@@ -513,11 +514,22 @@ export async function riepilogoPeriodo(
     })
   }
 
+  // Spaccato per voce di giustificativo (Ferie, Flessibilità, Permessi, …):
+  // il totale aggregato non basta, chi compila vuole sapere quanto ha usato di
+  // che cosa.
+  const perGiust = new Map<number, OrePerVoce>()
+
   for (const t of timb) {
     const g = perGiorno.get(t.data)
     if (!g) continue
-    if (t.tipoVoce === 'giustificativo') g.oreGiustificativo += t.ore
-    else g.oreLavorate += t.ore
+    if (t.tipoVoce === 'giustificativo') {
+      g.oreGiustificativo += t.ore
+      const v = perGiust.get(t.servizioId)
+      if (v) v.ore += t.ore
+      else perGiust.set(t.servizioId, { servizioId: t.servizioId, nome: t.servizioNome ?? '—', ore: t.ore })
+    } else {
+      g.oreLavorate += t.ore
+    }
   }
 
   let oreLavorate = 0
@@ -538,6 +550,10 @@ export async function riepilogoPeriodo(
     scostamento: round4(oreLavorate + oreGiustificativo - oreAttese),
     giorni,
     settimane: raggruppaSettimane(giorni),
+    giustificativi: [...perGiust.values()]
+      .map((v) => ({ ...v, ore: round4(v.ore) }))
+      .filter((v) => v.ore > 0.0001)
+      .sort((a, b) => b.ore - a.ore || a.nome.localeCompare(b.nome, 'it')),
   }
 }
 

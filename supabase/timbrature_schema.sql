@@ -135,7 +135,7 @@ insert into servizio (nome, centro_costo, categoria, tipo_voce, ordine) values
   ('PROGETTI TIROCINI',                     5, 'Altri',              'lavoro', 61),
   ('Congedo parentale',                    99, 'Giustificativi',     'giustificativo', 90),
   ('Ferie',                                99, 'Giustificativi',     'giustificativo', 91),
-  ('Fless',                                99, 'Giustificativi',     'giustificativo', 92),
+  ('Flessibilità',                         99, 'Giustificativi',     'giustificativo', 92),
   ('Fest.Sopp.',                           99, 'Giustificativi',     'giustificativo', 93),
   ('Formazione',                           99, 'Giustificativi',     'giustificativo', 94),
   ('Permessi retribuiti',                  99, 'Giustificativi',     'giustificativo', 95),
