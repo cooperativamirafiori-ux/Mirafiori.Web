@@ -4,7 +4,26 @@
  */
 
 export type TipoVoce = 'lavoro' | 'giustificativo'
-export type StatoMese = 'aperto' | 'chiuso'
+
+/**
+ * Percorso del mese, dalla compilazione all'archiviazione.
+ *
+ *   aperto      il dipendente compila (finestra mobile di 3 giorni)
+ *   da_validare finestra scaduta: la palla passa al responsabile diretto
+ *   validato    il responsabile ha approvato; il dipendente ha ricevuto il PDF
+ *   confermato  il dipendente ha dato l'ok (o il responsabile ha forzato):
+ *               il foglio e' definitivo e archiviato nella cartella personale
+ *   contestato  il dipendente ha segnalato un errore: torna al responsabile
+ */
+export type StatoMese = 'aperto' | 'da_validare' | 'validato' | 'confermato' | 'contestato'
+
+export const ETICHETTA_STATO: Record<StatoMese, string> = {
+  aperto: 'In compilazione',
+  da_validare: 'Da validare',
+  validato: 'Attesa conferma',
+  confermato: 'Confermato',
+  contestato: 'Contestato',
+}
 
 export interface Servizio {
   id: number
@@ -55,6 +74,10 @@ export interface Timbratura {
   mutua: boolean
   note: string | null
   creataDa: string | null
+  modificataDa: string | null
+  modificataIl: string | null
+  /** Riga scritta da qualcun altro (responsabile o HR) per conto del dipendente. */
+  perConto: boolean
   // arricchimenti (join con servizio)
   servizioNome?: string
   centroCosto?: number
@@ -80,7 +103,38 @@ export interface ChiusuraMese {
   stato: StatoMese
   chiusoDa: string | null
   chiusoIl: string | null
+  /** Foglio ore in formato Excel nella cartella personale. */
   fileUrl: string | null
+  /** Foglio ore in PDF: e' la copia che il dipendente riceve e conferma. */
+  filePdfUrl: string | null
+  validatoDa: string | null
+  validatoIl: string | null
+  confermatoDa: string | null
+  confermatoIl: string | null
+  /** Conferma messa dal responsabile al posto del dipendente che non risponde. */
+  confermatoForzato: boolean
+  contestatoIl: string | null
+  noteContestazione: string | null
+  /** Token del link nella mail di conferma (non esposto al client). */
+  token?: string | null
+  ultimoSollecito: string | null
+}
+
+/**
+ * Cosa puo' fare il dipendente su un mese, e perche'.
+ * Le ore di lavoro si inseriscono solo negli ultimi giorni; i giustificativi
+ * (ferie, permessi, malattia) seguono il solo stato del mese, cosi' si possono
+ * programmare in anticipo e registrare quando il certificato arriva.
+ */
+export interface FinestraMese {
+  stato: StatoMese
+  /** Il mese accetta ancora scritture dal dipendente. */
+  aperta: boolean
+  motivo?: string
+  /** Prima data per cui si possono ancora inserire ORE DI LAVORO. */
+  daGiorno: string
+  /** Ultimo giorno in cui il mese resta aperto al dipendente. */
+  ultimoGiorno: string
 }
 
 /** Riga del cruscotto giornaliero: totali del giorno vs monte ore atteso */
@@ -139,7 +193,17 @@ export interface StatoDipendenteMese {
   giorniIncompleti: number
   stato: StatoMese
   fileUrl: string | null
+  filePdfUrl: string | null
   settimane: RiepilogoSettimana[]
+  /** Responsabile che deve validare il foglio; null = nessuno assegnato. */
+  referenteEmail: string | null
+  validatoDa: string | null
+  validatoIl: string | null
+  confermatoIl: string | null
+  confermatoForzato: boolean
+  noteContestazione: string | null
+  /** Giorni trascorsi dall'invio al dipendente senza risposta (stato validato). */
+  giorniInAttesa: number | null
   /**
    * Persona non più abilitata (rapporto chiuso o spunta togliata) che compare
    * comunque perché ha righe o una chiusura in questo mese: le HR devono poter

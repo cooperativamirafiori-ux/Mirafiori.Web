@@ -22,7 +22,7 @@ import {
   graphPatch,
   graphDelete,
   graphPutBinary,
-} from '@/lib/graph'
+  graphGetBinary,} from '@/lib/graph'
 import { getDelegatedToken, RiautenticazioneRichiesta } from '@/lib/ms-token'
 
 const GRAPH_BASE = 'https://graph.microsoft.com/v1.0'
@@ -48,6 +48,8 @@ export interface GraphClient {
   readonly identita: string
   get<T>(path: string, extraHeaders?: Record<string, string>): Promise<T>
   getOrNull<T>(path: string, extraHeaders?: Record<string, string>): Promise<T | null>
+  /** Contenuto binario di un file (usato per la conversione in PDF). */
+  getBinary(path: string, extraHeaders?: Record<string, string>): Promise<Buffer>
   post<T>(path: string, body: unknown): Promise<T>
   patch<T>(path: string, body: unknown): Promise<T>
   del(path: string): Promise<void>
@@ -124,6 +126,20 @@ export async function graphPerUtente(email: string): Promise<GraphClient> {
       chiama('GET', path, { extraHeaders }) as Promise<T>,
     getOrNull: <T>(path: string, extraHeaders?: Record<string, string>) =>
       chiama('GET', path, { extraHeaders, nullSu404: true }) as Promise<T | null>,
+    getBinary: async (path: string, extraHeaders?: Record<string, string>) => {
+      const t = await auth()
+      const res = await fetch(`${GRAPH_BASE}${path}`, {
+        headers: { Authorization: `Bearer ${t}`, ...extraHeaders },
+        cache: 'no-store',
+      })
+      if (res.status === 401) throw new RiautenticazioneRichiesta()
+      if (res.status === 403) throw new AccessoNegatoRU()
+      if (!res.ok) {
+        const err = (await res.text()).slice(0, 500)
+        throw new Error(`Graph GET ${path} (binario, delegato) fallito (${res.status}): ${err}`)
+      }
+      return Buffer.from(await res.arrayBuffer())
+    },
     post: <T>(path: string, body: unknown) =>
       chiama('POST', path, {
         body: JSON.stringify(body),
@@ -158,6 +174,7 @@ export function graphApplicativo(): GraphClient {
     identita: 'app',
     get: graphGet,
     getOrNull: graphGetOrNull,
+    getBinary: graphGetBinary,
     post: graphPost,
     patch: graphPatch,
     del: graphDelete,

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import type { Servizio, Timbratura, RiepilogoPeriodo, OrePerVoce } from '@/types/timbrature'
+import type { Servizio, Timbratura, RiepilogoPeriodo, OrePerVoce, FinestraMese } from '@/types/timbrature'
 
 const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
 const GIORNI = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab']
@@ -89,7 +89,7 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
   const [servizi, setServizi] = useState<Servizio[]>([])
   const [timbrature, setTimbrature] = useState<Timbratura[]>([])
   const [riepilogo, setRiepilogo] = useState<RiepilogoPeriodo | null>(null)
-  const [finestra, setFinestra] = useState<{ aperta: boolean; motivo?: string } | null>(null)
+  const [finestra, setFinestra] = useState<FinestraMese | null>(null)
   const [scadenza, setScadenza] = useState<string | undefined>()
   const [loading, setLoading] = useState(true)
   const [errore, setErrore] = useState('')
@@ -132,6 +132,17 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
   useEffect(() => { carica() }, [carica])
 
   const bloccato = finestra ? !finestra.aperta : false
+  /** Prima data per cui si possono ancora registrare ORE DI LAVORO. */
+  const daGiorno = finestra?.daGiorno ?? OGGI
+
+  /**
+   * Fuori dalla finestra dei tre giorni si possono registrare solo ferie,
+   * permessi e malattia: le ore di lavoro di quella data sono ormai chiuse.
+   */
+  const fuoriFinestra = useCallback(
+    (data: string) => data < daGiorno || data > OGGI,
+    [daGiorno, OGGI],
+  )
 
   const timbPerGiorno = useMemo(() => {
     const m = new Map<string, Timbratura[]>()
@@ -167,14 +178,22 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
       .slice(0, 6)
   }, [timbrature, servizi])
 
-  // Giorni lavorativi recenti (<= oggi) senza righe inserite.
+  // Giorni lavorativi senza ore che si possono ANCORA sistemare da soli.
+  // Oltre la finestra non ha senso mostrarli come "da completare": il pulsante
+  // porterebbe a un vicolo cieco. Restano visibili nella vista Mese.
   const giorniMancanti = useMemo(() => {
     if (!riepilogo) return []
     return riepilogo.giorni
-      .filter((g) => g.data <= OGGI && !g.festivo && g.oreAttese > 0 && (timbPerGiorno.get(g.data)?.length ?? 0) === 0)
+      .filter(
+        (g) =>
+          g.data <= OGGI &&
+          g.data >= daGiorno &&
+          !g.festivo &&
+          g.oreAttese > 0 &&
+          (timbPerGiorno.get(g.data)?.length ?? 0) === 0,
+      )
       .sort((a, b) => (a.data < b.data ? 1 : -1))
-      .slice(0, 6)
-  }, [riepilogo, timbPerGiorno, OGGI])
+  }, [riepilogo, timbPerGiorno, OGGI, daGiorno])
 
   // Streak: giorni lavorativi consecutivi coperti, terminando al giorno lavorativo
   // più recente <= oggi (i festivi/giorni a 0 ore non spezzano la serie).
@@ -240,6 +259,14 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
       mutua: t.mutua, note: t.note ?? '',
     })
   }
+
+  // Fuori finestra restano solo i giustificativi: e' la regola, e il modo piu'
+  // onesto di dirla e' non offrire scelte che verrebbero rifiutate dal server.
+  const soloGiustificativi = !!form && fuoriFinestra(form.data)
+  const serviziForm = useMemo(
+    () => (soloGiustificativi ? servizi.filter((s) => s.tipoVoce === 'giustificativo') : servizi),
+    [servizi, soloGiustificativi],
+  )
 
   const servSelezionato = form && form.servizioId ? servizioById.get(Number(form.servizioId)) : undefined
   const isGiust = servSelezionato?.tipoVoce === 'giustificativo'
@@ -382,14 +409,25 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
 
             {bloccato && (
               <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                🔒 {finestra?.motivo || 'Mese non modificabile'}. Le righe sono in sola lettura.
+                🔒 {finestra?.motivo || 'Mese non modificabile'}. Le righe sono in sola lettura: per una
+                correzione rivolgiti al tuo responsabile.
+              </div>
+            )}
+
+            {!bloccato && (
+              <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-xs text-gray-500">
+                ⏳ Le ore di lavoro si inseriscono entro <strong className="text-gray-700">3 giorni</strong>:
+                oggi e i due precedenti (dal {daGiorno.split('-').reverse().join('/')}). Ferie, permessi e
+                malattia si possono registrare anche prima o dopo.
               </div>
             )}
 
             {/* Giorni da completare */}
             {!bloccato && giorniMancanti.length > 0 && (
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-                <div className="text-sm font-bold text-amber-800 mb-2">Da completare</div>
+                <div className="text-sm font-bold text-amber-800 mb-2">
+                  Da completare — poi non ci torni piu&apos;
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {giorniMancanti.map((g) => (
                     <button
@@ -401,7 +439,10 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
                     </button>
                   ))}
                 </div>
-                <div className="text-xs text-amber-700/80 mt-2">Tocca un giorno per aggiungere le ore.</div>
+                <div className="text-xs text-amber-700/80 mt-2">
+                  Tocca un giorno per aggiungere le ore. Passata la finestra dei tre giorni queste ore
+                  potra&apos; aggiungerle solo il tuo responsabile.
+                </div>
               </div>
             )}
 
@@ -428,7 +469,11 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
               <button onClick={() => cambiaMese(-1)} className="text-2xl text-gray-400 hover:text-gray-700 px-2">‹</button>
               <div className="text-center">
                 <div className="font-bold text-gray-800">{MESI[mese - 1]} {anno}</div>
-                {scadenza && <div className="text-xs text-gray-500">Correzioni entro il {scadenza.split('-').reverse().join('/')}</div>}
+                {scadenza && (
+                  <div className="text-xs text-gray-500">
+                    Il mese si chiude il {scadenza.split('-').reverse().join('/')}
+                  </div>
+                )}
               </div>
               <button onClick={() => cambiaMese(1)} className="text-2xl text-gray-400 hover:text-gray-700 px-2">›</button>
             </div>
@@ -505,13 +550,26 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
                         )}
                       </div>
                       {!bloccato && (
-                        <button onClick={() => nuovaRiga(g.data)} className="text-sm font-semibold text-brand-cyan-dark hover:underline">+ riga</button>
+                        <button
+                          onClick={() => nuovaRiga(g.data)}
+                          title={fuoriFinestra(g.data) ? 'Fuori finestra: solo ferie, permessi o malattia' : undefined}
+                          className={`text-sm font-semibold hover:underline ${fuoriFinestra(g.data) ? 'text-gray-400' : 'text-brand-cyan-dark'}`}
+                        >
+                          + riga
+                        </button>
                       )}
                     </div>
                     {righe.length > 0 && (
                       <div className="border-t border-gray-100 divide-y divide-gray-50">
                         {righe.map((t) => (
-                          <RigaVoce key={t.id} t={t} bloccato={bloccato} onEdit={() => modificaRiga(t)} onDelete={() => elimina(t.id)} compact />
+                          <RigaVoce
+                            key={t.id}
+                            t={t}
+                            bloccato={bloccato || (t.tipoVoce === 'lavoro' && fuoriFinestra(t.data))}
+                            onEdit={() => modificaRiga(t)}
+                            onDelete={() => elimina(t.id)}
+                            compact
+                          />
                         ))}
                       </div>
                     )}
@@ -532,8 +590,15 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
 
             {/* Servizio */}
             <label className="block text-sm font-semibold text-gray-600 mb-2">Servizio</label>
+            {soloGiustificativi && (
+              <div className="mb-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+                Le ore di lavoro di questa giornata non sono piu&apos; modificabili (si possono inserire
+                solo entro il giorno stesso e i due successivi). Qui puoi registrare ferie, permessi o
+                malattia; per correggere le ore scrivi al tuo responsabile.
+              </div>
+            )}
             <div className="flex flex-wrap gap-2 mb-3">
-              {serviziFrequenti.map((s) => (
+              {!soloGiustificativi && serviziFrequenti.map((s) => (
                 <button
                   key={s.id}
                   onClick={() => setForm({ ...form, servizioId: s.id })}
@@ -548,14 +613,16 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
               onChange={(e) => setForm({ ...form, servizioId: e.target.value ? Number(e.target.value) : '' })}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4 text-sm"
             >
-              <option value="">— altri servizi / giustificativi —</option>
-              <optgroup label="Servizi">
-                {servizi.filter((s) => s.tipoVoce === 'lavoro').map((s) => (
-                  <option key={s.id} value={s.id}>{s.nome}</option>
-                ))}
-              </optgroup>
+              <option value="">{soloGiustificativi ? '— scegli una voce —' : '— altri servizi / giustificativi —'}</option>
+              {!soloGiustificativi && (
+                <optgroup label="Servizi">
+                  {serviziForm.filter((s) => s.tipoVoce === 'lavoro').map((s) => (
+                    <option key={s.id} value={s.id}>{s.nome}</option>
+                  ))}
+                </optgroup>
+              )}
               <optgroup label="Giustificativi">
-                {servizi.filter((s) => s.tipoVoce === 'giustificativo').map((s) => (
+                {serviziForm.filter((s) => s.tipoVoce === 'giustificativo').map((s) => (
                   <option key={s.id} value={s.id}>{s.nome}</option>
                 ))}
               </optgroup>
@@ -653,6 +720,14 @@ function RigaVoce({ t, bloccato, onEdit, onDelete, compact }: { t: Timbratura; b
         <span className={`font-medium ${t.tipoVoce === 'giustificativo' ? 'text-accent-purple' : 'text-gray-800'}`}>
           {t.servizioNome}{t.mutua ? ' (Mutua)' : ''}
         </span>
+        {t.perConto && (
+          <span
+            title="Riga inserita dal tuo responsabile"
+            className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700"
+          >
+            dal responsabile
+          </span>
+        )}
         <span className="text-gray-400 ml-2 font-semibold">{oreLabel(t.ore)} h</span>
         <div className="text-xs text-gray-400 truncate">
           {t.oraInizio && t.oraFine && (

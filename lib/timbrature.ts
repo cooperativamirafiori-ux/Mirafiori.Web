@@ -5,13 +5,21 @@
  * Regole chiave:
  *   - ore SENZA arrotondamento (valore esatto)
  *   - il servizio determina il centro di costo
- *   - finestra correzioni operatore: fino al 5 del mese successivo, e finché
- *     il mese non è stato chiuso dalle HR
+ *   - finestra dell'operatore: oggi e i due giorni precedenti. Le ore piu'
+ *     vecchie non si toccano piu': la correzione passa dal responsabile.
+ *     I giustificativi (ferie, permessi, malattia) fanno eccezione, perche' si
+ *     programmano in anticipo e il certificato arriva quando arriva.
+ *   - il mese percorre aperto -> da_validare -> validato -> confermato
+ *     (vedi StatoMese in types/timbrature.ts)
  */
 
+import { randomBytes } from 'crypto'
 import { supabase } from '@/lib/supabase'
 import { festivitaAnno } from '@/lib/festivita'
 import type {
+  StatoMese,
+  TipoVoce,
+  FinestraMese,
   Servizio,
   Dipendente,
   ProfiloOrario,
@@ -38,11 +46,43 @@ export function oggiRoma(): string {
   }).format(new Date())
 }
 
-/** Scadenza correzioni: 5 del mese successivo a (anno, mese). */
-export function scadenzaCorrezioni(anno: number, mese: number): string {
-  const annoS = mese === 12 ? anno + 1 : anno
-  const meseS = mese === 12 ? 1 : mese + 1
-  return `${annoS}-${String(meseS).padStart(2, '0')}-05`
+/**
+ * Giorni indietro entro cui il dipendente puo' ancora registrare ore di lavoro:
+ * oggi piu' i due precedenti. E' la regola che tiene viva la compilazione
+ * quotidiana; tutto il resto del flusso discende da qui.
+ */
+export const GIORNI_INDIETRO = 2
+
+/** Data in formato italiano, per i messaggi rivolti alle persone. */
+export function dataIt(ymd: string): string {
+  return ymd.split('-').reverse().join('/')
+}
+
+/** Prima data per cui il dipendente puo' ancora registrare ore di lavoro. */
+export function primaDataUtile(oggi: string = oggiRoma()): string {
+  return addGiorni(oggi, -GIORNI_INDIETRO)
+}
+
+/**
+ * Ultimo giorno in cui il mese resta aperto al dipendente: l'ultimo giorno del
+ * mese piu' la finestra, quindi il 2 del mese successivo per un mese di 31
+ * giorni. Dal giorno dopo il foglio passa al responsabile.
+ */
+export function ultimoGiornoUtile(anno: number, mese: number): string {
+  return addGiorni(primoUltimoGiorno(anno, mese).to, GIORNI_INDIETRO)
+}
+
+/** Il mese e' scaduto per il dipendente (calendario, a prescindere dallo stato). */
+export function meseScaduto(anno: number, mese: number, oggi: string = oggiRoma()): boolean {
+  return oggi > ultimoGiornoUtile(anno, mese)
+}
+
+/** Perche' il mese non e' piu' scrivibile: da mostrare, non da nascondere. */
+const MOTIVO_STATO: Record<Exclude<StatoMese, 'aperto'>, string> = {
+  da_validare: 'Il mese e\' chiuso e attende la validazione del responsabile',
+  validato: 'Il foglio ore e\' stato validato e attende la tua conferma',
+  confermato: 'Il foglio ore del mese e\' definitivo',
+  contestato: 'Il foglio ore e\' tornato al responsabile per una correzione',
 }
 
 /** Weekday ISO 1..7 (lun..dom) per una data YYYY-MM-DD. */
@@ -315,6 +355,9 @@ function mapTimbratura(r: any): Timbratura {
     mutua: r.mutua,
     note: r.note ?? null,
     creataDa: r.creata_da ?? null,
+    modificataDa: r.modificata_da ?? null,
+    modificataIl: r.modificata_il ?? null,
+    perConto: !!r.per_conto,
     servizioNome: s?.nome,
     centroCosto: s?.centro_costo,
   }
@@ -339,25 +382,85 @@ export async function listTimbrature(
   return (data ?? []).map(mapTimbratura)
 }
 
-/** Verifica se l'operatore può ancora modificare il mese (anno,mese). */
-export async function finestraAperta(
+/**
+ * Stato effettivo del mese. Se la riga di chiusura non esiste ancora lo si
+ * deduce dal calendario: il dipendente non deve poter scrivere solo perche' il
+ * lavoro notturno non e' ancora passato.
+ */
+export async function statoMese(
   dipendenteId: number,
   anno: number,
   mese: number,
-): Promise<{ aperta: boolean; motivo?: string }> {
+): Promise<StatoMese> {
   const ch = await getChiusura(dipendenteId, anno, mese)
-  if (ch?.stato === 'chiuso') return { aperta: false, motivo: 'Mese chiuso dalle Risorse Umane' }
-  if (oggiRoma() > scadenzaCorrezioni(anno, mese)) {
-    return { aperta: false, motivo: `Termine correzioni superato (${scadenzaCorrezioni(anno, mese)})` }
-  }
-  return { aperta: true }
+  if (ch) return ch.stato
+  return meseScaduto(anno, mese) ? 'da_validare' : 'aperto'
 }
 
-async function assertModificabile(dipendenteId: number, dataYmd: string) {
+/** Cosa puo' fare il dipendente su questo mese, e da quando. */
+export async function finestraMese(
+  dipendenteId: number,
+  anno: number,
+  mese: number,
+): Promise<FinestraMese> {
+  const stato = await statoMese(dipendenteId, anno, mese)
+  return {
+    stato,
+    aperta: stato === 'aperto',
+    motivo: stato === 'aperto' ? undefined : MOTIVO_STATO[stato],
+    daGiorno: primaDataUtile(),
+    ultimoGiorno: ultimoGiornoUtile(anno, mese),
+  }
+}
+
+/**
+ * Il dipendente puo' scrivere questa riga?
+ *
+ * Due regole diverse di proposito:
+ *   - ore di LAVORO: solo oggi e i due giorni precedenti, e mai in anticipo.
+ *     E' il vincolo che fa compilare il foglio giorno per giorno.
+ *   - GIUSTIFICATIVI: nessun limite oltre lo stato del mese. Le ferie si
+ *     programmano prima di partire (ed e' cosi' che si evitano i solleciti
+ *     mentre si e' in vacanza) e la malattia si registra quando il certificato
+ *     arriva, non entro tre giorni.
+ */
+async function assertModificabile(dipendenteId: number, dataYmd: string, tipoVoce: TipoVoce) {
   const anno = Number(dataYmd.slice(0, 4))
   const mese = Number(dataYmd.slice(5, 7))
-  const f = await finestraAperta(dipendenteId, anno, mese)
-  if (!f.aperta) throw new Error(f.motivo || 'Periodo non modificabile')
+  const stato = await statoMese(dipendenteId, anno, mese)
+  if (stato !== 'aperto') {
+    throw new Error(`${MOTIVO_STATO[stato]}. Per una correzione rivolgiti al tuo responsabile.`)
+  }
+  if (tipoVoce !== 'lavoro') return
+
+  const oggi = oggiRoma()
+  if (dataYmd > oggi) {
+    throw new Error('Le ore di lavoro si registrano a giornata conclusa: non si inseriscono in anticipo.')
+  }
+  const limite = primaDataUtile(oggi)
+  if (dataYmd < limite) {
+    throw new Error(
+      `Puoi inserire o correggere le ore solo di oggi e dei ${GIORNI_INDIETRO} giorni precedenti ` +
+        `(dal ${dataIt(limite)}). Per una correzione piu' vecchia scrivi al tuo responsabile.`,
+    )
+  }
+}
+
+/**
+ * Controllo per chi scrive PER CONTO del dipendente (responsabile o HR).
+ * Nessuna finestra mobile: e' esattamente la valvola di sfogo che impedisce
+ * alle giornate dimenticate di diventare ore perse. Si ferma pero' davanti a un
+ * foglio gia' validato: quello si riapre prima, non si corregge di nascosto.
+ */
+async function assertModificabilePerConto(dipendenteId: number, dataYmd: string) {
+  const anno = Number(dataYmd.slice(0, 4))
+  const mese = Number(dataYmd.slice(5, 7))
+  const stato = await statoMese(dipendenteId, anno, mese)
+  if (stato === 'validato' || stato === 'confermato') {
+    throw new Error(
+      'Il foglio ore di questo mese e\' gia\' stato validato: va riaperto prima di poterlo correggere.',
+    )
+  }
 }
 
 async function servizioById(id: number): Promise<Servizio> {
@@ -399,13 +502,21 @@ async function risolviVoce(
   return { oraInizio, oraFine, ore: calc.ore, notte: calc.notte }
 }
 
+/** Opzioni di scrittura di una riga. */
+export interface OpzioniScrittura {
+  /** Chi scrive non e' il diretto interessato (responsabile o HR). */
+  perConto?: boolean
+}
+
 export async function creaTimbratura(
   dipendenteId: number,
   input: TimbraturaInput,
   creataDa: string,
+  opts: OpzioniScrittura = {},
 ): Promise<Timbratura> {
-  await assertModificabile(dipendenteId, input.data)
   const serv = await servizioById(input.servizioId)
+  if (opts.perConto) await assertModificabilePerConto(dipendenteId, input.data)
+  else await assertModificabile(dipendenteId, input.data, serv.tipoVoce)
   const { oraInizio, oraFine, ore, notte } = await risolviVoce(dipendenteId, input, serv)
 
   const { data, error } = await supabase()
@@ -422,6 +533,7 @@ export async function creaTimbratura(
       mutua: !!input.mutua,
       note: input.note ?? null,
       creata_da: creataDa,
+      per_conto: !!opts.perConto,
     })
     .select(SELECT_TIMB)
     .single()
@@ -434,9 +546,11 @@ export async function aggiornaTimbratura(
   id: string,
   input: TimbraturaInput,
   modificataDa: string,
+  opts: OpzioniScrittura = {},
 ): Promise<Timbratura> {
-  await assertModificabile(dipendenteId, input.data)
   const serv = await servizioById(input.servizioId)
+  if (opts.perConto) await assertModificabilePerConto(dipendenteId, input.data)
+  else await assertModificabile(dipendenteId, input.data, serv.tipoVoce)
   const { oraInizio, oraFine, ore, notte } = await risolviVoce(dipendenteId, input, serv)
 
   const { data, error } = await supabase()
@@ -451,7 +565,10 @@ export async function aggiornaTimbratura(
       notte,
       mutua: !!input.mutua,
       note: input.note ?? null,
-      creata_da: modificataDa,
+      // creata_da non si tocca: dice chi ha inserito la riga la prima volta.
+      modificata_da: modificataDa,
+      modificata_il: new Date().toISOString(),
+      per_conto: !!opts.perConto,
     })
     .eq('id', id)
     .eq('dipendente_id', dipendenteId)
@@ -461,7 +578,11 @@ export async function aggiornaTimbratura(
   return mapTimbratura(data)
 }
 
-export async function eliminaTimbratura(dipendenteId: number, id: string): Promise<void> {
+export async function eliminaTimbratura(
+  dipendenteId: number,
+  id: string,
+  opts: OpzioniScrittura = {},
+): Promise<void> {
   // recupera la data per il controllo finestra
   const { data: row, error: e1 } = await supabase()
     .from('timbratura')
@@ -471,7 +592,12 @@ export async function eliminaTimbratura(dipendenteId: number, id: string): Promi
     .maybeSingle()
   if (e1) throw new Error(e1.message)
   if (!row) return
-  await assertModificabile(dipendenteId, row.data)
+  if (opts.perConto) await assertModificabilePerConto(dipendenteId, row.data)
+  else {
+    // Il tipo voce serve solo per la finestra: lo si prende dalla riga stessa.
+    const { data: r2 } = await supabase().from('timbratura').select('tipo_voce').eq('id', id).maybeSingle()
+    await assertModificabile(dipendenteId, row.data, (r2?.tipo_voce ?? 'lavoro') as TipoVoce)
+  }
   const { error } = await supabase().from('timbratura').delete().eq('id', id).eq('dipendente_id', dipendenteId)
   if (error) throw new Error(error.message)
 }
@@ -630,6 +756,16 @@ function mapChiusura(r: any): ChiusuraMese {
     chiusoDa: r.chiuso_da ?? null,
     chiusoIl: r.chiuso_il ?? null,
     fileUrl: r.file_url ?? null,
+    filePdfUrl: r.file_pdf_url ?? null,
+    validatoDa: r.validato_da ?? null,
+    validatoIl: r.validato_il ?? null,
+    confermatoDa: r.confermato_da ?? null,
+    confermatoIl: r.confermato_il ?? null,
+    confermatoForzato: !!r.confermato_forzato,
+    contestatoIl: r.contestato_il ?? null,
+    noteContestazione: r.note_contestazione ?? null,
+    token: r.token ?? null,
+    ultimoSollecito: r.ultimo_sollecito ?? null,
   }
 }
 
@@ -649,49 +785,185 @@ export async function getChiusura(
   return data ? mapChiusura(data) : null
 }
 
-/** Segna il mese come chiuso (HR). Registra chi/quando e l'eventuale file. */
-export async function chiudiMese(
+/** Segreto del link "conferma il tuo foglio ore" recapitato via mail. */
+function nuovoToken(): string {
+  return randomBytes(24).toString('base64url')
+}
+
+async function upsertChiusura(
   dipendenteId: number,
   anno: number,
   mese: number,
-  chiusoDa: string,
-  fileUrl?: string,
+  patch: Record<string, unknown>,
 ): Promise<ChiusuraMese> {
   const { data, error } = await supabase()
     .from('chiusura_mese')
-    .upsert(
-      {
-        dipendente_id: dipendenteId,
-        anno,
-        mese,
-        stato: 'chiuso',
-        chiuso_da: chiusoDa,
-        chiuso_il: new Date().toISOString(),
-        file_url: fileUrl ?? null,
-      },
-      { onConflict: 'dipendente_id,anno,mese' },
-    )
+    .upsert({ dipendente_id: dipendenteId, anno, mese, ...patch }, { onConflict: 'dipendente_id,anno,mese' })
     .select('*')
     .single()
   if (error) throw new Error(error.message)
   return mapChiusura(data)
 }
 
+/**
+ * La finestra e' scaduta: il mese passa al responsabile. Idempotente, cosi' il
+ * cron puo' girare piu' volte senza fare danni.
+ */
+export async function marcaDaValidare(dipendenteId: number, anno: number, mese: number): Promise<ChiusuraMese> {
+  return upsertChiusura(dipendenteId, anno, mese, { stato: 'da_validare' })
+}
+
+/**
+ * Il responsabile approva il foglio. Da qui nasce il token del link di
+ * conferma: viene generato una volta sola e riutilizzato anche dopo una
+ * contestazione, cosi' i solleciti gia' partiti restano validi.
+ */
+export async function marcaValidato(
+  dipendenteId: number,
+  anno: number,
+  mese: number,
+  validatoDa: string,
+  file: { xlsx?: string | null; pdf?: string | null } = {},
+): Promise<ChiusuraMese> {
+  const prima = await getChiusura(dipendenteId, anno, mese)
+  return upsertChiusura(dipendenteId, anno, mese, {
+    stato: 'validato',
+    validato_da: validatoDa,
+    validato_il: new Date().toISOString(),
+    token: prima?.token || nuovoToken(),
+    file_url: file.xlsx ?? prima?.fileUrl ?? null,
+    file_pdf_url: file.pdf ?? prima?.filePdfUrl ?? null,
+    // una nuova validazione supera la contestazione precedente
+    contestato_il: null,
+    note_contestazione: null,
+    ultimo_sollecito: null,
+  })
+}
+
+/**
+ * Il dipendente conferma (o il responsabile forza, quando la risposta non
+ * arriva mai). `forzato` resta scritto: nei controlli la differenza fra un ok
+ * dato e un ok presunto conta.
+ */
+export async function marcaConfermato(
+  dipendenteId: number,
+  anno: number,
+  mese: number,
+  confermatoDa: string,
+  opts: { forzato?: boolean; pdfUrl?: string | null } = {},
+): Promise<ChiusuraMese> {
+  const prima = await getChiusura(dipendenteId, anno, mese)
+  return upsertChiusura(dipendenteId, anno, mese, {
+    stato: 'confermato',
+    confermato_da: confermatoDa,
+    confermato_il: new Date().toISOString(),
+    confermato_forzato: !!opts.forzato,
+    file_pdf_url: opts.pdfUrl ?? prima?.filePdfUrl ?? null,
+    chiuso_da: confermatoDa,
+    chiuso_il: new Date().toISOString(),
+    // il token ha esaurito il suo compito: non deve restare riutilizzabile
+    token: null,
+  })
+}
+
+/** Il dipendente segnala un errore: il foglio torna al responsabile. */
+export async function marcaContestato(
+  dipendenteId: number,
+  anno: number,
+  mese: number,
+  note: string,
+): Promise<ChiusuraMese> {
+  return upsertChiusura(dipendenteId, anno, mese, {
+    stato: 'contestato',
+    contestato_il: new Date().toISOString(),
+    note_contestazione: note.slice(0, 2000),
+  })
+}
+
+/** Riapre il mese al dipendente (solo HR): annulla validazione e conferma. */
 export async function riapriMese(
   dipendenteId: number,
   anno: number,
   mese: number,
 ): Promise<ChiusuraMese> {
+  return upsertChiusura(dipendenteId, anno, mese, {
+    stato: 'aperto',
+    chiuso_da: null,
+    chiuso_il: null,
+    validato_da: null,
+    validato_il: null,
+    confermato_da: null,
+    confermato_il: null,
+    confermato_forzato: false,
+    contestato_il: null,
+    note_contestazione: null,
+    token: null,
+    ultimo_sollecito: null,
+  })
+}
+
+/** Segna la data dell'ultimo sollecito, per non mandarne due nello stesso giorno. */
+export async function segnaSollecito(dipendenteId: number, anno: number, mese: number): Promise<void> {
+  await upsertChiusura(dipendenteId, anno, mese, { ultimo_sollecito: oggiRoma() })
+}
+
+/** Chiusura raggiunta dal link nella mail, con il dipendente gia' risolto. */
+export async function getChiusuraByToken(
+  token: string,
+): Promise<{ chiusura: ChiusuraMese; dipendente: Dipendente } | null> {
+  if (!token) return null
   const { data, error } = await supabase()
     .from('chiusura_mese')
-    .upsert(
-      { dipendente_id: dipendenteId, anno, mese, stato: 'aperto', chiuso_da: null, chiuso_il: null },
-      { onConflict: 'dipendente_id,anno,mese' },
-    )
     .select('*')
-    .single()
+    .eq('token', token)
+    .maybeSingle()
   if (error) throw new Error(error.message)
-  return mapChiusura(data)
+  if (!data) return null
+  const dip = await getDipendenteById(data.dipendente_id)
+  if (!dip) return null
+  return { chiusura: mapChiusura(data), dipendente: dip }
+}
+
+/** Chiusure ferme in uno degli stati indicati, con il dipendente collegato. */
+export async function chiusureInStato(
+  stati: StatoMese[],
+): Promise<{ chiusura: ChiusuraMese; dipendente: Dipendente }[]> {
+  const { data, error } = await supabase()
+    .from('chiusura_mese')
+    .select('*')
+    .in('stato', stati)
+    .order('anno', { ascending: true })
+    .order('mese', { ascending: true })
+  if (error) throw new Error(error.message)
+  const righe = data ?? []
+  if (!righe.length) return []
+  const ids = [...new Set(righe.map((r: any) => Number(r.dipendente_id)))]
+  const { data: dips, error: e2 } = await supabase().from('dipendente').select('*').in('id', ids)
+  if (e2) throw new Error(e2.message)
+  const byId = new Map<number, Dipendente>((dips ?? []).map((d: any) => [Number(d.id), mapDip(d)]))
+  return righe
+    .map((r: any) => ({ chiusura: mapChiusura(r), dipendente: byId.get(Number(r.dipendente_id))! }))
+    .filter((x) => !!x.dipendente)
+}
+
+// ------------------------------------------------------------- responsabili
+
+/** Le persone che rispondono a questo referente (chiave: mail aziendale). */
+export async function getSubordinati(email: string): Promise<Dipendente[]> {
+  const em = (email || '').trim().toLowerCase()
+  if (!em) return []
+  const { data, error } = await supabase()
+    .from('dipendente')
+    .select('*')
+    .eq('referente_email', em)
+    .order('cognome_nome', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []).map(mapDip)
+}
+
+/** Ha almeno un collaboratore: e' il criterio che apre il cruscotto di validazione. */
+export async function eResponsabile(email: string): Promise<boolean> {
+  return (await getSubordinati(email)).length > 0
 }
 
 /** Cruscotto HR: stato del mese per tutti i dipendenti attivi. */
@@ -706,8 +978,13 @@ async function dipendentiDelMese(
   mese: number,
   from: string,
   to: string,
+  referente?: string | null,
 ): Promise<{ dip: Dipendente; disattivato: boolean }[]> {
-  const attivi = await getDipendenti(true)
+  const tuttiAttivi = await getDipendenti(true)
+  // Il responsabile vede solo i suoi. Le HR (referente non passato) vedono tutti.
+  const filtro = (d: Dipendente) =>
+    !referente || (d.referenteEmail ?? '').toLowerCase() === referente.toLowerCase()
+  const attivi = tuttiAttivi.filter(filtro)
   const noti = new Set(attivi.map((d) => d.id))
 
   const [righe, chiusure] = await Promise.all([
@@ -730,14 +1007,26 @@ async function dipendentiDelMese(
       .in('id', daRecuperare)
       .order('cognome_nome', { ascending: true })
     if (error) throw new Error(error.message)
-    for (const r of data ?? []) out.push({ dip: mapDip(r), disattivato: true })
+    for (const r of data ?? []) {
+      const dip = mapDip(r)
+      if (filtro(dip)) out.push({ dip, disattivato: true })
+    }
   }
   return out
 }
 
-export async function statoMeseTutti(anno: number, mese: number): Promise<StatoDipendenteMese[]> {
+/**
+ * Cruscotto: stato del mese per i dipendenti visibili a chi guarda.
+ * `referente` vuoto = vista HR (tutti); valorizzato = vista responsabile.
+ */
+export async function statoMeseTutti(
+  anno: number,
+  mese: number,
+  referente?: string | null,
+): Promise<StatoDipendenteMese[]> {
   const { from, to } = primoUltimoGiorno(anno, mese)
-  const dips = await dipendentiDelMese(anno, mese, from, to)
+  const dips = await dipendentiDelMese(anno, mese, from, to, referente)
+  const scaduto = meseScaduto(anno, mese)
   const out: StatoDipendenteMese[] = []
   for (const { dip: d, disattivato } of dips) {
     const [rp, ch] = await Promise.all([
@@ -752,11 +1041,48 @@ export async function statoMeseTutti(anno: number, mese: number): Promise<StatoD
       oreAttese: rp.oreAttese,
       scostamento: rp.scostamento,
       giorniIncompleti: rp.giorni.filter((g) => !g.completo && !g.festivo).length,
-      stato: ch?.stato ?? 'aperto',
+      // Senza riga di chiusura lo stato viene dal calendario: un mese scaduto e'
+      // gia' di fatto in attesa di validazione, anche prima che il cron passi.
+      stato: ch?.stato ?? (scaduto ? 'da_validare' : 'aperto'),
       fileUrl: ch?.fileUrl ?? null,
+      filePdfUrl: ch?.filePdfUrl ?? null,
       settimane: rp.settimane,
+      referenteEmail: d.referenteEmail,
+      validatoDa: ch?.validatoDa ?? null,
+      validatoIl: ch?.validatoIl ?? null,
+      confermatoIl: ch?.confermatoIl ?? null,
+      confermatoForzato: ch?.confermatoForzato ?? false,
+      noteContestazione: ch?.noteContestazione ?? null,
+      giorniInAttesa: ch?.stato === 'validato' && ch.validatoIl ? giorniDa(ch.validatoIl) : null,
       disattivato,
     })
+  }
+  return out
+}
+
+/** Giorni interi trascorsi da un istante ISO a oggi. */
+export function giorniDa(iso: string): number {
+  const ms = Date.now() - new Date(iso).getTime()
+  return Math.max(0, Math.floor(ms / 86_400_000))
+}
+
+/**
+ * Porta in validazione tutti i mesi la cui finestra e' scaduta e che sono
+ * ancora aperti. Girata dal cron ogni mattina: e' il momento in cui la palla
+ * passa dai dipendenti ai responsabili.
+ */
+export async function apriValidazioni(
+  anno: number,
+  mese: number,
+): Promise<{ dipendente: Dipendente; chiusura: ChiusuraMese }[]> {
+  if (!meseScaduto(anno, mese)) return []
+  const { from, to } = primoUltimoGiorno(anno, mese)
+  const dips = await dipendentiDelMese(anno, mese, from, to)
+  const out: { dipendente: Dipendente; chiusura: ChiusuraMese }[] = []
+  for (const { dip } of dips) {
+    const ch = await getChiusura(dip.id, anno, mese)
+    if (ch && ch.stato !== 'aperto') continue
+    out.push({ dipendente: dip, chiusura: await marcaDaValidare(dip.id, anno, mese) })
   }
   return out
 }

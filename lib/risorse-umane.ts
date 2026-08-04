@@ -373,6 +373,18 @@ export async function caricaDocumentoDipendente(
   return { id: res.id, nome: res.name ?? safe, url: res.webUrl, dimensione: res.size, modificato: res.lastModifiedDateTime }
 }
 
+/**
+ * Conversione in PDF di un documento gia' presente nella cartella personale.
+ *
+ * La fa Graph (`?format=pdf`): e' il motivo per cui il foglio ore viene prima
+ * caricato e poi convertito, invece di generare il PDF in proprio. Nessun
+ * motore di stampa da installare, nessuna dipendenza in piu'.
+ */
+export async function pdfDocumentoDipendente(g: GraphClient, itemId: string): Promise<Buffer> {
+  const driveId = await getDriveId(g)
+  return g.getBinary(`/drives/${driveId}/items/${itemId}/content?format=pdf`)
+}
+
 /** Elimina un documento dalla cartella personale. */
 export async function eliminaDocumentoDipendente(g: GraphClient, itemId: string): Promise<void> {
   const driveId = await getDriveId(g)

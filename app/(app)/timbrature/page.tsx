@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import { dipendenteAbilitato } from '@/lib/timbrature'
+import { dipendenteAbilitato, eResponsabile } from '@/lib/timbrature'
 import TimbratureOperatore from './TimbratureOperatore'
 
 export const dynamic = 'force-dynamic'
@@ -12,17 +12,43 @@ export default async function TimbraturePage() {
 
   // Timbrature riservate a chi è abilitato dall'anagrafica Risorse Umane
   // (spunta "Timbratura attiva" sulla scheda della persona).
-  const dipendente = await dipendenteAbilitato(session.user.email)
-  if (!dipendente) return <NonAbilitato />
+  const [dipendente, responsabile] = await Promise.all([
+    dipendenteAbilitato(session.user.email),
+    eResponsabile(session.user.email),
+  ])
 
-  return <TimbratureOperatore nome={session.user.name ?? ''} />
+  // Un responsabile puo' non timbrare (o non essere ancora abilitato) e avere
+  // comunque fogli ore da validare: la porta d'ingresso deve esserci lo stesso.
+  if (!dipendente) return <NonAbilitato responsabile={responsabile} />
+
+  return (
+    <>
+      {responsabile && <BarraResponsabile />}
+      <TimbratureOperatore nome={session.user.name ?? ''} />
+    </>
+  )
+}
+
+/** Scorciatoia verso i fogli ore dei collaboratori, per chi ne ha. */
+function BarraResponsabile() {
+  return (
+    <div className="bg-accent-purple/10 border-b border-accent-purple/20 px-5 py-2.5 text-sm flex items-center justify-between gap-3">
+      <span className="text-accent-purple font-medium">Hai collaboratori da seguire</span>
+      <Link
+        href="/timbrature/validazione"
+        className="shrink-0 font-semibold text-accent-purple hover:underline"
+      >
+        Fogli ore da validare →
+      </Link>
+    </div>
+  )
 }
 
 /**
  * Chi non è abilitato non deve trovare una pagina rotta o un errore tecnico:
  * deve capire perché e a chi rivolgersi.
  */
-function NonAbilitato() {
+function NonAbilitato({ responsabile }: { responsabile: boolean }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-primary text-white px-5 pt-4 pb-3">
@@ -37,6 +63,14 @@ function NonAbilitato() {
             La compilazione del foglio ore non è attiva sul tuo profilo. Chiedi alle
             Risorse Umane di attivarla sulla tua scheda: da quel momento la trovi qui.
           </p>
+          {responsabile && (
+            <Link
+              href="/timbrature/validazione"
+              className="block mb-4 text-sm font-semibold text-accent-purple"
+            >
+              Vai ai fogli ore dei tuoi collaboratori →
+            </Link>
+          )}
           <Link href="/home" className="inline-block text-sm font-semibold text-brand-cyan-dark">
             Torna alla home
           </Link>

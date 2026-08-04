@@ -82,6 +82,31 @@ export async function graphGetOrNull<T>(
 }
 
 /**
+ * GET binario. Serve per scaricare il contenuto di un file da un Drive, in
+ * particolare per la conversione automatica in PDF di Graph
+ * (`/drives/{id}/items/{id}/content?format=pdf`): e' il modo per ottenere un
+ * PDF senza portarsi dietro un motore di stampa.
+ *
+ * Segue i redirect (Graph risponde 302 verso lo storage), che fetch gestisce
+ * da solo.
+ */
+export async function graphGetBinary(
+  path: string,
+  extraHeaders?: Record<string, string>,
+): Promise<Buffer> {
+  const token = await getAppToken()
+  const res = await fetch(`${GRAPH_BASE}${path}`, {
+    headers: { Authorization: `Bearer ${token}`, ...extraHeaders },
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Graph GET (binario) ${path} failed (${res.status}): ${err}`)
+  }
+  return Buffer.from(await res.arrayBuffer())
+}
+
+/**
  * Upload binario semplice su un Drive (file < 4 MB).
  * `path` deve essere un endpoint Graph che termina con :/content
  */

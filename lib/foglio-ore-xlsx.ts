@@ -23,6 +23,7 @@ import type { Dipendente } from '@/types/timbrature'
 import {
   graphGet,
   graphGetOrNull,
+  graphGetBinary,
   graphPost,
   graphPutBinary,
 } from '@/lib/graph'
@@ -37,11 +38,32 @@ function giornoNome(ymd: string): string {
   return GIORNI_IT[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]
 }
 
+/**
+ * Riga di stato stampata in testa al foglio: chi ha validato e chi ha
+ * confermato. Su un documento che viene approvato e archiviato, "chi ha detto
+ * di si' e quando" deve stare sul documento, non solo nel database.
+ */
+export interface NotaValidazione {
+  validatoDa?: string | null
+  validatoIl?: string | null
+  confermatoDa?: string | null
+  confermatoIl?: string | null
+  /** Conferma messa dal responsabile in assenza di risposta del dipendente. */
+  forzato?: boolean
+}
+
+function dataOraIt(iso?: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return d.toLocaleDateString('it-IT') + ' ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
+}
+
 /** Costruisce il buffer .xlsx del foglio ore per (dipendente, anno, mese). */
 export async function generaFoglioOreBuffer(
   dip: Dipendente,
   anno: number,
   mese: number,
+  nota?: NotaValidazione,
 ): Promise<Buffer> {
   const { from, to } = primoUltimoGiorno(anno, mese)
   const [timbrature, riepilogo, prof] = await Promise.all([
@@ -57,7 +79,22 @@ export async function generaFoglioOreBuffer(
   wb.created = new Date()
 
   // ---------------------------------------------------------------- Foglio Ore
-  const ws = wb.addWorksheet('Foglio Ore', { views: [{ state: 'frozen', ySplit: 8 }] })
+  const ws = wb.addWorksheet('Foglio Ore', {
+    views: [{ state: 'frozen', ySplit: 8 }],
+    // Il foglio viene convertito in PDF da Graph e finisce in mano alle
+    // persone: senza queste impostazioni uscirebbe spezzato su piu' pagine in
+    // larghezza, cioe' illeggibile.
+    pageSetup: {
+      paperSize: 9, // A4
+      orientation: 'portrait',
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      horizontalCentered: true,
+      margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 },
+      printTitlesRow: '7:7',
+    },
+  })
   ws.columns = [
     { key: 'data', width: 12 },
     { key: 'giorno', width: 12 },
@@ -87,6 +124,22 @@ export async function generaFoglioOreBuffer(
   ws.getCell('I3').value = new Date().toLocaleDateString('it-IT')
   ;['A3', 'A4', 'E3', 'E4', 'H3'].forEach((c) => (ws.getCell(c).font = { color: { argb: 'FF555555' } }))
   ws.getCell('B3').font = { bold: true }
+
+  if (nota?.validatoDa || nota?.confermatoDa) {
+    const parti: string[] = []
+    if (nota.validatoDa) parti.push(`Validato da ${nota.validatoDa} il ${dataOraIt(nota.validatoIl)}`)
+    if (nota.confermatoDa) {
+      parti.push(
+        nota.forzato
+          ? `Chiuso dal responsabile (${nota.confermatoDa}) il ${dataOraIt(nota.confermatoIl)} in assenza di riscontro del dipendente`
+          : `Confermato dal dipendente (${nota.confermatoDa}) il ${dataOraIt(nota.confermatoIl)}`,
+      )
+    }
+    ws.mergeCells('A5:J5')
+    const c = ws.getCell('A5')
+    c.value = parti.join('  ·  ')
+    c.font = { italic: true, size: 9, color: { argb: 'FF1E7B34' } }
+  }
 
   const headerRow = 7
   const headers = ['Data', 'Giorno', 'Festività', 'Ore attese', 'Servizio', 'C.costo', 'Ingresso', 'Uscita', 'Ore', 'Note']
@@ -137,8 +190,13 @@ export async function generaFoglioOreBuffer(
       row.getCell(7).value = t.oraInizio ?? ''
       row.getCell(8).value = t.oraFine ?? ''
       row.getCell(9).value = t.ore
-      row.getCell(10).value = t.note ?? ''
+      row.getCell(10).value = [t.perConto ? 'inserita dal responsabile' : '', t.note ?? '']
+        .filter(Boolean)
+        .join(' · ')
       if (t.tipoVoce === 'giustificativo') row.getCell(5).font = { italic: true, color: { argb: 'FF7030A0' } }
+      // Una riga scritta da qualcun altro deve vedersi: e' il minimo perche' la
+      // conferma del dipendente abbia senso.
+      if (t.perConto) row.getCell(10).font = { italic: true, color: { argb: 'FFC55A11' } }
       r++
     })
   }
@@ -257,34 +315,51 @@ async function ensureFolder(drive: string, fullPath: string): Promise<void> {
   }
 }
 
+export interface FoglioOrePubblicato {
+  /** URL del .xlsx nella cartella personale (resta il formato per HR/rendicontazione). */
+  xlsxUrl: string
+  /** URL del .pdf nella cartella personale: e' la copia che la persona firma. */
+  pdfUrl: string | null
+  /** Contenuto del PDF, per allegarlo alla mail senza riscaricarlo. */
+  pdf: Buffer | null
+}
+
+/** Nome file (senza estensione) del foglio ore di un mese. */
+function nomeBase(dip: Dipendente, anno: number, mese: number): string {
+  return `FoglioOre_${dip.cognomeNome.replace(/[^\w]+/g, '_')}_${anno}-${String(mese).padStart(2, '0')}`
+}
+
+const CT_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
 /**
- * Genera il foglio ore e lo carica nella cartella personale del dipendente.
+ * Genera il foglio ore, lo carica nella cartella personale del dipendente e ne
+ * ricava il PDF.
+ *
+ * Il PDF non viene disegnato qui: si carica l'xlsx e si chiede a Graph la
+ * conversione (`?format=pdf`). Un motore di stampa in piu' su Vercel non
+ * varrebbe la differenza.
+ *
  * Prova prima la cartella personale RU (match per email); se il dipendente non
- * è nell'anagrafica RU, usa la cartella di ripiego "Foglio Ore/<Nominativo>".
- * Ritorna l'URL SharePoint del file.
+ * e' nell'anagrafica RU usa la cartella di ripiego "Foglio Ore/<Nominativo>".
+ *
+ * ⚠️ RIPIEGO APPLICATIVO ESPLICITO. Se `gRU` non viene passato — chiusura da
+ * cron, oppure conferma che arriva dal link nella mail, dove per definizione
+ * non c'e' nessuno autenticato — si opera con l'identita' dell'applicazione.
+ * Funziona grazie a Sites.ReadWrite.All (Application), ma nel log nativo la
+ * scrittura risulta fatta dall'app. E' una scelta consapevole: l'alternativa
+ * sarebbe obbligare il dipendente a fare login per confermare.
  */
 export async function pubblicaFoglioOre(
   dip: Dipendente,
   anno: number,
   mese: number,
   gRU?: GraphClient,
-): Promise<string> {
-  const buffer = await generaFoglioOreBuffer(dip, anno, mese)
-  const filename = `FoglioOre_${dip.cognomeNome.replace(/[^\w]+/g, '_')}_${anno}-${String(mese).padStart(2, '0')}.xlsx`
-  const contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  nota?: NotaValidazione,
+): Promise<FoglioOrePubblicato> {
+  const buffer = await generaFoglioOreBuffer(dip, anno, mese, nota)
+  const base = nomeBase(dip, anno, mese)
 
-  // 1) prova la cartella personale RU (match per email aziendale/personale).
-  //
-  // L'area RU scrive con l'identità dell'utente: il client arriva dal chiamante
-  // (api/timbrature/hr/chiudi), che è protetto dal permesso HR e ha quindi sempre
-  // una persona autenticata dietro.
-  //
-  // ⚠️ RIPIEGO APPLICATIVO ESPLICITO. Se `gRU` non viene passato — caso di una
-  // chiusura mensile automatizzata via cron, che oggi non esiste — si opera con
-  // l'identità dell'applicazione. Sul sito RU questo funziona grazie a
-  // Sites.ReadWrite.All (Application), ma il log nativo attribuirà la scrittura
-  // all'app e non a una persona. Se la chiusura diventa automatica, va deciso
-  // consapevolmente se accettarlo.
+  // 1) cartella personale RU (match per email aziendale/personale)
   try {
     const ru = await import('@/lib/risorse-umane')
     const { graphApplicativo } = await import('@/lib/graph-delegato')
@@ -296,8 +371,20 @@ export async function pubblicaFoglioOre(
         String(d.MailPersonale ?? '').toLowerCase() === dip.email.toLowerCase(),
     )
     if (match) {
-      const doc = await ru.caricaDocumentoDipendente(gc, String(match.spItemId), filename, buffer, contentType)
-      return doc.url
+      const spId = String(match.spItemId)
+      const xlsx = await ru.caricaDocumentoDipendente(gc, spId, `${base}.xlsx`, buffer, CT_XLSX)
+      let pdf: Buffer | null = null
+      let pdfUrl: string | null = null
+      try {
+        pdf = await ru.pdfDocumentoDipendente(gc, xlsx.id)
+        const doc = await ru.caricaDocumentoDipendente(gc, spId, `${base}.pdf`, pdf, 'application/pdf')
+        pdfUrl = doc.url
+      } catch (e) {
+        // Il PDF e' importante ma non deve far fallire la validazione: senza,
+        // la mail parte con il solo link al foglio.
+        console.error('[foglio-ore] conversione PDF fallita:', e)
+      }
+      return { xlsxUrl: xlsx.url, pdfUrl, pdf }
     }
   } catch (e) {
     console.warn('[foglio-ore] match cartella RU fallito, uso ripiego:', e)
@@ -307,10 +394,23 @@ export async function pubblicaFoglioOre(
   const drive = await driveId()
   const rel = `Foglio Ore/${dip.cognomeNome.replace(/[\\/:*?"<>|]+/g, ' ').trim()}`
   await ensureFolder(drive, rel)
-  const res = await graphPutBinary<{ webUrl: string }>(
-    `/drives/${drive}/root:/${encodePath(`${rel}/${filename}`)}:/content`,
+  const res = await graphPutBinary<{ webUrl: string; id: string }>(
+    `/drives/${drive}/root:/${encodePath(`${rel}/${base}.xlsx`)}:/content`,
     buffer,
-    contentType,
+    CT_XLSX,
   )
-  return res.webUrl
+  let pdf: Buffer | null = null
+  let pdfUrl: string | null = null
+  try {
+    pdf = await graphGetBinary(`/drives/${drive}/items/${res.id}/content?format=pdf`)
+    const resPdf = await graphPutBinary<{ webUrl: string }>(
+      `/drives/${drive}/root:/${encodePath(`${rel}/${base}.pdf`)}:/content`,
+      pdf,
+      'application/pdf',
+    )
+    pdfUrl = resPdf.webUrl
+  } catch (e) {
+    console.error('[foglio-ore] conversione PDF (ripiego) fallita:', e)
+  }
+  return { xlsxUrl: res.webUrl, pdfUrl, pdf }
 }

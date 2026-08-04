@@ -7,7 +7,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { guardOperatore } from '@/lib/timbrature-guard'
-import { riepilogoPeriodo, finestraAperta, primoUltimoGiorno, scadenzaCorrezioni } from '@/lib/timbrature'
+import type { FinestraMese } from '@/types/timbrature'
+import { riepilogoPeriodo, finestraMese, primoUltimoGiorno, ultimoGiornoUtile } from '@/lib/timbrature'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,14 +22,14 @@ export async function GET(req: NextRequest) {
   let to = searchParams.get('to') ?? ''
 
   try {
-    let finestra: { aperta: boolean; motivo?: string } | undefined
+    let finestra: FinestraMese | undefined
     let scadenza: string | undefined
     if (anno && mese) {
       const p = primoUltimoGiorno(Number(anno), Number(mese))
       from = p.from
       to = p.to
-      finestra = await finestraAperta(g.dipendente.id, Number(anno), Number(mese))
-      scadenza = scadenzaCorrezioni(Number(anno), Number(mese))
+      finestra = await finestraMese(g.dipendente.id, Number(anno), Number(mese))
+      scadenza = ultimoGiornoUtile(Number(anno), Number(mese))
     }
     if (!from || !to) {
       return NextResponse.json({ error: 'Fornire anno+mese oppure from+to' }, { status: 400 })

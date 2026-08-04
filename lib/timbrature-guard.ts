@@ -11,7 +11,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import type { Session } from 'next-auth'
-import { dipendenteAbilitato } from '@/lib/timbrature'
+import { dipendenteAbilitato, eResponsabile, getDipendenteById } from '@/lib/timbrature'
 import type { Dipendente } from '@/types/timbrature'
 
 export const AREA_HR = 'Timbrature HR'
@@ -59,4 +59,68 @@ export async function guardHr(): Promise<HrResult> {
     return { session: null, error: NextResponse.json({ error: 'Accesso negato' }, { status: 403 }) }
   }
   return { session, error: null }
+}
+
+
+// ---------------------------------------------------------------- validatori
+
+/**
+ * Chi puo' controllare e validare i fogli ore altrui.
+ *
+ * Due strade, di natura diversa:
+ *   - le HR hanno il permesso d'area "Timbrature HR" e vedono tutti;
+ *   - il responsabile non ha nessun permesso da assegnare: lo diventa perche'
+ *     qualcuno lo indica come Referente foglio ore in anagrafica RU. Il ruolo
+ *     segue i dati, cosi' non c'e' una seconda lista da tenere allineata.
+ */
+export interface Validatore {
+  session: Session
+  email: string
+  /** Vede e puo' agire su tutti. */
+  hr: boolean
+  /** Mail su cui filtrare il cruscotto; null per le HR (nessun filtro). */
+  referente: string | null
+}
+
+type ValidatoreResult = { v: Validatore; error: null } | { v: null; error: NextResponse }
+
+export async function guardValidatore(): Promise<ValidatoreResult> {
+  const session = await auth()
+  const email = session?.user?.email
+  if (!email) {
+    return { v: null, error: NextResponse.json({ error: 'Non autenticato' }, { status: 401 }) }
+  }
+  const hr = !!session!.user.permessi?.includes(AREA_HR)
+  if (hr) return { v: { session: session!, email, hr: true, referente: null }, error: null }
+
+  if (await eResponsabile(email)) {
+    return { v: { session: session!, email, hr: false, referente: email }, error: null }
+  }
+  return {
+    v: null,
+    error: NextResponse.json(
+      { error: 'Questa pagina e\' riservata a chi deve validare i fogli ore dei propri collaboratori.' },
+      { status: 403 },
+    ),
+  }
+}
+
+/**
+ * Il validatore puo' agire su questo dipendente?
+ *
+ * Vale anche la regola "nessuno valida se stesso": un foglio ore lo guarda
+ * qualcun altro, altrimenti il passaggio non serve a niente. Chi si trova nel
+ * proprio elenco (per un referente impostato male) viene comunque escluso.
+ */
+export async function puoAgireSu(v: Validatore, dipendenteId: number): Promise<string | null> {
+  const dip = await getDipendenteById(dipendenteId)
+  if (!dip) return 'Dipendente non trovato'
+  if (dip.email.toLowerCase() === v.email.toLowerCase()) {
+    return 'Non puoi validare il tuo foglio ore: deve farlo il tuo responsabile o le Risorse Umane.'
+  }
+  if (v.hr) return null
+  if ((dip.referenteEmail ?? '').toLowerCase() !== v.email.toLowerCase()) {
+    return 'Questo dipendente non e\' fra i tuoi collaboratori.'
+  }
+  return null
 }
