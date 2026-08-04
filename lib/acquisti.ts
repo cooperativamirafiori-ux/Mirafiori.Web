@@ -12,8 +12,9 @@ import { randomBytes } from 'node:crypto'
 import { graphGet, graphPost, graphPatch } from '@/lib/graph'
 import { creaCosto, getSPUserLookupId } from '@/lib/sharepoint'
 import {
-  calcolaTotale,
+  aggiungiMesi,
   normalizzaFornitore,
+  MESI_GARANZIA_DEFAULT,
   type RichiestaAcquisto,
   type StatoAcquisto,
 } from '@/types/acquisti'
@@ -35,9 +36,10 @@ const CAMPI =
   'id,fields&$expand=fields($select=Title,Richiedente,RichiedenteLookupId,DataRichiesta,' +
   'Struttura,StrutturaLookupId,Descrizione,Quantita,LinkRiferimento,Urgenza,ServeEntro,Categoria,' +
   'Stato,Assegnato,AssegnatoLookupId,MotivoRifiuto,NoteInterne,' +
-  'Fornitore,Imponibile,AliquotaIva,Totale,DataOrdine,Pagamento,DataConsegnaPrevista,' +
+  'Fornitore,Imponibile,Totale,DataOrdine,Pagamento,DataPagamento,DataConsegnaPrevista,' +
   'LuogoConsegna,LuogoConsegnaLookupId,DataConsegnaEffettiva,EsitoConsegna,NoteEsito,' +
-  'DaInventariare,MarcaModello,NumeroSerie,ExtraCee,' +
+  'DaInventariare,MarcaModello,NumeroSerie,ExtraCee,MesiGaranzia,ScadenzaGaranzia,' +
+  'NumeriInventario,InventarioGenerato,' +
   'ConfermaToken,NotificaConsegnaInviata,SollecitoInviato,CostoGenerato,DigestInviato)'
 
 /** Person/Lookup via fields-expansion: a volte stringa, a volte oggetto. */
@@ -81,10 +83,10 @@ function mapAcquisto(item: any): RichiestaAcquisto {
 
     fornitore: f.Fornitore || undefined,
     imponibile: num(f.Imponibile),
-    aliquotaIva: num(f.AliquotaIva),
     totale: num(f.Totale),
     dataOrdine: f.DataOrdine || undefined,
     pagamento: f.Pagamento || undefined,
+    dataPagamento: f.DataPagamento || undefined,
     dataConsegnaPrevista: f.DataConsegnaPrevista || undefined,
     luogoConsegna: f.LuogoConsegnaLookupId
       ? {
@@ -101,6 +103,10 @@ function mapAcquisto(item: any): RichiestaAcquisto {
     marcaModello: f.MarcaModello || undefined,
     numeroSerie: f.NumeroSerie || undefined,
     extraCee: Boolean(f.ExtraCee),
+    mesiGaranzia: num(f.MesiGaranzia),
+    scadenzaGaranzia: f.ScadenzaGaranzia || undefined,
+    numeriInventario: f.NumeriInventario || undefined,
+    inventarioGenerato: Boolean(f.InventarioGenerato),
 
     confermaToken: f.ConfermaToken || undefined,
     notificaConsegnaInviata: Boolean(f.NotificaConsegnaInviata),
@@ -241,6 +247,7 @@ export async function creaAcquisto(input: {
     ConfermaToken: token,
     DaInventariare: false,
     ExtraCee: false,
+    InventarioGenerato: false,
     NotificaConsegnaInviata: false,
     SollecitoInviato: false,
     CostoGenerato: false,
@@ -251,11 +258,22 @@ export async function creaAcquisto(input: {
   return { spItemId, codice, token }
 }
 
-/** Campi dell'ordine, con totale calcolato da imponibile e aliquota. */
+/**
+ * Campi dell'ordine.
+ *
+ * Imponibile e totale sono entrambi digitati da chi ha la fattura davanti:
+ * l'aliquota IVA non viene più chiesta né salvata, perché in fattura può essere
+ * mista (righe al 22% e righe al 4%) e un'unica percentuale falserebbe il conto.
+ * L'IVA si ricava per differenza quando serve mostrarla.
+ *
+ * La scadenza della garanzia si calcola dalla **data dell'ordine** — scelta di
+ * Dennis del 04/08/2026 — e viene salvata, non solo derivata, così è filtrabile
+ * anche dalla vista SharePoint.
+ */
 export function campiOrdine(input: {
   fornitore: string
   imponibile: number
-  aliquotaIva: number
+  totale: number
   dataOrdine?: string
   pagamento?: string
   dataConsegnaPrevista?: string
@@ -264,16 +282,21 @@ export function campiOrdine(input: {
   marcaModello?: string
   numeroSerie?: string
   extraCee?: boolean
+  mesiGaranzia?: number
 }): Record<string, unknown> {
-  // Extra CEE: la fattura arriva senza IVA italiana, l'aliquota è forzata a 0.
-  const aliquota = input.extraCee ? 0 : Number(input.aliquotaIva) || 0
+  const dataOrdineIso = dataSoloGiorno(input.dataOrdine) ?? new Date().toISOString()
+  const mesi = Number(input.mesiGaranzia)
+  const mesiGaranzia = isFinite(mesi) && mesi > 0 ? Math.round(mesi) : MESI_GARANZIA_DEFAULT
+  const scadenza = input.daInventariare
+    ? aggiungiMesi(dataOrdineIso, mesiGaranzia)
+    : undefined
+
   return {
     Stato: 'Ordinata',
     Fornitore: input.fornitore,
     Imponibile: Number(input.imponibile) || 0,
-    AliquotaIva: aliquota,
-    Totale: calcolaTotale(input.imponibile, aliquota),
-    DataOrdine: dataSoloGiorno(input.dataOrdine) ?? new Date().toISOString(),
+    Totale: Number(input.totale) || 0,
+    DataOrdine: dataOrdineIso,
     Pagamento: input.pagamento || undefined,
     DataConsegnaPrevista: dataSoloGiorno(input.dataConsegnaPrevista),
     LuogoConsegnaLookupId: input.luogoConsegnaId || undefined,
@@ -281,10 +304,23 @@ export function campiOrdine(input: {
     MarcaModello: input.marcaModello?.trim() || '',
     NumeroSerie: input.numeroSerie?.trim() || '',
     ExtraCee: Boolean(input.extraCee),
+    MesiGaranzia: input.daInventariare ? mesiGaranzia : undefined,
+    ScadenzaGaranzia: scadenza ? dataSoloGiorno(scadenza) : undefined,
     // Un nuovo ordine riapre la finestra delle notifiche di consegna.
     NotificaConsegnaInviata: false,
     SollecitoInviato: false,
   }
+}
+
+/**
+ * Registra la data in cui la fornitura è stata pagata.
+ *
+ * Sta fuori da `campiOrdine` perché il pagamento arriva quasi sempre dopo la
+ * consegna, quando il blocco "registra ordine" è già chiuso: serve poterlo
+ * scrivere da solo, su una richiesta in qualsiasi stato.
+ */
+export function campiPagamento(dataPagamento?: string): Record<string, unknown> {
+  return { DataPagamento: dataPagamento ? dataSoloGiorno(dataPagamento) : null }
 }
 
 /**

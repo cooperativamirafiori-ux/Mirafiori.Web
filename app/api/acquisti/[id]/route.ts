@@ -16,12 +16,20 @@ import { auth } from '@/lib/auth'
 import {
   aggiornaAcquisto,
   campiOrdine,
+  campiPagamento,
   generaCostoDaAcquisto,
   getAcquistoById,
   normalizzaNomeFornitore,
   acquistiConfigurato,
   AREA_ACQUISTI,
 } from '@/lib/acquisti'
+import {
+  allineaBeniDaRichiesta,
+  annullaBeniDaRichiesta,
+  creaBeniDaRichiesta,
+  getBeniPerRichiesta,
+  inventarioConfigurato,
+} from '@/lib/inventario'
 import {
   emailGestori,
   emailRichiedente,
@@ -36,9 +44,10 @@ import {
 } from '@/lib/notifications'
 import { logAzione } from '@/lib/audit'
 import {
-  ALIQUOTE_IVA,
   ESITI_CONSEGNA,
+  MESI_GARANZIA_DEFAULT,
   MODALITA_PAGAMENTO,
+  aggiungiMesi,
   dataBreve,
   type AggiornaAcquistoPayload,
   type EsitoConsegna,
@@ -57,9 +66,24 @@ function nomeDaEmail(email: string): string {
   return nome ? nome.charAt(0).toUpperCase() + nome.slice(1) : ''
 }
 
+/**
+ * Numeri di serie da assegnare ai pezzi, uno per bene.
+ *
+ * Accetta sia `serialiInventario` (un pezzo per elemento) sia il vecchio campo
+ * singolo `numeroSerie`, che resta valido quando la quantità è 1.
+ */
+function serialiRichiesti(body: AggiornaAcquistoPayload, quantita: number): string[] {
+  const lista = Array.isArray(body.serialiInventario)
+    ? body.serialiInventario.map((s) => String(s ?? '').trim())
+    : []
+  if (lista.length) return lista.slice(0, Math.max(1, quantita))
+  const singolo = body.numeroSerie?.trim()
+  return singolo ? [singolo] : []
+}
+
 /** Azioni riservate a chi ha l'area "Acquisti". */
 const AZIONI_GESTORE = new Set([
-  'prendi-in-carico', 'assegna', 'approva', 'rifiuta', 'ordina', 'risolvi', 'note',
+  'prendi-in-carico', 'assegna', 'approva', 'rifiuta', 'ordina', 'pagamento', 'risolvi', 'note',
 ])
 
 export async function PATCH(
@@ -84,6 +108,13 @@ export async function PATCH(
 
   const eGestore = session.user.permessi?.includes(AREA_ACQUISTI) ?? false
   if (AZIONI_GESTORE.has(azione) && !eGestore) return err('Accesso negato', 403)
+
+  /**
+   * Messaggi non bloccanti da riportare a chi ha premuto il pulsante: numeri di
+   * inventario assegnati, oppure il motivo per cui non lo sono stati. L'azione
+   * principale è già andata a buon fine, quindi non sono errori.
+   */
+  const avvisi: string[] = []
 
   try {
     const a = await getAcquistoById(id)
@@ -203,14 +234,26 @@ export async function PATCH(
         if (!isFinite(imponibile) || imponibile <= 0) {
           return err('Indica un imponibile maggiore di zero.')
         }
-        const aliquota = Number(body.aliquotaIva ?? 22)
-        if (!ALIQUOTE_IVA.includes(aliquota as any)) return err('Aliquota IVA non valida.')
+        // Il totale è digitato, non più calcolato da un'aliquota: la fattura può
+        // avere righe con IVA diversa e una percentuale unica falserebbe il conto.
+        const totale = Number(body.totale)
+        if (!isFinite(totale) || totale <= 0) {
+          return err('Indica un totale maggiore di zero.')
+        }
+        if (totale < imponibile - 0.005) {
+          return err('Il totale non può essere inferiore all’imponibile.')
+        }
         if (body.pagamento && !MODALITA_PAGAMENTO.includes(body.pagamento as any)) {
           return err('Modalità di pagamento non valida.')
         }
         if (body.daInventariare && !body.marcaModello?.trim()) {
           return err('Per i beni da inventariare marca e modello sono obbligatori.')
         }
+        const mesiRaw = Number(body.mesiGaranzia ?? MESI_GARANZIA_DEFAULT)
+        if (!isFinite(mesiRaw) || mesiRaw < 0 || mesiRaw > 240) {
+          return err('I mesi di garanzia devono essere fra 0 e 240.')
+        }
+        const mesiGaranzia = Math.round(mesiRaw) || MESI_GARANZIA_DEFAULT
 
         const fornitore = await normalizzaNomeFornitore(fornitoreRaw)
         const luogoConsegnaId = Number(body.luogoConsegnaId) || a.struttura.id
@@ -220,7 +263,7 @@ export async function PATCH(
           campiOrdine({
             fornitore,
             imponibile,
-            aliquotaIva: aliquota,
+            totale,
             dataOrdine: body.dataOrdine,
             pagamento: body.pagamento,
             dataConsegnaPrevista: body.dataConsegnaPrevista,
@@ -229,8 +272,78 @@ export async function PATCH(
             marcaModello: body.marcaModello,
             numeroSerie: body.numeroSerie,
             extraCee: body.extraCee,
+            mesiGaranzia,
           }),
         )
+
+        // ---- Inventario -------------------------------------------------
+        // I beni nascono qui e non alla consegna: così la cartella su SharePoint
+        // esiste già quando arriva la fattura, che spesso precede il bene.
+        if (body.daInventariare) {
+          const aggiornata = await getAcquistoById(id)
+          const dataAcquisto = (aggiornata.dataOrdine ?? '').slice(0, 10) || undefined
+          const scadenza = dataAcquisto ? aggiungiMesi(dataAcquisto, mesiGaranzia) : undefined
+          // Il cespite è il singolo pezzo: il valore è la quota unitaria del totale.
+          const valoreUnitario =
+            Math.round((totale / Math.max(1, a.quantita)) * 100) / 100
+
+          if (!inventarioConfigurato()) {
+            avvisi.push(
+              'Ordine registrato, ma l’inventario non è configurato: esegui node scripts/provision-inventario.mjs.',
+            )
+          } else if (aggiornata.inventarioGenerato) {
+            // Ordine corretto a posteriori: i numeri restano, i dati si allineano.
+            const quanti = await allineaBeniDaRichiesta(a.codice, {
+              marcaModello: body.marcaModello,
+              fornitore,
+              dataAcquisto,
+              valore: valoreUnitario,
+              mesiGaranzia,
+              scadenzaGaranzia: scadenza,
+              strutturaId: a.struttura.id,
+            }).catch((e) => {
+              console.error('[acquisti] allineamento beni fallito', e)
+              return 0
+            })
+            if (quanti) avvisi.push(`Aggiornati anche ${quanti} beni già inventariati.`)
+          } else {
+            try {
+              const beni = await creaBeniDaRichiesta(
+                {
+                  descrizione: a.descrizione,
+                  categoria: a.categoria,
+                  marcaModello: body.marcaModello,
+                  strutturaId: luogoConsegnaId || a.struttura.id,
+                  dataAcquisto,
+                  fornitore,
+                  valore: valoreUnitario,
+                  mesiGaranzia,
+                  scadenzaGaranzia: scadenza,
+                  codiceRichiesta: a.codice,
+                  richiestaItemId: id,
+                },
+                a.quantita,
+                serialiRichiesti(body, a.quantita),
+              )
+              await aggiornaAcquisto(id, {
+                InventarioGenerato: true,
+                NumeriInventario: beni.map((b) => b.numero).join(', '),
+              })
+              avvisi.push(
+                beni.length === 1
+                  ? `Bene inventariato: ${beni[0].numero}.`
+                  : `Beni inventariati: ${beni.map((b) => b.numero).join(', ')}.`,
+              )
+            } catch (e: any) {
+              // L'ordine è già registrato: un inciampo sull'inventario non deve
+              // farlo sembrare fallito. Lo si segnala e si riprova aggiornando.
+              console.error('[acquisti] inventario non generato', e)
+              avvisi.push(
+                `Ordine registrato, ma l’inventario non è stato creato: ${e?.message ?? 'errore SharePoint'}. Riprova con "Aggiorna l’ordine".`,
+              )
+            }
+          }
+        }
 
         const to = await emailRichiedente(a)
         if (to) {
@@ -248,6 +361,19 @@ export async function PATCH(
             luogoConsegna: luogo?.strutturaLabel ?? a.struttura.value,
           }).catch(console.error)
         }
+        break
+      }
+
+      // ----------------------------------------------------------
+      case 'pagamento': {
+        // Nessun vincolo di stato: il pagamento arriva quando arriva, di solito
+        // a consegna già avvenuta. Una data vuota azzera il campo (correzione).
+        const ymd = body.dataPagamento?.trim()
+        if (ymd && !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return err('Data di pagamento non valida.')
+        if (!a.totale) {
+          return err('Registra prima l’ordine: senza importo il pagamento non ha riferimento.', 409)
+        }
+        await aggiornaAcquisto(id, campiPagamento(ymd))
         break
       }
 
@@ -290,6 +416,16 @@ export async function PATCH(
           Stato: 'Annullata',
           MotivoRifiuto: body.motivo?.trim() || a.motivoRifiuto || '',
         })
+        // I beni eventualmente già numerati non si cancellano: restano nel
+        // registro marcati "Annullato", così il progressivo non ha buchi
+        // inspiegabili e si vede perché quel numero non è mai stato usato.
+        if (a.inventarioGenerato && inventarioConfigurato()) {
+          const quanti = await annullaBeniDaRichiesta(a.codice).catch((e) => {
+            console.error('[acquisti] beni non annullati', e)
+            return 0
+          })
+          if (quanti) avvisi.push(`Segnati come annullati ${quanti} beni in inventario.`)
+        }
         // Avviso l'altra parte: chi non ha premuto il tasto.
         if (eGestore && !sonoIlRichiedente) {
           const to = await emailRichiedente(a)
@@ -326,7 +462,15 @@ export async function PATCH(
       dettagli: { statoPrecedente: a.stato, ...scrubBody(body) },
     })
 
-    return NextResponse.json({ ok: true, acquisto: await getAcquistoById(id) })
+    const aggiornata = await getAcquistoById(id)
+    // I beni tornano insieme alla richiesta: la pagina di gestione mostra i
+    // pulsanti di caricamento subito, senza un secondo giro di fetch.
+    const beni =
+      inventarioConfigurato() && aggiornata.inventarioGenerato
+        ? await getBeniPerRichiesta(aggiornata.codice).catch(() => [])
+        : []
+
+    return NextResponse.json({ ok: true, acquisto: aggiornata, beni, avvisi })
   } catch (e: any) {
     console.error(`[PATCH /api/acquisti/${id}]`, e)
     return NextResponse.json({ error: e?.message ?? 'Errore interno' }, { status: 500 })
@@ -355,7 +499,11 @@ export async function GET(
       const mio = await getSPUserLookupId(session.user.email)
       if (a.richiedenteLookupId !== mio) return err('Accesso negato', 403)
     }
-    return NextResponse.json({ acquisto: a, linkGestione: linkGestione() })
+    const beni =
+      inventarioConfigurato() && a.inventarioGenerato
+        ? await getBeniPerRichiesta(a.codice).catch(() => [])
+        : []
+    return NextResponse.json({ acquisto: a, beni, linkGestione: linkGestione() })
   } catch (e: any) {
     console.error(`[GET /api/acquisti/${id}]`, e)
     return NextResponse.json({ error: e?.message ?? 'Errore interno' }, { status: 500 })

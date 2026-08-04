@@ -74,11 +74,15 @@ const COLUMNS = [
   { name: 'NoteInterne', text: { allowMultipleLines: true } },
   // Ordine
   { name: 'Fornitore', text: {} },
+  // Imponibile e Totale sono entrambi digitati da chi registra l'ordine:
+  // l'aliquota IVA non si chiede più (in fattura può essere mista) e l'IVA si
+  // ricava per differenza. Dove la colonna AliquotaIva esiste già resta per i
+  // record storici, ma l'app non la legge né la scrive.
   { name: 'Imponibile', currency: { locale: 'it-IT' } },
-  { name: 'AliquotaIva', number: { decimalPlaces: 'none' } },
   { name: 'Totale', currency: { locale: 'it-IT' } },
   { name: 'DataOrdine', dateTime: { format: 'dateOnly', displayAs: 'standard' } },
   { name: 'Pagamento', choice: { choices: PAGAMENTI, displayAs: 'dropDownMenu' } },
+  { name: 'DataPagamento', dateTime: { format: 'dateOnly', displayAs: 'standard' } },
   { name: 'DataConsegnaPrevista', dateTime: { format: 'dateOnly', displayAs: 'standard' } },
   // Consegna
   { name: 'DataConsegnaEffettiva', dateTime: { format: 'dateOnly', displayAs: 'standard' } },
@@ -89,6 +93,13 @@ const COLUMNS = [
   { name: 'MarcaModello', text: {} },
   { name: 'NumeroSerie', text: {} },
   { name: 'ExtraCee', boolean: {} },
+  // Garanzia: la scadenza è calcolata dalla data dell'ordine ma viene salvata,
+  // così è filtrabile anche dalla vista SharePoint.
+  { name: 'MesiGaranzia', number: { decimalPlaces: 'none' } },
+  { name: 'ScadenzaGaranzia', dateTime: { format: 'dateOnly', displayAs: 'standard' } },
+  // Legame con l'inventario: i numeri assegnati e il flag di idempotenza.
+  { name: 'NumeriInventario', text: {} },
+  { name: 'InventarioGenerato', boolean: {} },
   // Interni al flusso
   { name: 'ConfermaToken', text: {} },
   { name: 'NotificaConsegnaInviata', boolean: {} },

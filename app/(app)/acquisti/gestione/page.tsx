@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { auth } from '@/lib/auth'
 import { Header } from '@/components/ui/Header'
 import { acquistiConfigurato, getAcquisti, getFornitoriNoti, AREA_ACQUISTI } from '@/lib/acquisti'
+import { getInventario, inventarioConfigurato } from '@/lib/inventario'
 import { getStrutture, getUtentiPerArea } from '@/lib/sharepoint'
 import { GestioneAcquisti } from './GestioneAcquisti'
 
@@ -27,11 +28,16 @@ export default async function GestioneAcquistiPage() {
     )
   }
 
-  const [acquisti, strutture, fornitori, gestori] = await Promise.all([
+  const inventarioAttivo = inventarioConfigurato()
+
+  const [acquisti, strutture, fornitori, gestori, beni] = await Promise.all([
     getAcquisti(),
     getStrutture(),
     getFornitoriNoti(),
     getUtentiPerArea(AREA_ACQUISTI),
+    // Un inventario non configurato non deve far fallire la pagina: la sezione
+    // acquisti funzionava già prima che esistesse.
+    inventarioAttivo ? getInventario().catch(() => []) : Promise.resolve([]),
   ])
 
   return (
@@ -48,6 +54,8 @@ export default async function GestioneAcquistiPage() {
           strutture={strutture.map((s) => ({ id: s.id, label: s.strutturaLabel }))}
           fornitori={fornitori}
           gestori={gestori}
+          beni={beni}
+          inventarioAttivo={inventarioAttivo}
         />
       </main>
     </div>

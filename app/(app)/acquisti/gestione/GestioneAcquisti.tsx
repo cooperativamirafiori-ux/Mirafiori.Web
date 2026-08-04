@@ -1,26 +1,36 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ALIQUOTE_IVA,
   CATEGORIE_SPESA,
+  GARANZIA_STILE,
+  MESI_GARANZIA_DEFAULT,
   MODALITA_PAGAMENTO,
   STATI_ACQUISTO,
   STATI_APERTI,
   STATO_STILE,
   URGENZA_STILE,
-  calcolaTotale,
+  aggiungiMesi,
+  calcolaIva,
   dataBreve,
+  etichettaGaranzia,
   euro,
+  statoGaranzia,
   type RichiestaAcquisto,
 } from '@/types/acquisti'
+import { STATO_BENE_STILE, type BeneInventario, type TipoDocumento } from '@/types/inventario'
+import { caricaDirettamente, maxUploadMb } from '@/lib/upload-diretto'
 
 interface Props {
   iniziali: RichiestaAcquisto[]
   strutture: Array<{ id: number; label: string }>
   fornitori: string[]
   gestori: string[]
+  /** Beni già inventariati, di tutte le richieste: la riga filtra i suoi. */
+  beni: BeneInventario[]
+  /** false se manca SP_LIST_INVENTARIO: il blocco inventario si spiega da sé. */
+  inventarioAttivo: boolean
 }
 
 const campoCls =
@@ -29,7 +39,14 @@ const labelCls = 'block text-xs font-medium text-gray-600 mb-1'
 
 const oggiYmd = () => new Date().toISOString().slice(0, 10)
 
-export function GestioneAcquisti({ iniziali, strutture, fornitori, gestori }: Props) {
+export function GestioneAcquisti({
+  iniziali,
+  strutture,
+  fornitori,
+  gestori,
+  beni,
+  inventarioAttivo,
+}: Props) {
   const router = useRouter()
   const [filtroStato, setFiltroStato] = useState<'aperte' | 'tutte' | string>('aperte')
   const [filtroCategoria, setFiltroCategoria] = useState('')
@@ -37,6 +54,18 @@ export function GestioneAcquisti({ iniziali, strutture, fornitori, gestori }: Pr
   const [aperta, setAperta] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
+  const [avvisi, setAvvisi] = useState<string[]>([])
+
+  const beniPerCodice = useMemo(() => {
+    const m = new Map<string, BeneInventario[]>()
+    for (const b of beni) {
+      if (!b.codiceRichiesta) continue
+      const lista = m.get(b.codiceRichiesta) ?? []
+      lista.push(b)
+      m.set(b.codiceRichiesta, lista)
+    }
+    return m
+  }, [beni])
 
   const visibili = useMemo(() => {
     let l = iniziali
@@ -72,6 +101,7 @@ export function GestioneAcquisti({ iniziali, strutture, fornitori, gestori }: Pr
   async function azione(spItemId: string, body: Record<string, unknown>) {
     setBusy(true)
     setErrore(null)
+    setAvvisi([])
     try {
       const res = await fetch(`/api/acquisti/${spItemId}`, {
         method: 'PATCH',
@@ -80,7 +110,10 @@ export function GestioneAcquisti({ iniziali, strutture, fornitori, gestori }: Pr
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Operazione non riuscita')
-      setAperta(null)
+      // I numeri di inventario assegnati arrivano qui: senza mostrarli, chi
+      // registra l'ordine non saprebbe che cosa è stato creato.
+      if (Array.isArray(data.avvisi) && data.avvisi.length) setAvvisi(data.avvisi)
+      else setAperta(null)
       router.refresh()
     } catch (e: any) {
       setErrore(e.message)
@@ -140,6 +173,17 @@ export function GestioneAcquisti({ iniziali, strutture, fornitori, gestori }: Pr
 
       {errore && <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg">{errore}</div>}
 
+      {avvisi.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm p-3 rounded-lg space-y-1">
+          {avvisi.map((m, i) => (
+            <p key={i}>{m}</p>
+          ))}
+          <button onClick={() => setAvvisi([])} className="text-xs underline text-amber-700">
+            ho capito
+          </button>
+        </div>
+      )}
+
       {/* Elenco */}
       {visibili.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-gray-400 text-sm">
@@ -159,6 +203,8 @@ export function GestioneAcquisti({ iniziali, strutture, fornitori, gestori }: Pr
               strutture={strutture}
               fornitori={fornitori}
               gestori={gestori}
+              beni={beniPerCodice.get(a.codice) ?? []}
+              inventarioAttivo={inventarioAttivo}
               busy={busy}
               onAzione={azione}
             />
@@ -201,6 +247,8 @@ function Riga({
   strutture,
   fornitori,
   gestori,
+  beni,
+  inventarioAttivo,
   busy,
   onAzione,
 }: {
@@ -210,34 +258,54 @@ function Riga({
   strutture: Array<{ id: number; label: string }>
   fornitori: string[]
   gestori: string[]
+  beni: BeneInventario[]
+  inventarioAttivo: boolean
   busy: boolean
   onAzione: (spItemId: string, body: Record<string, unknown>) => Promise<void>
 }) {
   const stile = STATO_STILE[a.stato] ?? STATO_STILE['Inviata']
 
   const [motivo, setMotivo] = useState('')
+  const [dataPagamento, setDataPagamento] = useState(a.dataPagamento?.slice(0, 10) ?? '')
   const [ordine, setOrdine] = useState({
     fornitore: a.fornitore ?? '',
     imponibile: a.imponibile != null ? String(a.imponibile) : '',
-    aliquotaIva: String(a.aliquotaIva ?? 22),
+    totale: a.totale != null ? String(a.totale) : '',
     dataOrdine: a.dataOrdine?.slice(0, 10) || oggiYmd(),
     pagamento: a.pagamento ?? 'Fattura posticipata',
     dataConsegnaPrevista: a.dataConsegnaPrevista?.slice(0, 10) ?? '',
     luogoConsegnaId: String(a.luogoConsegna?.id ?? a.struttura.id),
     daInventariare: a.daInventariare,
     marcaModello: a.marcaModello ?? '',
-    numeroSerie: a.numeroSerie ?? '',
+    mesiGaranzia: String(a.mesiGaranzia ?? MESI_GARANZIA_DEFAULT),
     extraCee: a.extraCee,
   })
   const set = (k: keyof typeof ordine, v: string | boolean) =>
     setOrdine((o) => ({ ...o, [k]: v }))
 
+  /**
+   * Un numero di serie per pezzo: la quantità della richiesta decide quante
+   * caselle mostrare, perché ogni pezzo diventa un bene con il suo numero.
+   */
+  const [seriali, setSeriali] = useState<string[]>(() => {
+    const iniziali = (a.numeroSerie ?? '').split(/\s*[,;]\s*/).filter(Boolean)
+    return Array.from({ length: Math.max(1, a.quantita) }, (_, i) => iniziali[i] ?? '')
+  })
+  const setSeriale = (i: number, v: string) =>
+    setSeriali((s) => s.map((x, j) => (j === i ? v : x)))
+
   const imponibileNum = Number(ordine.imponibile) || 0
-  const aliquotaNum = ordine.extraCee ? 0 : Number(ordine.aliquotaIva) || 0
-  const totale = calcolaTotale(imponibileNum, aliquotaNum)
+  const totaleNum = Number(ordine.totale) || 0
+  const ivaNum = calcolaIva(imponibileNum, totaleNum)
+  const totaleIncoerente = totaleNum > 0 && totaleNum < imponibileNum - 0.005
+  const mesiNum = Number(ordine.mesiGaranzia) || 0
+  const scadenzaPreview = ordine.daInventariare
+    ? aggiungiMesi(ordine.dataOrdine, mesiNum)
+    : undefined
 
   const puoValutare = ['Inviata', 'Presa in carico'].includes(a.stato)
   const puoOrdinare = ['Approvata', 'Presa in carico', 'Ordinata'].includes(a.stato)
+  const ordineRegistrato = (a.totale ?? 0) > 0
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
@@ -288,10 +356,26 @@ function Riga({
                 </dd>
               </div>
             )}
+            {ordineRegistrato && (
+              <>
+                <Voce t="Imponibile" v={euro(a.imponibile)} />
+                <Voce t="IVA" v={euro(calcolaIva(a.imponibile, a.totale))} />
+              </>
+            )}
             {a.motivoRifiuto && <Voce t="Motivo" v={a.motivoRifiuto} span />}
             {a.esitoConsegna && <Voce t="Esito consegna" v={a.esitoConsegna} />}
             {a.noteEsito && <Voce t="Note esito" v={a.noteEsito} span />}
           </dl>
+
+          {a.scadenzaGaranzia && (
+            <span
+              className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                GARANZIA_STILE[statoGaranzia(a.scadenzaGaranzia).stato]
+              }`}
+            >
+              {etichettaGaranzia(a.scadenzaGaranzia)}
+            </span>
+          )}
 
           {/* Presa in carico */}
           {a.stato === 'Inviata' && (
@@ -381,6 +465,7 @@ function Riga({
                 </datalist>
               </div>
 
+              {/* Imponibile e totale si leggono in fattura: l'IVA è la differenza. */}
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className={labelCls}>Imponibile € *</label>
@@ -394,27 +479,33 @@ function Riga({
                   />
                 </div>
                 <div>
-                  <label className={labelCls}>IVA %</label>
-                  <select
-                    value={ordine.aliquotaIva}
-                    onChange={(e) => set('aliquotaIva', e.target.value)}
-                    disabled={ordine.extraCee}
-                    className={`${campoCls} disabled:bg-gray-100`}
-                  >
-                    {ALIQUOTE_IVA.map((v) => (
-                      <option key={v} value={v}>
-                        {v}%
-                      </option>
-                    ))}
-                  </select>
+                  <label className={labelCls}>Totale € *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={ordine.totale}
+                    onChange={(e) => set('totale', e.target.value)}
+                    className={`${campoCls} ${totaleIncoerente ? 'border-red-400' : ''}`}
+                  />
                 </div>
                 <div>
-                  <label className={labelCls}>Totale</label>
+                  <label className={labelCls}>IVA</label>
                   <div className="px-3 py-2 text-sm font-semibold text-gray-800 bg-gray-100 rounded-lg">
-                    {euro(totale)}
+                    {euro(ivaNum)}
                   </div>
                 </div>
               </div>
+              {totaleIncoerente && (
+                <p className="text-xs text-red-600">
+                  Il totale è inferiore all’imponibile: controlla i due importi.
+                </p>
+              )}
+              {!totaleIncoerente && imponibileNum > 0 && ivaNum === 0 && !ordine.extraCee && (
+                <p className="text-xs text-gray-500">
+                  Totale uguale all’imponibile: fornitura senza IVA (o importo da correggere).
+                </p>
+              )}
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -488,41 +579,93 @@ function Riga({
               </div>
 
               {ordine.daInventariare && (
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className={labelCls}>Marca e modello *</label>
-                    <input
-                      value={ordine.marcaModello}
-                      onChange={(e) => set('marcaModello', e.target.value)}
-                      className={campoCls}
-                    />
+                <div className="space-y-2 border-t border-gray-100 pt-2.5">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2">
+                      <label className={labelCls}>Marca e modello *</label>
+                      <input
+                        value={ordine.marcaModello}
+                        onChange={(e) => set('marcaModello', e.target.value)}
+                        className={campoCls}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Garanzia (mesi)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="240"
+                        value={ordine.mesiGaranzia}
+                        onChange={(e) => set('mesiGaranzia', e.target.value)}
+                        className={campoCls}
+                      />
+                    </div>
                   </div>
+
+                  <p className="text-xs text-gray-500">
+                    {scadenzaPreview ? (
+                      <>
+                        Garanzia calcolata dalla data dell’ordine: scade il{' '}
+                        <strong>{dataBreve(scadenzaPreview)}</strong>.
+                      </>
+                    ) : (
+                      'Indica la data dell’ordine per calcolare la scadenza della garanzia.'
+                    )}
+                  </p>
+
                   <div>
-                    <label className={labelCls}>Numero di serie</label>
-                    <input
-                      value={ordine.numeroSerie}
-                      onChange={(e) => set('numeroSerie', e.target.value)}
-                      className={campoCls}
-                    />
+                    <label className={labelCls}>
+                      {a.quantita > 1
+                        ? `Numeri di serie (${a.quantita} pezzi, uno per riga)`
+                        : 'Numero di serie'}
+                    </label>
+                    <div className="space-y-1.5">
+                      {seriali.map((s, i) => (
+                        <input
+                          key={i}
+                          value={s}
+                          onChange={(e) => setSeriale(i, e.target.value)}
+                          placeholder={
+                            a.quantita > 1 ? `pezzo ${i + 1} — seriale (facoltativo)` : 'facoltativo'
+                          }
+                          className={campoCls}
+                        />
+                      ))}
+                    </div>
+                    {a.quantita > 1 && (
+                      <p className="text-[11px] text-gray-400 mt-1">
+                        Ogni pezzo prende un numero di inventario e una cartella sua.
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
 
               <button
-                disabled={busy || !ordine.fornitore.trim() || imponibileNum <= 0}
+                disabled={
+                  busy ||
+                  !ordine.fornitore.trim() ||
+                  imponibileNum <= 0 ||
+                  totaleNum <= 0 ||
+                  totaleIncoerente
+                }
                 onClick={() =>
                   onAzione(a.spItemId, {
                     azione: 'ordina',
                     fornitore: ordine.fornitore,
                     imponibile: imponibileNum,
-                    aliquotaIva: aliquotaNum,
+                    totale: totaleNum,
                     dataOrdine: ordine.dataOrdine,
                     pagamento: ordine.pagamento,
                     dataConsegnaPrevista: ordine.dataConsegnaPrevista || undefined,
                     luogoConsegnaId: Number(ordine.luogoConsegnaId),
                     daInventariare: ordine.daInventariare,
                     marcaModello: ordine.marcaModello,
-                    numeroSerie: ordine.numeroSerie,
+                    mesiGaranzia: mesiNum,
+                    serialiInventario: ordine.daInventariare ? seriali : undefined,
+                    // Sulla richiesta resta l'elenco dei seriali: il dettaglio
+                    // pezzo per pezzo vive sulle righe dell'inventario.
+                    numeroSerie: seriali.filter(Boolean).join(', '),
                     extraCee: ordine.extraCee,
                   })
                 }
@@ -531,6 +674,60 @@ function Riga({
                 {a.stato === 'Ordinata' ? 'Aggiorna l’ordine' : 'Registra ordine e avvisa il richiedente'}
               </button>
             </div>
+          )}
+
+          {/* Pagamento — sta fuori dal blocco ordine perché arriva dopo,
+              quasi sempre a consegna già avvenuta. */}
+          {ordineRegistrato && (
+            <div className="space-y-2 bg-white rounded-lg border border-gray-100 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-gray-700">Pagamento</p>
+                <span
+                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                    a.dataPagamento
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-amber-50 text-amber-700 border-amber-200'
+                  }`}
+                >
+                  {a.dataPagamento ? `pagato il ${dataBreve(a.dataPagamento)}` : 'da pagare'}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  value={dataPagamento}
+                  onChange={(e) => setDataPagamento(e.target.value)}
+                  className={campoCls}
+                />
+                <button
+                  disabled={busy || dataPagamento === (a.dataPagamento?.slice(0, 10) ?? '')}
+                  onClick={() =>
+                    onAzione(a.spItemId, {
+                      azione: 'pagamento',
+                      dataPagamento: dataPagamento || undefined,
+                    })
+                  }
+                  className="shrink-0 bg-gray-800 text-white px-3 py-2 rounded-lg text-sm font-semibold disabled:opacity-40"
+                >
+                  Salva
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-400">
+                {a.pagamento ? `Modalità: ${a.pagamento}. ` : ''}
+                Svuota la data e salva per annullare la registrazione.
+              </p>
+            </div>
+          )}
+
+          {/* Inventario */}
+          {a.daInventariare && (
+            <BloccoInventario
+              codice={a.codice}
+              beni={beni}
+              inventarioAttivo={inventarioAttivo}
+              numeriAttesi={a.numeriInventario}
+              scadenzaGaranzia={a.scadenzaGaranzia}
+            />
           )}
 
           {/* Problema da risolvere */}
@@ -571,6 +768,196 @@ function Riga({
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Beni generati dalla richiesta, con i due caricamenti per ciascuno.
+ *
+ * Lo stato dei beni è locale: dopo un caricamento aggiorna la riga senza
+ * aspettare il refresh del server, che intanto arriva per conto suo.
+ */
+function BloccoInventario({
+  codice,
+  beni,
+  inventarioAttivo,
+  numeriAttesi,
+  scadenzaGaranzia,
+}: {
+  codice: string
+  beni: BeneInventario[]
+  inventarioAttivo: boolean
+  numeriAttesi?: string
+  scadenzaGaranzia?: string
+}) {
+  const [lista, setLista] = useState(beni)
+
+  const aggiorna = (b: BeneInventario) =>
+    setLista((l) => l.map((x) => (x.spItemId === b.spItemId ? b : x)))
+
+  if (!inventarioAttivo) {
+    return (
+      <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs p-3">
+        Bene da inventariare, ma l’inventario non è configurato: esegui{' '}
+        <code className="font-mono">node scripts/provision-inventario.mjs</code>.
+      </div>
+    )
+  }
+
+  if (!lista.length) {
+    return (
+      <div className="rounded-lg bg-gray-50 border border-gray-200 text-gray-500 text-xs p-3">
+        {numeriAttesi
+          ? `Beni ${numeriAttesi}: non li trovo in inventario, ricarica la pagina.`
+          : 'Nessun bene ancora inventariato: verrà creato quando registri l’ordine.'}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2 bg-white rounded-lg border border-gray-100 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold text-gray-700">
+          Inventario — {lista.length === 1 ? '1 bene' : `${lista.length} beni`}
+        </p>
+        {scadenzaGaranzia && (
+          <span className="text-[10px] text-gray-400">
+            garanzia fino al {dataBreve(scadenzaGaranzia)}
+          </span>
+        )}
+      </div>
+
+      {lista.map((b) => (
+        <div key={b.spItemId} className="rounded-lg border border-gray-100 p-2.5 space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-mono text-xs font-bold text-gray-700">{b.numero}</span>
+            <span
+              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                STATO_BENE_STILE[b.statoBene] ?? ''
+              }`}
+            >
+              {b.statoBene}
+            </span>
+            {b.numeroSerie && (
+              <span className="text-[10px] text-gray-400 font-mono">SN {b.numeroSerie}</span>
+            )}
+            {b.cartellaUrl && (
+              <a
+                href={b.cartellaUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] text-brand-orange underline ml-auto"
+              >
+                apri cartella
+              </a>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <PulsanteDocumento
+              bene={b}
+              tipo="fattura"
+              etichetta="Fattura"
+              url={b.fatturaUrl}
+              onAggiornato={aggiorna}
+            />
+            <PulsanteDocumento
+              bene={b}
+              tipo="garanzia"
+              etichetta="Garanzia"
+              url={b.garanziaUrl}
+              onAggiornato={aggiorna}
+            />
+          </div>
+        </div>
+      ))}
+
+      <p className="text-[11px] text-gray-400">
+        I file finiscono nella cartella del bene su SharePoint (max {maxUploadMb()} MB), non passano
+        dall’app. Richiesta di origine: {codice}.{' '}
+        <a href="/inventario" className="text-brand-orange underline">
+          apri l’inventario
+        </a>
+      </p>
+    </div>
+  )
+}
+
+/** Un caricamento per tipo di documento: sostituisce il file precedente. */
+function PulsanteDocumento({
+  bene,
+  tipo,
+  etichetta,
+  url,
+  onAggiornato,
+}: {
+  bene: BeneInventario
+  tipo: TipoDocumento
+  etichetta: string
+  url?: string
+  onAggiornato: (b: BeneInventario) => void
+}) {
+  const input = useRef<HTMLInputElement>(null)
+  const [avanzamento, setAvanzamento] = useState<number | null>(null)
+  const [errore, setErrore] = useState<string | null>(null)
+
+  async function carica(file: File) {
+    setErrore(null)
+    setAvanzamento(0)
+    try {
+      const { bene: aggiornato } = await caricaDirettamente<{ bene: BeneInventario }>({
+        file,
+        urlSessione: `/api/inventario/${bene.spItemId}/documento`,
+        datiSessione: { tipo },
+        urlConferma: `/api/inventario/${bene.spItemId}/documento/conferma`,
+        datiConferma: { tipo },
+        onAvanzamento: setAvanzamento,
+      })
+      onAggiornato(aggiornato)
+    } catch (e: any) {
+      setErrore(e?.message ?? 'Caricamento non riuscito')
+    } finally {
+      setAvanzamento(null)
+      if (input.current) input.current.value = ''
+    }
+  }
+
+  const inCorso = avanzamento !== null
+
+  return (
+    <div>
+      <input
+        ref={input}
+        type="file"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) carica(f)
+        }}
+      />
+      <button
+        disabled={inCorso}
+        onClick={() => input.current?.click()}
+        className={`w-full text-xs font-semibold py-2 rounded-lg border disabled:opacity-50 ${
+          url
+            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+            : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+        }`}
+      >
+        {inCorso ? `${etichetta} ${avanzamento}%` : url ? `${etichetta} ✓ sostituisci` : `Carica ${etichetta.toLowerCase()}`}
+      </button>
+      {url && !inCorso && (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block text-center text-[11px] text-brand-orange underline mt-0.5"
+        >
+          apri {etichetta.toLowerCase()}
+        </a>
+      )}
+      {errore && <p className="text-[11px] text-red-600 mt-0.5">{errore}</p>}
     </div>
   )
 }
