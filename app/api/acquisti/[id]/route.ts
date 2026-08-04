@@ -31,10 +31,13 @@ import {
   inventarioConfigurato,
 } from '@/lib/inventario'
 import {
+  consegnaPresidiata,
   emailGestori,
   emailRichiedente,
+  referentiPresidio,
   registraEsitoConsegna,
   linkGestione,
+  luogoRitiro,
 } from '@/lib/acquisti-flusso'
 import { getSPUserLookupId, getStrutture } from '@/lib/sharepoint'
 import {
@@ -123,6 +126,19 @@ export async function PATCH(
 
     if ((azione === 'annulla' || azione === 'esito') && !eGestore && !sonoIlRichiedente) {
       return err('Accesso negato', 403)
+    }
+
+    // Consegna presidiata: la conferma spetta ai referenti dell'ufficio, non al
+    // richiedente, che non vede arrivare la merce. Vale anche in app, altrimenti
+    // basterebbe aprire "Le mie richieste" per aggirare la regola della mail.
+    if (azione === 'esito' && consegnaPresidiata(a)) {
+      const io = session.user.email.toLowerCase()
+      if (!eGestore && !referentiPresidio().includes(io)) {
+        return err(
+          `Questa consegna la confermano i referenti di ${luogoRitiro()}: riceveranno loro la mail, e ti avviseranno quando puoi ritirare.`,
+          403,
+        )
+      }
     }
 
     switch (azione) {

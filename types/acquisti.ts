@@ -61,8 +61,8 @@ export const MODALITA_PAGAMENTO = [
  */
 export const MESI_GARANZIA_DEFAULT = 12
 
-/** Esiti che il richiedente può scegliere: sono i tre pulsanti della mail. */
-export const ESITI_CONSEGNA = ['Tutto ok', 'Da restituire', 'Non arrivato'] as const
+/** Esiti che il richiedente può scegliere: sono i due pulsanti della mail. */
+export const ESITI_CONSEGNA = ['Tutto ok', 'Da restituire'] as const
 export type EsitoConsegna = (typeof ESITI_CONSEGNA)[number]
 
 /**
@@ -320,6 +320,29 @@ export const dataBreve = (iso?: string | null) => {
   if (!iso) return '—'
   const d = new Date(iso)
   return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('it-IT')
+}
+
+/**
+ * true se il luogo di consegna della richiesta corrisponde alla struttura
+ * indicata da `token` (confronto per inclusione, senza accenti né maiuscole).
+ *
+ * Sta qui e non in lib/ perché serve anche al client, che non può leggere le
+ * variabili d'ambiente: chi la chiama passa il token, la funzione resta pura.
+ * L'inclusione, e non l'uguaglianza, regge le etichette lunghe tipo
+ * "Sede operativa Strada del Drosso 143".
+ */
+export function luogoCorrisponde(a: RichiestaAcquisto, token: string): boolean {
+  const pulisci = (s: string) =>
+    s
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim()
+  const cercato = pulisci(token)
+  if (!cercato) return false
+  const luogo = pulisci(a.luogoConsegna?.value || a.struttura.value || '')
+  return luogo.includes(cercato)
 }
 
 /**
