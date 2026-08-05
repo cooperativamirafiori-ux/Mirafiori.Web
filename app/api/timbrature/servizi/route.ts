@@ -3,8 +3,8 @@
  */
 
 import { NextResponse } from 'next/server'
-import { guardOperatore } from '@/lib/timbrature-guard'
-import { getServizi } from '@/lib/timbrature'
+import { guardOperatore } from '@/lib/timbrature/guard'
+import { getServizi } from '@/lib/timbrature/data'
 
 export const dynamic = 'force-dynamic'
 

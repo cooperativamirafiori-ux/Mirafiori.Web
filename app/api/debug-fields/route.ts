@@ -6,9 +6,9 @@
  *
  * Uso: avvia l'app (npm run dev) e apri http://localhost:3000/api/debug-fields
  */
-import { graphGet } from '@/lib/graph'
+import { graphGet } from '@/lib/core/graph'
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/core/auth'
 
 const SITE = process.env.SHAREPOINT_SITE_ID!
 const LIST_RICHIESTE = process.env.SP_LIST_RICHIESTE!

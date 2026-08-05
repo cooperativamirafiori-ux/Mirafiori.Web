@@ -1,7 +1,7 @@
 import Link from 'next/link'
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/core/auth'
 import { redirect } from 'next/navigation'
-import { dipendenteAbilitato, eResponsabile } from '@/lib/timbrature'
+import { dipendenteAbilitato, eResponsabile } from '@/lib/timbrature/data'
 import TimbratureOperatore from './TimbratureOperatore'
 
 export const dynamic = 'force-dynamic'

@@ -11,9 +11,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { guardArea } from '@/lib/api-guard'
-import { confermaFattura } from '@/lib/software'
-import { logAzione } from '@/lib/audit'
+import { guardArea } from '@/lib/core/api-guard'
+import { confermaFattura } from '@/lib/software/data'
+import { logAzione } from '@/lib/core/audit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

@@ -12,7 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/core/auth'
 import {
   aggiornaAcquisto,
   campiOrdine,
@@ -22,27 +22,27 @@ import {
   normalizzaNomeFornitore,
   acquistiConfigurato,
   AREA_ACQUISTI,
-} from '@/lib/acquisti'
+} from '@/lib/acquisti/data'
 import {
   allineaBeniDaRichiesta,
   annullaBeniDaRichiesta,
   creaBeniDaRichiesta,
   getBeniPerRichiesta,
   inventarioConfigurato,
-} from '@/lib/inventario'
+} from '@/lib/inventario/data'
 import {
+  consegnaPresidiata,
   emailGestori,
   emailRichiedente,
+  referentiPresidio,
   registraEsitoConsegna,
   linkGestione,
-} from '@/lib/acquisti-flusso'
-import { getSPUserLookupId, getStrutture } from '@/lib/sharepoint'
-import {
-  notificaAssegnazioneAcquisto,
-  notificaEsitoValutazione,
-  notificaOrdineEffettuato,
-} from '@/lib/notifications'
-import { logAzione } from '@/lib/audit'
+  luogoRitiro,
+} from '@/lib/acquisti/flusso'
+import { getSPUserLookupId } from '@/lib/core/sp'
+import { getStrutture } from '@/lib/strutture/data'
+import { notificaAssegnazioneAcquisto, notificaEsitoValutazione, notificaOrdineEffettuato } from '@/lib/acquisti/notifiche'
+import { logAzione } from '@/lib/core/audit'
 import {
   ESITI_CONSEGNA,
   MESI_GARANZIA_DEFAULT,
@@ -123,6 +123,19 @@ export async function PATCH(
 
     if ((azione === 'annulla' || azione === 'esito') && !eGestore && !sonoIlRichiedente) {
       return err('Accesso negato', 403)
+    }
+
+    // Consegna presidiata: la conferma spetta ai referenti dell'ufficio, non al
+    // richiedente, che non vede arrivare la merce. Vale anche in app, altrimenti
+    // basterebbe aprire "Le mie richieste" per aggirare la regola della mail.
+    if (azione === 'esito' && consegnaPresidiata(a)) {
+      const io = session.user.email.toLowerCase()
+      if (!eGestore && !referentiPresidio().includes(io)) {
+        return err(
+          `Questa consegna la confermano i referenti di ${luogoRitiro()}: riceveranno loro la mail, e ti avviseranno quando puoi ritirare.`,
+          403,
+        )
+      }
     }
 
     switch (azione) {

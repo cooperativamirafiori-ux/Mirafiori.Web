@@ -11,9 +11,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { guardValidatore, puoAgireSu } from '@/lib/timbrature-guard'
-import { creaTimbratura } from '@/lib/timbrature'
-import { logAzione } from '@/lib/audit'
+import { guardValidatore, puoAgireSu } from '@/lib/timbrature/guard'
+import { creaTimbratura } from '@/lib/timbrature/data'
+import { logAzione } from '@/lib/core/audit'
 
 export const dynamic = 'force-dynamic'
 

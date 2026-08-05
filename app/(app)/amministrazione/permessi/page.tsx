@@ -1,8 +1,8 @@
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/core/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Header } from '@/components/ui/Header'
-import { getTutteAutorizzazioni, AREE_PERMESSI } from '@/lib/sharepoint'
+import { getTutteAutorizzazioni, AREE_PERMESSI } from '@/lib/core/permessi'
 import { GestionePermessi } from './GestionePermessi'
 
 export const dynamic = 'force-dynamic'

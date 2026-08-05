@@ -6,14 +6,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { guardMembroRU } from '@/lib/api-guard'
-import { graphRU } from '@/lib/graph-delegato'
-import { logAzione } from '@/lib/audit'
+import { guardMembroRU } from '@/lib/core/api-guard'
+import { graphRU } from '@/lib/core/graph-delegato'
+import { logAzione } from '@/lib/core/audit'
 import {
   ensureCartellaDipendente,
   getDocumentiDipendente,
   getItem,
-} from '@/lib/risorse-umane'
+} from '@/lib/risorse-umane/data'
 
 export const dynamic = 'force-dynamic'
 

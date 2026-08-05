@@ -5,9 +5,9 @@
  */
 
 import { NextResponse } from 'next/server'
-import { guardArea } from '@/lib/api-guard'
-import { rimuoviAutorizzazione } from '@/lib/sharepoint'
-import { logAzione } from '@/lib/audit'
+import { guardArea } from '@/lib/core/api-guard'
+import { rimuoviAutorizzazione } from '@/lib/core/permessi'
+import { logAzione } from '@/lib/core/audit'
 
 export async function DELETE(
   _req: Request,

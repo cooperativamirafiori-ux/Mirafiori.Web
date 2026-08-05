@@ -27,7 +27,9 @@ Cartella del progetto: `web/` (la radice del repo git è `web/`, non la cartella
    il manuale solo se non esiste alternativa.
 4. **Automatizzare.** Se un'operazione va fatta più di una volta, diventa uno script in `scripts/`.
 5. **File oltre ~500 righe = segnale di spezzarlo.** `npm run mappa` li elenca in cima al report.
-6. **Non si importa l'interno di un altro modulo**, solo la sua porta d'ingresso (vedi § Convenzioni).
+6. **Non si scava negli interni di un altro modulo** (vedi § Convenzioni).
+7. **Prima di proporre un push: `npx tsc --noEmit`.** L'app non ha test automatici, il compilatore
+   è la rete di sicurezza — e con `strict: true` copre molto.
 
 ---
 
@@ -38,91 +40,163 @@ e non serve cercare altrove.
 
 | Area | UI | API | Logica (`lib/`) | Altro |
 |---|---|---|---|---|
-| **Timbrature · Foglio ore** | `app/(app)/timbrature/` (operatore + `validazione/`)<br>`app/(app)/risorse-umane/timbrature/` (cruscotto HR) | `app/api/timbrature/**`<br>`app/api/foglio-ore/[token]/`<br>`app/api/cron/{timbrature-alert,sollecito-timbrature,promemoria-ore}/` | `timbrature.ts` `timbrature-flusso.ts` `timbrature-guard.ts` `timbrature-sync.ts` `foglio-ore-xlsx.ts` `festivita.ts` `supabase.ts` | pubblico tokenizzato: `app/foglio-ore/[token]/`<br>`docs/timbrature-*.md` |
-| **Manutenzioni** | `app/(app)/manutenzioni/` `nuova-richiesta/` `mie-richieste/` `dashboard/` `gestione/[id]/` | `app/api/manutenzioni/**` | dentro `sharepoint.ts` ⚠️ (`getRichieste*`, `creaRichiesta`, `aggiornaRichiesta`, `getStrutture`, `getTecnici`) | — |
-| **Costi strutture** | `app/(app)/inserisci-costo/` `cruscotto-costi/` | `app/api/costi/` | dentro `sharepoint.ts` ⚠️ (`creaCosto`, `creaCostoDiretto`, `getCosti`) | — |
-| **Acquisti** | `app/(app)/acquisti/` (`nuova/` `mie/` `gestione/`) | `app/api/acquisti/**`<br>`app/api/consegna/[token]/`<br>`app/api/cron/acquisti/` | `acquisti.ts` `acquisti-flusso.ts` | pubblico tokenizzato: `app/consegna/[token]/`<br>`../Area Acquisti - Manuale operativo.docx`<br>`scripts/provision-acquisti.mjs` |
-| **Prestazioni occasionali** | `app/(app)/prestazioni/` (`nuova/` `attive/`) | `app/api/prestazioni/**`<br>`app/api/prestatori/**`<br>`app/api/notula/[token]/**`<br>`app/api/docusign/callback/` | `prestazioni.ts` `documenti-prestazione.ts` `firma-prestazione.ts` `docusign.ts` `casistiche-gdpr.ts` | modelli docx: `lib/templates/prestazione-occasionale/`<br>allegati: `lib/allegati-prestatore/`<br>pubblico: `app/notula/[token]/`<br>`docs/prestazioni-*.md` `docs/docusign-setup.md` |
-| **Risorse Umane** | `app/(app)/risorse-umane/` (`GestioneRU.tsx`, `CartellaDipendente.tsx`, `dipendenti/` `collaboratori/` `tirocini/`) | `app/api/risorse-umane/**` | `risorse-umane.ts` `ru-api.ts` `ru-fetch.ts` `ru-export-xlsx.ts` `gruppo-ru.ts` `graph-delegato.ts` | RU vive su **sito SharePoint dedicato** con auth **delegata** (per il log nativo MS)<br>`docs/risorse-umane-setup.md` `docs/piano-ru-*.md` `docs/runbook-ru-*.md`<br>`scripts/ru-assetto.mjs` + gli `import-*.mjs` |
-| **Inventario beni** | `app/(app)/inventario/` | `app/api/inventario/**` | `inventario.ts` | `scripts/provision-inventario.mjs` |
-| **Amministrazione · Permessi** | `app/(app)/amministrazione/permessi/` | `app/api/permessi/**` | dentro `sharepoint.ts` ⚠️ (`AREE_PERMESSI`, `getPermessi`, `getUtentiPerArea`, `*Autorizzazione`) | `scripts/provision-autorizzazioni.mjs` `scripts/diagnosi-permessi.mjs` |
-| **Amministrazione · Software** | `app/(app)/amministrazione/software/` | `app/api/software/**` | `software.ts` (+ `calendar.ts` per gli alert scadenza) | `scripts/provision-software.mjs` |
-| **Log attività** | — | — | `audit.ts` | `docs/log-attivita-setup-sharepoint.md`<br>`scripts/provision-log-attivita.mjs` |
+| **Timbrature · Foglio ore** | `app/(app)/timbrature/` (operatore + `validazione/`)<br>`app/(app)/risorse-umane/timbrature/` (cruscotto HR) | `app/api/timbrature/**`<br>`app/api/foglio-ore/[token]/`<br>`app/api/cron/{timbrature-alert,sollecito-timbrature,promemoria-ore}/` | `lib/timbrature/`: `data.ts` `flusso.ts` `guard.ts` `sync.ts` `notifiche.ts` `foglio-ore-xlsx.ts` `festivita.ts` | pubblico tokenizzato: `app/foglio-ore/[token]/`<br>`docs/timbrature-*.md` |
+| **Manutenzioni** | `app/(app)/manutenzioni/` `nuova-richiesta/` `mie-richieste/` `dashboard/` `gestione/[id]/` | `app/api/manutenzioni/**` | `lib/manutenzioni/`: `data.ts` `notifiche.ts`<br>anagrafiche: `lib/strutture/data.ts` | — |
+| **Costi strutture** | `app/(app)/inserisci-costo/` `cruscotto-costi/` | `app/api/costi/` | `lib/costi/data.ts` | — |
+| **Acquisti** | `app/(app)/acquisti/` (`nuova/` `mie/` `gestione/`) | `app/api/acquisti/**`<br>`app/api/consegna/[token]/`<br>`app/api/cron/acquisti/` | `lib/acquisti/`: `data.ts` `flusso.ts` `notifiche.ts` | pubblico tokenizzato: `app/consegna/[token]/`<br>`../Area Acquisti - Manuale operativo.docx`<br>`scripts/provision-acquisti.mjs` |
+| **Prestazioni occasionali** | `app/(app)/prestazioni/` (`nuova/` `attive/`) | `app/api/prestazioni/**`<br>`app/api/prestatori/**`<br>`app/api/notula/[token]/**`<br>`app/api/docusign/callback/` | `lib/prestazioni/`: `data.ts` `documenti.ts` `firma.ts` `docusign.ts` `casistiche-gdpr.ts` `notifiche.ts` | modelli docx: `lib/templates/prestazione-occasionale/`<br>allegati: `lib/allegati-prestatore/`<br>pubblico: `app/notula/[token]/`<br>`docs/prestazioni-*.md` `docs/docusign-setup.md` |
+| **Risorse Umane** | `app/(app)/risorse-umane/` (`GestioneRU.tsx`, `CartellaDipendente.tsx`, `dipendenti/` `collaboratori/` `tirocini/`) | `app/api/risorse-umane/**` | `lib/risorse-umane/`: `data.ts` `api.ts` `fetch.ts` `export-xlsx.ts` `gruppo.ts` | RU vive su **sito SharePoint dedicato** con auth **delegata** (`lib/core/graph-delegato.ts`)<br>`docs/risorse-umane-setup.md` `docs/piano-ru-*.md` `docs/runbook-ru-*.md`<br>`scripts/ru-assetto.mjs` + gli `import-*.mjs` |
+| **Inventario beni** | `app/(app)/inventario/` | `app/api/inventario/**` | `lib/inventario/data.ts` | `scripts/provision-inventario.mjs` |
+| **Amministrazione · Permessi** | `app/(app)/amministrazione/permessi/` | `app/api/permessi/**` | `lib/core/permessi.ts` (sta in core: la usa anche l'autenticazione) | `scripts/provision-autorizzazioni.mjs` `scripts/diagnosi-permessi.mjs` |
+| **Amministrazione · Software** | `app/(app)/amministrazione/software/` | `app/api/software/**` | `lib/software/data.ts` (+ `lib/core/calendar.ts` per gli alert scadenza) | `scripts/provision-software.mjs` |
+| **Log attività** | — | — | `lib/core/audit.ts` | `docs/log-attivita-setup-sharepoint.md`<br>`scripts/provision-log-attivita.mjs` |
 | **Home / hub** | `app/(app)/home/page.tsx` (card + sezioni)<br>`app/(app)/amazing/` | — | — | il layout a card sta tutto in `home/page.tsx` (`Sezione`, `HeroCard`, `FunzioneCard`) |
-| **Accesso / login** | `app/(auth)/login/` | `app/api/auth/[...nextauth]/` | `auth.ts` `ms-token.ts` | `middleware.ts` (elenco route pubbliche) |
-
-⚠️ = logica che sta ancora in un file condiviso e va estratta nel proprio modulo quando si tocca
-quell'area (vedi § Migrazione).
-
-### Infrastruttura condivisa (si tocca raramente)
-
-`lib/graph.ts` (client Graph app-only) · `lib/graph-delegato.ts` (client Graph delegato, per RU) ·
-`lib/ms-token.ts` (token) · `lib/sharepoint.ts` (helper liste + logica ancora da smistare) ·
-`lib/api-guard.ts` (guardia sulle route API) · `lib/audit.ts` (log applicativo) ·
-`lib/notifications.ts` (invio mail + **tutti** i template) · `lib/upload-diretto.ts` (upload a SP) ·
-`lib/calendar.ts` · `lib/supabase.ts` · `components/` · `types/`
+| **Accesso / login** | `app/(auth)/login/` | `app/api/auth/[...nextauth]/` | `lib/core/auth.ts` `lib/core/ms-token.ts` | `middleware.ts` (elenco route pubbliche) |
 
 ---
 
-## Convenzioni: la forma di una "scatola"
-
-Ogni area è un modulo con **la stessa struttura interna**, così i percorsi si deducono dal nome
-dell'area senza cercare. Le aree nuove nascono già così; le vecchie ci si portano quando le si tocca.
+## Struttura di `lib/`
 
 ```
-app/(app)/<area>/              UI
-  page.tsx                     pagina (server component: auth, permessi, fetch iniziale)
-  _componenti/                 pezzi client, uno per file, piccoli
-app/api/<area>/                route API (thin: validano, chiamano lib/<area>, rispondono)
-lib/<area>/
-  index.ts                     ← LA PORTA: l'unica cosa che gli altri moduli importano
-  schema.ts                    campi SharePoint, tipi, mapping nomi interni ↔ nomi SP
-  data.ts                      letture/scritture (SP o Supabase)
-  flusso.ts                    regole di stato e business
-  notifiche.ts                 template mail DI QUESTA area (l'invio sta in core)
-docs/<area>.md                 setup, decisioni prese, perché
-scripts/provision-<area>.mjs   creazione liste/campi SP
+lib/core/          infrastruttura: si tocca raramente, la usano tutte le aree
+  graph.ts           client Graph app-only
+  graph-delegato.ts  client Graph delegato (serve a RU per il log nativo MS)
+  ms-token.ts        token
+  auth.ts            next-auth
+  permessi.ts        isAdmin, aree autorizzate  ← in core perché la usa anche auth
+  sp.ts              base delle SharePoint Lists: listBase, lookupValue, utenti SP, parametri
+  mailer.ts          sendEmail + mattoncini HTML (BOX, RIGA, TABELLA, BTN)
+  audit.ts           log applicativo
+  api-guard.ts       guardia sulle route API
+  upload-diretto.ts  upload a SP (sessione + conferma, tetto 50 MB)
+  calendar.ts        eventi calendario via Graph
+  supabase.ts        client Supabase
+
+lib/<area>/        una cartella per area di dominio
+  data.ts            letture/scritture
+  flusso.ts          regole di stato e business
+  notifiche.ts       testi delle mail DI QUESTA area
+  guard.ts           controlli d'accesso specifici (dove serve)
+
+types/<area>.ts    tipi, già una per area
 ```
+
+Aree presenti: `acquisti` `costi` `inventario` `manutenzioni` `prestazioni` `risorse-umane`
+`software` `strutture` `timbrature`.
 
 **Le due regole che tengono separate le scatole:**
 
-1. L'infrastruttura comune sta in `lib/core/` (Graph, SharePoint, auth, audit, mailer, upload,
-   api-guard). Roba stabile.
-2. Un modulo **non** importa file interni di un altro modulo: solo `lib/<altra-area>` → `index.ts`.
-   Se serve un dato dell'inventario dentro acquisti, si passa dalla porta.
+1. L'infrastruttura sta in `lib/core/` e **non importa mai da un modulo d'area** (è per questo che
+   `permessi` sta in core: `auth` ne ha bisogno).
+2. Un modulo importa dai file di primo livello di un altro modulo (`@/lib/inventario/data`), non da
+   suoi sotto-file interni. Quando spezzeremo i `data.ts` grossi comparirà un `index.ts` per area
+   come unica porta d'ingresso — oggi non c'è ancora, e va bene così.
 
-Le mail seguono lo stesso principio: `lib/core/mailer.ts` sa **come** spedire, ogni area si porta
-i **propri** template. Oggi invece `lib/notifications.ts` (1025 righe) contiene i template di
-prestazioni + timbrature + acquisti + manutenzioni tutti insieme: è il motivo per cui una modifica
-su un'area trascina dentro le altre quattro.
+Le mail seguono lo stesso principio: `lib/core/mailer.ts` sa **come** spedire, ogni area si porta i
+**propri** testi in `notifiche.ts`.
+
+---
+
+## Kit UI — `components/ui/`
+
+I mattoncini condivisi dell'interfaccia. **Prima di scrivere a mano un blocco
+`label` + `input`, una piastrella con un numero, o un pannello sovrapposto, guarda qui.**
+
+| Componente | A cosa serve | Note |
+|---|---|---|
+| `Campo` | campo di form completo: etichetta, controllo, aiuto, errore | il controllo lo scegli con `tipo` (`text` `textarea` `choice` `date` `number` `currency` `email` `tel`), stesso vocabolario di `RUField`. Ha `maiuscolo`, `min`/`max`/`maxLength`, e `scelte` che accetta stringhe o coppie `{valore, etichetta}` per i select dove il valore salvato è diverso da quello mostrato. Esporta `inputCls` e `labelCls` per i casi grezzi |
+| `Allegato` | campo file: etichetta, nome e peso del file scelto, avviso se sfora | separato da `Campo` perché lega un `File | null`, non una stringa. Il tetto è quello di `core/upload-diretto`, controllato qui una volta per tutte |
+| `Kpi` | piastrella di riepilogo: numero grande + didascalia | `dimensione="lg"` per i conteggi brevi, `tenue` per la variante su fondo grigio |
+| `Voce` | voce di dettaglio etichetta/valore, dentro un `<dl>` | props `t` / `v` / `span` |
+| `Pill` | etichetta tonda con pallino, per stati e categorie | usa `tono` nel codice nuovo; `cls` accetta classi esplicite |
+| `Banner` | messaggio di errore, conferma, avviso | non renderizza niente se non c'è testo: `<Banner tono="errore">{errore}</Banner>` |
+| `Vuoto` | riquadro tratteggiato "qui non c'è niente" | non mostrarlo mentre stai ancora caricando |
+| `Modale` | pannello sovrapposto | foglio dal basso su telefono, card centrata su desktop; gestisce Esc, blocco scorrimento e clic sullo sfondo |
+| `StatoBadge` | stati delle manutenzioni | scorciatoia specifica, più grande di `Pill`: restano separati di proposito |
+| `Header`, `LogoutButton` | intestazione e uscita | — |
+
+Niente file barile: si importa il singolo componente (`@/components/ui/Kpi`), così da
+`npm run mappa` si vede chi usa cosa.
 
 ### Nomi
 
-Cartelle e file in **italiano**, minuscolo, con trattini (`inserisci-costo`, `timbrature-flusso.ts`).
+Cartelle e file in **italiano**, minuscolo, con trattini (`inserisci-costo`, `foglio-ore-xlsx.ts`).
 Componenti React in `PascalCase` (`CruscottoTimbrature.tsx`). Le route API rispecchiano il nome
 dell'area, sempre.
 
 ---
 
-## Migrazione: opportunistica, mai big bang
+## Dove siamo nel riordino
 
-Quando si tocca un'area per una modifica vera: **prima** si porta nella forma nuova
-(`git mv` + aggiustare gli import, pochi minuti), **poi** si fa la modifica. Ogni funzione nuova
-nasce già nella forma nuova. Non esiste un momento in cui l'app è rotta.
+Fatto (`scripts/riordino.mjs`, passi 1 e 2): `lib/core/` esiste; `sharepoint.ts` (494 righe, mescolava
+manutenzioni + costi + permessi + helper) e `notifications.ts` (1026 righe, 24 template di 4 aree)
+sono stati smistati; ogni area ha la sua cartella.
 
-Ordine consigliato: **acquisti** → **timbrature** (il guadagno maggiore) → **risorse umane** → resto.
+Fatto (passo 3, prima parte): il **kit UI** in `components/ui/` — vedi la sezione sopra. È additivo,
+nessuna schermata è cambiata. Adottato in `GestioneAcquisti` e `InventarioBeni`, dove `Kpi` e `Voce`
+erano duplicati identici (58 righe di copia-incolla in meno).
 
-Il debito noto, in ordine di peso (verifica con `npm run mappa`):
+Una cosa da sapere, perché ribalta l'ipotesi di partenza: **queste schermate non usano tabelle.**
+C'è un solo `<table>` in tutta l'app (in `CruscottoTimbrature`); le altre sono elenchi di card con
+`grid-cols`. Quindi il pezzo grosso da estrarre non è una `Tabella` generica — è il **campo di form**
+(`Campo`), perché i blocchi `label` + `input` scritti a mano sono 21 in `NuovaPrestazioneForm`,
+15 in `GestioneSoftware`, 14 in `GestioneAcquisti`, ognuno con classi Tailwind leggermente diverse.
 
-| File | Righe | Problema |
+Fatto: **`NuovaPrestazioneForm` convertita** — 16 campi con `Campo`, 4 con `Allegato`, i due banner
+con `Banner`. Da 561 a 544 righe, e le tre costanti di stile locali sono sparite. È rimasto scritto a
+mano un solo `label`: la ricerca prestatore, che non è un campo del form ma una ricerca con tendina.
+
+Convertire il primo form è servito anche a **scoprire cosa mancava a `Campo`**: maiuscolo forzato
+(codice fiscale, IBAN), limiti numerici (`min`), e scelte con valore diverso dall'etichetta
+(casistica GDPR). Aggiunte perché le ha chieste un form vero, non per completezza.
+
+**Decisione presa: lo stile dei campi è uno solo**, quello del kit. Le schermate che avevano un loro
+`inputClass` cambiano leggermente aspetto quando le si converte — angoli, imbottitura, colore
+dell'anello di focus. È il senso di avere un kit; l'alternativa (una variante per schermata) avrebbe
+solo spostato il problema più in là.
+
+**Prossimo passo — `GestioneSoftware`** (15 blocchi a mano), poi `GestioneAcquisti` (14). Ogni
+schermata un commit suo.
+
+### Come verificare una conversione senza l'app in piedi
+
+L'app vera è dietro il login Entra ID e parla con SharePoint, quindi Claude non può provarla
+end-to-end. Può però **montare il singolo componente in un Chromium headless nella sua sandbox** e
+verificare comportamento e dati inviati — che è quasi tutto quello che serve. Ricetta (rifatta da
+zero ogni volta, non serve niente nel repo):
+
+1. cartella di lavoro con `react`, `react-dom`, `esbuild`, `tailwindcss`;
+2. si copiano il componente, il kit e i moduli `lib` che gli servono; si sostituiscono con finti solo
+   `next/navigation` e `lib/core/upload-diretto`;
+3. si sostituisce `window.fetch` con una versione che **registra ogni chiamata** e risponde finto;
+4. si impacchetta con esbuild (`--alias:@/components=…`), si costruisce il CSS con la vera
+   `tailwind.config`, e si pilota la pagina con Playwright.
+
+Il pezzo che paga più di tutti è il punto 3: leggendo il corpo delle richieste registrate si verifica
+che **i dati che partono siano quelli giusti** — è così che si è confermato che la casistica GDPR
+invia la chiave (`COMUNITA`) e non l'etichetta. Sulla conversione di `NuovaPrestazioneForm` sono
+passati 35 controlli su 35.
+
+E **guarda lo screenshot a fine corsa**: è stato quello, non i controlli verdi, a far notare che dopo
+il salvataggio il nome del file restava scritto accanto a "Choose File" (React non svuota un input
+file — ora lo fa `Allegato`).
+
+Il modulo dati generico ("lista SharePoint guidata da uno schema", generalizzando `RU_CONFIG` in
+`types/risorse-umane.ts`) è **rimandato di proposito**: c'è un solo esempio da cui astrarre, quindi
+farlo adesso sarebbe indovinare. Si fa quando una seconda area lo chiede davvero.
+
+Debito residuo, in ordine di peso (verifica sempre con `npm run mappa`):
+
+| File | Righe | Nota |
 |---|---|---|
-| `lib/timbrature.ts` | ~1090 | 45+ export: date, anagrafica, CRUD, stati mese, responsabili. Va in `lib/timbrature/{schema,data,stati,flusso}.ts` |
-| `lib/notifications.ts` | ~1025 | 24 template di 4 aree diverse + `sendEmail`. Va in `lib/core/mailer.ts` + `lib/<area>/notifiche.ts` |
-| `app/(app)/risorse-umane/timbrature/CruscottoTimbrature.tsx` | ~37 KB | un solo file client: tabella, filtri, modali, validazione |
-| `app/(app)/timbrature/TimbratureOperatore.tsx` | ~36 KB | idem |
-| `app/(app)/acquisti/gestione/GestioneAcquisti.tsx` | ~36 KB | idem |
-| `app/(app)/risorse-umane/GestioneRU.tsx` | ~34 KB | idem |
-| `lib/sharepoint.ts` | ~493 | mescola manutenzioni + costi + permessi + helper Graph: da smistare nei moduli |
+| `lib/timbrature/data.ts` | ~1090 | 45+ export: date, anagrafica, CRUD, stati mese, responsabili → `{schema,data,stati}.ts` |
+| `app/(app)/acquisti/gestione/GestioneAcquisti.tsx` | ~973 | aspetta il kit UI |
+| `app/(app)/risorse-umane/GestioneRU.tsx` | ~935 | idem |
+| `app/(app)/timbrature/TimbratureOperatore.tsx` | ~794 | idem |
+| `app/(app)/risorse-umane/timbrature/CruscottoTimbrature.tsx` | ~783 | idem |
+| `app/(app)/prestazioni/nuova/NuovaPrestazioneForm.tsx` | ~561 | idem |
+| `app/api/acquisti/[id]/route.ts` | ~528 | route troppo grassa: la logica va in `lib/acquisti/flusso.ts` |
+| `app/(app)/amministrazione/software/GestioneSoftware.tsx` | ~524 | aspetta il kit UI |
 
 ---
 
@@ -130,8 +204,8 @@ Il debito noto, in ordine di peso (verifica con `npm run mappa`):
 
 - **Il campo ore su SharePoint è `OrePulizia`**, non `Ore_x0020_Tecnico` (lo spec era sbagliato).
 - **I campi lookup e persona di Graph arrivano come stringa**, non come oggetto: usare
-  l'helper `lookupValue()` in `lib/sharepoint.ts`.
-- **Niente `formData()` per gli upload**: usare `lib/upload-diretto.ts` (sessione + conferma,
+  l'helper `lookupValue()` in `lib/core/sp.ts`.
+- **Niente `formData()` per gli upload**: usare `lib/core/upload-diretto.ts` (sessione + conferma,
   tetto 50 MB). Il vecchio approccio saturava il limite di body di Vercel.
 - **`isAdmin()` ha una lista di fallback hardcoded** (dennis, stefano, gabriele) perché
   `SP_LIST_ADMIN` non è configurata. Se si tocca l'auth, tenerne conto.
@@ -141,21 +215,38 @@ Il debito noto, in ordine di peso (verifica con `npm run mappa`):
   in produzione, verificare che la variabile esista *anche* su Vercel.
 - **Timbrature: chi è abilitato** si decide dalla spunta "Timbratura attiva" nell'anagrafica RU;
   la chiave di collegamento è `MailAziendale`.
-- **RU usa auth delegata** (`graph-delegato.ts`), non app-only: serve per far comparire l'utente
-  reale nel log nativo di Microsoft. Non "semplificarla" a app-only.
+- **RU usa auth delegata** (`lib/core/graph-delegato.ts`), non app-only: serve per far comparire
+  l'utente reale nel log nativo di Microsoft. Non "semplificarla" a app-only.
+- **Le mail delle timbrature partono da `risorseumane@`**, non dalla casella di sistema: il
+  dipendente risponde a chi gli scrive, e la risposta deve finire nella casella giusta.
 
 ---
 
 ## Comandi
 
-```bash
-npm run dev            # sviluppo locale
-npm run build          # verifica che compili (farlo SEMPRE prima di proporre un push)
-npm run lint
-npm run mappa          # rigenera MAPPA.md: moduli, righe per file, export, file oltre soglia
+**Nota:** Dennis usa **zsh**, che *non* ignora i commenti `#` a fine riga incollati nel terminale.
+Nei comandi da dare a lui, mai commenti sulla stessa riga: la spiegazione va sopra, o fuori dal blocco.
 
-node scripts/sp-liste.mjs          # elenca le liste SharePoint del sito
-node scripts/get-site-id.mjs       # ricava il SHAREPOINT_SITE_ID
-node scripts/setup-env-locale.mjs  # rigenera .env.local
-node scripts/ru-assetto.mjs        # interruttore A/B dell'area RU
+```bash
+npm run dev
+npx tsc --noEmit
+npm run build
+npm run lint
+npm run mappa
 ```
+
+`npx tsc --noEmit` è il controllo dei tipi: la rete di sicurezza, dato che non ci sono test.
+`npm run build` va fatto prima di proporre un push. `npm run mappa` rigenera `MAPPA.md`.
+
+```bash
+node scripts/riordino.mjs 1
+node scripts/riordino.mjs 2
+node scripts/sp-liste.mjs
+node scripts/get-site-id.mjs
+node scripts/setup-env-locale.mjs
+node scripts/ru-assetto.mjs
+```
+
+Nell'ordine: i due passi del riordino architetturale (già eseguiti entrambi); l'elenco delle liste
+SharePoint del sito; il `SHAREPOINT_SITE_ID`; la rigenerazione di `.env.local`; l'interruttore A/B
+dell'area RU.

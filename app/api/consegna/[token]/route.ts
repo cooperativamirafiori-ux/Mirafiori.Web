@@ -11,9 +11,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getAcquistoByToken, acquistiConfigurato } from '@/lib/acquisti'
-import { registraEsitoConsegna } from '@/lib/acquisti-flusso'
-import { logAzione } from '@/lib/audit'
+import { getAcquistoByToken, acquistiConfigurato } from '@/lib/acquisti/data'
+import { registraEsitoConsegna } from '@/lib/acquisti/flusso'
+import { logAzione } from '@/lib/core/audit'
 import { ESITI_CONSEGNA, type EsitoConsegna } from '@/types/acquisti'
 
 export const dynamic = 'force-dynamic'

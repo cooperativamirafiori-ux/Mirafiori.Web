@@ -19,9 +19,9 @@ import {
   riepilogoPeriodo,
   listTimbrature,
   statoMese,
-} from '@/lib/timbrature'
-import { notificaGiornateInScadenza } from '@/lib/notifications'
-import { linkTimbrature } from '@/lib/timbrature-flusso'
+} from '@/lib/timbrature/data'
+import { notificaGiornateInScadenza } from '@/lib/timbrature/notifiche'
+import { linkTimbrature } from '@/lib/timbrature/flusso'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

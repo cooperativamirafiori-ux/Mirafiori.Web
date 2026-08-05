@@ -1,4 +1,4 @@
-import { getPrestazioneByToken } from '@/lib/prestazioni'
+import { getPrestazioneByToken } from '@/lib/prestazioni/data'
 import { NotulaUploadForm } from './NotulaUploadForm'
 
 export const dynamic = 'force-dynamic'

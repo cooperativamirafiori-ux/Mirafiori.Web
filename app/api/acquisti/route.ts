@@ -11,13 +11,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
-import { guardArea } from '@/lib/api-guard'
-import { creaAcquisto, getAcquisti, acquistiConfigurato, AREA_ACQUISTI } from '@/lib/acquisti'
-import { emailGestori, linkGestione } from '@/lib/acquisti-flusso'
-import { getSPUserLookupId, getStrutture } from '@/lib/sharepoint'
-import { notificaAcquistoUrgente } from '@/lib/notifications'
-import { logAzione } from '@/lib/audit'
+import { auth } from '@/lib/core/auth'
+import { guardArea } from '@/lib/core/api-guard'
+import { creaAcquisto, getAcquisti, acquistiConfigurato, AREA_ACQUISTI } from '@/lib/acquisti/data'
+import { emailGestori, linkGestione } from '@/lib/acquisti/flusso'
+import { getSPUserLookupId } from '@/lib/core/sp'
+import { getStrutture } from '@/lib/strutture/data'
+import { notificaAcquistoUrgente } from '@/lib/acquisti/notifiche'
+import { logAzione } from '@/lib/core/audit'
 import { CATEGORIE_SPESA, URGENZE, dataBreve } from '@/types/acquisti'
 import type { NuovaRichiestaAcquistoPayload } from '@/types/acquisti'
 

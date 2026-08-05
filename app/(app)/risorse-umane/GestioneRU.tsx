@@ -1,6 +1,6 @@
 'use client'
 
-import { messaggioErrore } from '@/lib/ru-fetch'
+import { messaggioErrore } from '@/lib/risorse-umane/fetch'
 import { useEffect, useMemo, useState } from 'react'
 import {
   RU_CONFIG,

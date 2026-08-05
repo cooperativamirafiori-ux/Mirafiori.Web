@@ -45,7 +45,7 @@ const AREE = [
     nome: 'Manutenzioni',
     prefissi: [
       'app/(app)/manutenzioni', 'app/(app)/nuova-richiesta', 'app/(app)/mie-richieste',
-      'app/(app)/dashboard', 'app/(app)/gestione', 'app/api/manutenzioni', 'lib/manutenzioni',
+      'app/(app)/dashboard', 'app/(app)/gestione', 'app/api/manutenzioni', 'lib/manutenzioni', 'lib/strutture',
     ],
   },
   {
@@ -86,7 +86,7 @@ const AREE = [
   {
     nome: 'Amministrazione · Permessi',
     prefissi: [
-      'app/(app)/amministrazione/permessi', 'app/api/permessi', 'lib/permessi',
+      'app/(app)/amministrazione/permessi', 'app/api/permessi', 'lib/permessi', 'lib/core/permessi',
       'scripts/provision-autorizzazioni', 'scripts/diagnosi-permessi',
     ],
   },
@@ -119,7 +119,7 @@ const AREE = [
       'lib/core', 'lib/graph', 'lib/sharepoint', 'lib/api-guard', 'lib/notifications',
       'lib/upload-diretto', 'components', 'types', 'app/api/debug-fields',
       'scripts/get-site-id', 'scripts/sp-liste', 'scripts/setup-env-locale', 'scripts/pulisci-choice',
-      'scripts/mappa', 'tailwind.config', 'next.config', 'postcss.config', 'supabase/',
+      'scripts/mappa', 'scripts/riordino', 'tailwind.config', 'next.config', 'postcss.config', 'supabase/',
     ],
   },
 ]

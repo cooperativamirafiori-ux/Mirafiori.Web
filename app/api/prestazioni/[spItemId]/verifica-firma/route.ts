@@ -6,8 +6,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
-import { verificaFirmaById } from '@/lib/firma-prestazione'
+import { auth } from '@/lib/core/auth'
+import { verificaFirmaById } from '@/lib/prestazioni/firma'
 
 export const runtime = 'nodejs'
 

@@ -10,9 +10,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getChiusuraByToken } from '@/lib/timbrature'
-import { confermaFoglio, contestaFoglio } from '@/lib/timbrature-flusso'
-import { logAzione } from '@/lib/audit'
+import { getChiusuraByToken } from '@/lib/timbrature/data'
+import { confermaFoglio, contestaFoglio } from '@/lib/timbrature/flusso'
+import { logAzione } from '@/lib/core/audit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

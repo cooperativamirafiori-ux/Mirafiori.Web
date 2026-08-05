@@ -11,10 +11,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { guardArea } from '@/lib/api-guard'
-import { AREA_ACQUISTI } from '@/lib/acquisti'
-import { aggiornaVitaBene, getBeneById, inventarioConfigurato } from '@/lib/inventario'
-import { logAzione } from '@/lib/audit'
+import { guardArea } from '@/lib/core/api-guard'
+import { AREA_ACQUISTI } from '@/lib/acquisti/data'
+import { aggiornaVitaBene, getBeneById, inventarioConfigurato } from '@/lib/inventario/data'
+import { logAzione } from '@/lib/core/audit'
 import { STATI_BENE, type AggiornaBenePayload } from '@/types/inventario'
 
 export const dynamic = 'force-dynamic'

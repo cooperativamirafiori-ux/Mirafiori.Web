@@ -1,4 +1,4 @@
-import { getStrutture } from '@/lib/sharepoint'
+import { getStrutture } from '@/lib/strutture/data'
 import { Header } from '@/components/ui/Header'
 import { NuovaRichiestaAcquistoForm } from './NuovaRichiestaAcquistoForm'
 

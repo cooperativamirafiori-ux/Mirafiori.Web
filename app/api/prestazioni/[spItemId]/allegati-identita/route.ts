@@ -13,13 +13,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/core/auth'
 import {
   getPrestazioneById,
   ensureCartellaDocumentiIdentita,
   creaSessioneUpload,
-} from '@/lib/prestazioni'
-import { MAX_UPLOAD_BYTES, maxUploadMb } from '@/lib/upload-diretto'
+} from '@/lib/prestazioni/data'
+import { MAX_UPLOAD_BYTES, maxUploadMb } from '@/lib/core/upload-diretto'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

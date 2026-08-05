@@ -5,8 +5,8 @@
  */
 
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
-import { getAnagraficaPrestatori } from '@/lib/prestazioni'
+import { auth } from '@/lib/core/auth'
+import { getAnagraficaPrestatori } from '@/lib/prestazioni/data'
 
 export const dynamic = 'force-dynamic'
 

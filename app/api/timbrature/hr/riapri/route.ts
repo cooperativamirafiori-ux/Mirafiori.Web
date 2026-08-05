@@ -5,8 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { guardHr } from '@/lib/timbrature-guard'
-import { riapriMese } from '@/lib/timbrature'
+import { guardHr } from '@/lib/timbrature/guard'
+import { riapriMese } from '@/lib/timbrature/data'
 
 export const dynamic = 'force-dynamic'
 

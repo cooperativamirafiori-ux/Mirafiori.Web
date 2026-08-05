@@ -7,8 +7,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
-import { haDocumentiIdentitaPerCf } from '@/lib/prestazioni'
+import { auth } from '@/lib/core/auth'
+import { haDocumentiIdentitaPerCf } from '@/lib/prestazioni/data'
 
 export const dynamic = 'force-dynamic'
 

@@ -1,6 +1,7 @@
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/core/auth'
 import { redirect } from 'next/navigation'
-import { getStrutture, getCosti, getTecnici } from '@/lib/sharepoint'
+import { getStrutture, getTecnici } from '@/lib/strutture/data'
+import { getCosti } from '@/lib/costi/data'
 import { Header } from '@/components/ui/Header'
 import { InserisciCostoForm } from './InserisciCostoForm'
 

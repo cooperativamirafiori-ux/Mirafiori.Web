@@ -7,7 +7,7 @@ import {
   STATI_SOFTWARE,
   type Software,
 } from '@/types/software'
-import { caricaDirettamente, maxUploadMb } from '@/lib/upload-diretto'
+import { caricaDirettamente, maxUploadMb } from '@/lib/core/upload-diretto'
 
 interface Props {
   iniziali: Software[]

@@ -22,10 +22,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { guardMembroRU } from '@/lib/api-guard'
-import { ensureCartellaDipendente, getDocumentiDipendente } from '@/lib/risorse-umane'
-import { graphRU } from '@/lib/graph-delegato'
-import { logAzione } from '@/lib/audit'
+import { guardMembroRU } from '@/lib/core/api-guard'
+import { ensureCartellaDipendente, getDocumentiDipendente } from '@/lib/risorse-umane/data'
+import { graphRU } from '@/lib/core/graph-delegato'
+import { logAzione } from '@/lib/core/audit'
 
 export const dynamic = 'force-dynamic'
 

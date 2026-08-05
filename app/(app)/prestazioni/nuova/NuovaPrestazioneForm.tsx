@@ -2,13 +2,16 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CASISTICHE_GDPR } from '@/lib/casistiche-gdpr'
+import { CASISTICHE_GDPR } from '@/lib/prestazioni/casistiche-gdpr'
 import {
   MAX_UPLOAD_BYTES,
   maxUploadMb,
   inviaFileABlocchi,
   erroreRisposta,
-} from '@/lib/upload-diretto'
+} from '@/lib/core/upload-diretto'
+import { Campo, inputCls, labelCls } from '@/components/ui/Campo'
+import { Allegato } from '@/components/ui/Allegato'
+import { Banner } from '@/components/ui/Banner'
 
 const CF_REGEX = /^[A-Z]{6}\d{2}[A-EHLMPR-T]{1}\d{2}[A-Z]{1}\d{3}[A-Z]{1}$/
 
@@ -277,13 +280,6 @@ export function NuovaPrestazioneForm() {
       setAvanzamento(null)
     }
   }
-
-  const inputClass =
-    'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
-  const labelClass = 'block text-sm font-medium text-gray-700 mb-1'
-  const fileClass =
-    'w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-accent-purple/10 file:text-accent-purple hover:file:bg-accent-purple/20'
-
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -297,10 +293,8 @@ export function NuovaPrestazioneForm() {
         </button>
       </div>
 
-      {error && <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg">{error}</div>}
-      {success && (
-        <div className="bg-green-50 text-green-700 text-sm p-3 rounded-lg">{success}</div>
-      )}
+      <Banner tono="errore">{error}</Banner>
+      <Banner tono="ok">{success}</Banner>
 
       {/* Anagrafica prestatore */}
       <fieldset className="space-y-4">
@@ -308,11 +302,12 @@ export function NuovaPrestazioneForm() {
           Prestatore
         </legend>
 
-        {/* Ricerca da anagrafica */}
+        {/* Ricerca da anagrafica: non è un campo del form ma una ricerca con
+            tendina di risultati, quindi resta scritta a mano. */}
         <div className="relative">
-          <label className={labelClass}>Cerca prestatore già inserito</label>
+          <label className={labelCls}>Cerca prestatore già inserito</label>
           <input
-            className={inputClass}
+            className={inputCls}
             value={ricerca}
             onChange={(e) => {
               setRicerca(e.target.value)
@@ -343,67 +338,76 @@ export function NuovaPrestazioneForm() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className={labelClass}>Nome *</label>
-            <input className={inputClass} value={form.nome} onChange={(e) => set('nome', e.target.value)} />
-          </div>
-          <div>
-            <label className={labelClass}>Cognome *</label>
-            <input className={inputClass} value={form.cognome} onChange={(e) => set('cognome', e.target.value)} />
-          </div>
-          <div>
-            <label className={labelClass}>Data di nascita *</label>
-            <input type="date" className={inputClass} value={form.dataNascita} onChange={(e) => set('dataNascita', e.target.value)} />
-          </div>
-          <div>
-            <label className={labelClass}>Luogo di nascita *</label>
-            <input className={inputClass} value={form.luogoNascita} onChange={(e) => set('luogoNascita', e.target.value)} placeholder="Es. Torino (TO)" />
-          </div>
-          <div>
-            <label className={labelClass}>Codice fiscale *</label>
-            <input
-              className={`${inputClass} uppercase`}
-              value={form.codiceFiscale}
-              onChange={(e) => set('codiceFiscale', e.target.value.toUpperCase())}
-              maxLength={16}
-              placeholder="RSSMRA80A01H501U"
-            />
-          </div>
+          <Campo etichetta="Nome" obbligatorio valore={form.nome} onChange={(v) => set('nome', v)} />
+          <Campo etichetta="Cognome" obbligatorio valore={form.cognome} onChange={(v) => set('cognome', v)} />
+          <Campo
+            etichetta="Data di nascita"
+            tipo="date"
+            obbligatorio
+            valore={form.dataNascita}
+            onChange={(v) => set('dataNascita', v)}
+          />
+          <Campo
+            etichetta="Luogo di nascita"
+            obbligatorio
+            segnaposto="Es. Torino (TO)"
+            valore={form.luogoNascita}
+            onChange={(v) => set('luogoNascita', v)}
+          />
+          <Campo
+            etichetta="Codice fiscale"
+            obbligatorio
+            maiuscolo
+            maxLength={16}
+            segnaposto="RSSMRA80A01H501U"
+            valore={form.codiceFiscale}
+            onChange={(v) => set('codiceFiscale', v)}
+          />
         </div>
 
-        <div>
-          <label className="block text-sm font-bold text-accent-purple mb-1">
-            Residenza * <span className="font-medium text-gray-500">(Indirizzo, Comune e CAP)</span>
-          </label>
-          <input className={inputClass} value={form.residenza} onChange={(e) => set('residenza', e.target.value)} placeholder="Es. Via Roma 12, Torino (TO), 10100" />
-        </div>
+        <Campo
+          etichetta="Residenza"
+          obbligatorio
+          aiuto="Indirizzo, Comune e CAP"
+          segnaposto="Es. Via Roma 12, Torino (TO), 10100"
+          valore={form.residenza}
+          onChange={(v) => set('residenza', v)}
+        />
 
-        <div>
-          <label className={labelClass}>Ruolo *</label>
-          <input className={inputClass} value={form.ruolo} onChange={(e) => set('ruolo', e.target.value)} placeholder="Es. Educatrice" />
-        </div>
+        <Campo
+          etichetta="Ruolo"
+          obbligatorio
+          segnaposto="Es. Educatrice"
+          valore={form.ruolo}
+          onChange={(v) => set('ruolo', v)}
+        />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className={labelClass}>Email *</label>
-            <input type="email" className={inputClass} value={form.email} onChange={(e) => set('email', e.target.value)} />
-          </div>
-          <div>
-            <label className={labelClass}>Telefono *</label>
-            <input className={inputClass} value={form.telefono} onChange={(e) => set('telefono', e.target.value)} />
-          </div>
+          <Campo
+            etichetta="Email"
+            tipo="email"
+            obbligatorio
+            valore={form.email}
+            onChange={(v) => set('email', v)}
+          />
+          <Campo
+            etichetta="Telefono"
+            tipo="tel"
+            obbligatorio
+            valore={form.telefono}
+            onChange={(v) => set('telefono', v)}
+          />
         </div>
 
-        <div>
-          <label className={labelClass}>IBAN *</label>
-          <input
-            className={`${inputClass} uppercase`}
-            value={form.iban}
-            onChange={(e) => set('iban', e.target.value.toUpperCase())}
-            placeholder="IT60 X054 2811 1010 0000 0123 456"
-          />
-          <p className="text-xs text-gray-400 mt-1">Per il pagamento del compenso.</p>
-        </div>
+        <Campo
+          etichetta="IBAN"
+          obbligatorio
+          maiuscolo
+          aiuto="Per il pagamento del compenso."
+          segnaposto="IT60 X054 2811 1010 0000 0123 456"
+          valore={form.iban}
+          onChange={(v) => set('iban', v)}
+        />
       </fieldset>
 
       {/* Dati prestazione */}
@@ -413,62 +417,58 @@ export function NuovaPrestazioneForm() {
         </legend>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className={labelClass}>N. giorni *</label>
-            <input type="number" min={1} className={inputClass} value={form.giorni} onChange={(e) => set('giorni', e.target.value)} />
-          </div>
-          <div>
-            <label className={labelClass}>Data inizio *</label>
-            <input type="date" className={inputClass} value={form.dataInizio} onChange={(e) => set('dataInizio', e.target.value)} />
-          </div>
-          <div>
-            <label className={labelClass}>Data fine *</label>
-            <input type="date" className={inputClass} value={form.dataFine} onChange={(e) => set('dataFine', e.target.value)} />
-          </div>
-        </div>
-
-        <div>
-          <label className={labelClass}>Compenso previsto (€ lordo) *</label>
-          <input
-            type="number"
+          <Campo
+            etichetta="N. giorni"
+            tipo="number"
+            obbligatorio
             min={1}
-            step="0.01"
-            className={inputClass}
-            value={form.compensoPrevisto}
-            onChange={(e) => set('compensoPrevisto', e.target.value)}
-            placeholder="Es. 300,00 — importo indicativo riportato nel contratto"
+            valore={form.giorni}
+            onChange={(v) => set('giorni', v)}
+          />
+          <Campo
+            etichetta="Data inizio"
+            tipo="date"
+            obbligatorio
+            valore={form.dataInizio}
+            onChange={(v) => set('dataInizio', v)}
+          />
+          <Campo
+            etichetta="Data fine"
+            tipo="date"
+            obbligatorio
+            valore={form.dataFine}
+            onChange={(v) => set('dataFine', v)}
           />
         </div>
 
-        <div>
-          <label className={labelClass}>Attività oggetto della prestazione *</label>
-          <textarea
-            className={`${inputClass} resize-none`}
-            rows={3}
-            value={form.attivita}
-            onChange={(e) => set('attivita', e.target.value)}
-          />
-        </div>
+        <Campo
+          etichetta="Compenso previsto (€ lordo)"
+          tipo="currency"
+          obbligatorio
+          min={1}
+          segnaposto="Es. 300,00 — importo indicativo riportato nel contratto"
+          valore={form.compensoPrevisto}
+          onChange={(v) => set('compensoPrevisto', v)}
+        />
 
-        <div>
-          <label className={labelClass}>Casistica GDPR *</label>
-          <select
-            className={inputClass}
-            value={form.casisticaGdpr}
-            onChange={(e) => set('casisticaGdpr', e.target.value)}
-          >
-            <option value="">— Seleziona la casistica —</option>
-            {CASISTICHE_GDPR.map((c) => (
-              <option key={c.key} value={c.key}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-gray-400 mt-1">
-            Determina l&apos;autorizzazione al trattamento dei dati che il prestatore firmerà
-            (i trattamenti in base ai dati che effettivamente gestisce).
-          </p>
-        </div>
+        <Campo
+          etichetta="Attività oggetto della prestazione"
+          tipo="textarea"
+          obbligatorio
+          valore={form.attivita}
+          onChange={(v) => set('attivita', v)}
+        />
+
+        <Campo
+          etichetta="Casistica GDPR"
+          tipo="choice"
+          obbligatorio
+          vuoto="— Seleziona la casistica —"
+          scelte={CASISTICHE_GDPR.map((c) => ({ valore: c.key, etichetta: c.label }))}
+          aiuto="Determina l'autorizzazione al trattamento dei dati che il prestatore firmerà (i trattamenti in base ai dati che effettivamente gestisce)."
+          valore={form.casisticaGdpr}
+          onChange={(v) => set('casisticaGdpr', v)}
+        />
       </fieldset>
 
       {/* Allegati */}
@@ -480,56 +480,40 @@ export function NuovaPrestazioneForm() {
         {verificaDocumenti ? (
           <p className="text-sm text-gray-400">Verifica documenti in archivio…</p>
         ) : documentiGiaPresenti ? (
-          <div className="bg-green-50 text-green-700 text-sm p-3 rounded-lg">
+          <Banner tono="ok">
             ✅ Documenti d&apos;identità già in archivio per questo prestatore: non serve ricaricarli.
-            <span className="block text-xs text-green-600 mt-1">
-              Se vuoi aggiornarli, caricali qui sotto.
-            </span>
+            <span className="block text-xs mt-1">Se vuoi aggiornarli, caricali qui sotto.</span>
             <div className="mt-3 space-y-3">
-              <div>
-                <label className={labelClass}>Aggiorna codice fiscale (opzionale)</label>
-                <input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  className={fileClass}
-                  onChange={(e) => setCopiaCf(e.target.files?.[0] ?? null)}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Aggiorna carta d&apos;identità (opzionale)</label>
-                <input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  className={fileClass}
-                  onChange={(e) => setCopiaCi(e.target.files?.[0] ?? null)}
-                />
-              </div>
+              <Allegato
+                etichetta="Aggiorna codice fiscale (opzionale)"
+                file={copiaCf}
+                onChange={setCopiaCf}
+              />
+              <Allegato
+                etichetta="Aggiorna carta d'identità (opzionale)"
+                file={copiaCi}
+                onChange={setCopiaCi}
+              />
             </div>
-          </div>
+          </Banner>
         ) : (
           <>
             <p className="text-xs text-gray-400">
               Primo inserimento di questo prestatore: i documenti vengono archiviati una sola
               volta e riutilizzati per le prestazioni successive.
             </p>
-            <div>
-              <label className={labelClass}>Copia codice fiscale *</label>
-              <input
-                type="file"
-                accept="image/*,application/pdf"
-                className={fileClass}
-                onChange={(e) => setCopiaCf(e.target.files?.[0] ?? null)}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Copia carta d&apos;identità *</label>
-              <input
-                type="file"
-                accept="image/*,application/pdf"
-                className={fileClass}
-                onChange={(e) => setCopiaCi(e.target.files?.[0] ?? null)}
-              />
-            </div>
+            <Allegato
+              etichetta="Copia codice fiscale"
+              obbligatorio
+              file={copiaCf}
+              onChange={setCopiaCf}
+            />
+            <Allegato
+              etichetta="Copia carta d'identità"
+              obbligatorio
+              file={copiaCi}
+              onChange={setCopiaCi}
+            />
           </>
         )}
       </fieldset>

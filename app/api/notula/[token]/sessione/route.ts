@@ -22,8 +22,8 @@ import {
   getPrestazioneByToken,
   ensureCartellaPrestazione,
   creaSessioneUpload,
-} from '@/lib/prestazioni'
-import { MAX_UPLOAD_BYTES, maxUploadMb } from '@/lib/upload-diretto'
+} from '@/lib/prestazioni/data'
+import { MAX_UPLOAD_BYTES, maxUploadMb } from '@/lib/core/upload-diretto'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

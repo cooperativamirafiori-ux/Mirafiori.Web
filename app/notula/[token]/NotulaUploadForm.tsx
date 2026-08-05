@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { caricaDirettamente, MAX_UPLOAD_BYTES, maxUploadMb } from '@/lib/upload-diretto'
+import { caricaDirettamente, MAX_UPLOAD_BYTES, maxUploadMb } from '@/lib/core/upload-diretto'
 
 export function NotulaUploadForm({
   token,

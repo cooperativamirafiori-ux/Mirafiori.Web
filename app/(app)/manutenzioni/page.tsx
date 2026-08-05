@@ -1,4 +1,4 @@
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/core/auth'
 import Link from 'next/link'
 import { Header } from '@/components/ui/Header'
 
