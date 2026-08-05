@@ -11,13 +11,13 @@ import {
   aggiornaPrestazione,
   ensureCartellaPrestazione,
   uploadAllegato,
-} from '@/lib/prestazioni'
+} from '@/lib/prestazioni/data'
 import {
   isDocusignConfigured,
   getEnvelopeStatus,
   downloadEnvelopeCombined,
-} from '@/lib/docusign'
-import { notificaContrattoFirmato } from '@/lib/notifications'
+} from '@/lib/prestazioni/docusign'
+import { notificaContrattoFirmato } from '@/lib/prestazioni/notifiche'
 import type { Prestazione } from '@/types/prestazioni'
 
 const PDF_MIME = 'application/pdf'

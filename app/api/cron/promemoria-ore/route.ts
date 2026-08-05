@@ -11,10 +11,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getPrestazioniAttive, aggiornaPrestazione } from '@/lib/prestazioni'
-import { notificaPromemoriaFoglioOre } from '@/lib/notifications'
-import { dataBreve } from '@/lib/documenti-prestazione'
-import { verificaEScaricaFirma } from '@/lib/firma-prestazione'
+import { getPrestazioniAttive, aggiornaPrestazione } from '@/lib/prestazioni/data'
+import { notificaPromemoriaFoglioOre } from '@/lib/prestazioni/notifiche'
+import { dataBreve } from '@/lib/prestazioni/documenti'
+import { verificaEScaricaFirma } from '@/lib/prestazioni/firma'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

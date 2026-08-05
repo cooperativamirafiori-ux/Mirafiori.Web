@@ -18,7 +18,7 @@ import {
   profiloVigente,
   primoUltimoGiorno,
   monteToSettimana,
-} from '@/lib/timbrature'
+} from '@/lib/timbrature/data'
 import type { Dipendente } from '@/types/timbrature'
 import {
   graphGet,
@@ -361,7 +361,7 @@ export async function pubblicaFoglioOre(
 
   // 1) cartella personale RU (match per email aziendale/personale)
   try {
-    const ru = await import('@/lib/risorse-umane')
+    const ru = await import('@/lib/risorse-umane/data')
     const { graphApplicativo } = await import('@/lib/core/graph-delegato')
     const gc = gRU ?? graphApplicativo()
     const dipendenti = await ru.getItems(gc, 'dipendenti')

@@ -12,14 +12,10 @@ import {
   generaCostoDaAcquisto,
   getAcquistoById,
   AREA_ACQUISTI,
-} from '@/lib/acquisti'
-import { getSPUserEmailByLookupId, getUtentiPerArea } from '@/lib/sharepoint'
-import {
-  destinatariAcquisti,
-  notificaEsitoConsegna,
-  notificaConfermaConsegna,
-  notificaOrdineDaRitirare,
-} from '@/lib/notifications'
+} from '@/lib/acquisti/data'
+import { getSPUserEmailByLookupId } from '@/lib/core/sp'
+import { getUtentiPerArea } from '@/lib/core/permessi'
+import { destinatariAcquisti, notificaEsitoConsegna, notificaConfermaConsegna, notificaOrdineDaRitirare } from '@/lib/acquisti/notifiche'
 import {
   ESITO_SENZA_RISCONTRO,
   dataBreve,

@@ -4,8 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { guardOperatore } from '@/lib/timbrature-guard'
-import { aggiornaTimbratura, eliminaTimbratura } from '@/lib/timbrature'
+import { guardOperatore } from '@/lib/timbrature/guard'
+import { aggiornaTimbratura, eliminaTimbratura } from '@/lib/timbrature/data'
 
 export const dynamic = 'force-dynamic'
 

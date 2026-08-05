@@ -21,17 +21,10 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/core/auth'
-import {
-  getRichiestaById,
-  aggiornaRichiesta,
-  getParametro,
-  creaCosto,
-  getSPUserEmailByLookupId,
-} from '@/lib/sharepoint'
-import {
-  notificaTecnicoAssegnato,
-  notificaChiusuraTicket,
-} from '@/lib/notifications'
+import { getRichiestaById, aggiornaRichiesta } from '@/lib/manutenzioni/data'
+import { getParametro, getSPUserEmailByLookupId } from '@/lib/core/sp'
+import { creaCosto } from '@/lib/costi/data'
+import { notificaTecnicoAssegnato, notificaChiusuraTicket } from '@/lib/manutenzioni/notifiche'
 import { logAzione } from '@/lib/core/audit'
 import type { AggiornaRichiestaPayload } from '@/types/manutenzioni'
 

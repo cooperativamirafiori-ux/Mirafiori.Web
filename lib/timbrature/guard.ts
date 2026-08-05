@@ -11,7 +11,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/core/auth'
 import type { Session } from 'next-auth'
-import { dipendenteAbilitato, eResponsabile, getDipendenteById } from '@/lib/timbrature'
+import { dipendenteAbilitato, eResponsabile, getDipendenteById } from '@/lib/timbrature/data'
 import type { Dipendente } from '@/types/timbrature'
 
 export const AREA_HR = 'Timbrature HR'

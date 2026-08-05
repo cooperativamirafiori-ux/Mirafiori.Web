@@ -17,9 +17,9 @@ import {
   aggiornaPrestazione,
   ensureCartellaPrestazione,
   uploadAllegato,
-} from '@/lib/prestazioni'
-import { generaNotula, calcolaNotula } from '@/lib/documenti-prestazione'
-import { notificaNotulaAlPrestatore } from '@/lib/notifications'
+} from '@/lib/prestazioni/data'
+import { generaNotula, calcolaNotula } from '@/lib/prestazioni/documenti'
+import { notificaNotulaAlPrestatore } from '@/lib/prestazioni/notifiche'
 import { logAzione } from '@/lib/core/audit'
 
 export const runtime = 'nodejs'

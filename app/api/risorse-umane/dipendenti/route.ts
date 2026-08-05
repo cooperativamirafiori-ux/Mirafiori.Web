@@ -1,4 +1,4 @@
-import { listHandlers } from '@/lib/ru-api'
+import { listHandlers } from '@/lib/risorse-umane/api'
 
 export const dynamic = 'force-dynamic'
 

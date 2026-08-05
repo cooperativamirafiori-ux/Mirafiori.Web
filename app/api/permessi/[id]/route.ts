@@ -6,7 +6,7 @@
 
 import { NextResponse } from 'next/server'
 import { guardArea } from '@/lib/core/api-guard'
-import { rimuoviAutorizzazione } from '@/lib/sharepoint'
+import { rimuoviAutorizzazione } from '@/lib/core/permessi'
 import { logAzione } from '@/lib/core/audit'
 
 export async function DELETE(

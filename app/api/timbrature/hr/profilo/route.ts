@@ -5,8 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { guardHr } from '@/lib/timbrature-guard'
-import { getProfili, salvaProfilo } from '@/lib/timbrature'
+import { guardHr } from '@/lib/timbrature/guard'
+import { getProfili, salvaProfilo } from '@/lib/timbrature/data'
 import type { MonteOreSettimana } from '@/types/timbrature'
 
 export const dynamic = 'force-dynamic'

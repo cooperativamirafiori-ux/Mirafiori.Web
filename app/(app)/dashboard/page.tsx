@@ -1,6 +1,7 @@
 import { auth } from '@/lib/core/auth'
 import { redirect } from 'next/navigation'
-import { getRichiesteAperte, getTecnici } from '@/lib/sharepoint'
+import { getRichiesteAperte } from '@/lib/manutenzioni/data'
+import { getTecnici } from '@/lib/strutture/data'
 import { Header } from '@/components/ui/Header'
 import { RichiestaCard } from './RichiestaCard'
 import Link from 'next/link'

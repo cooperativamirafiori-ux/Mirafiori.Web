@@ -10,7 +10,7 @@
  * partita da sola sarebbe peggio di una conferma mancante.
  */
 
-import { getAcquistoByToken, acquistiConfigurato } from '@/lib/acquisti'
+import { getAcquistoByToken, acquistiConfigurato } from '@/lib/acquisti/data'
 import { dataBreve, ESITI_CONSEGNA, type EsitoConsegna } from '@/types/acquisti'
 import { ConfermaConsegna } from './ConfermaConsegna'
 

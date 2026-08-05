@@ -10,8 +10,9 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/core/auth'
-import { creaRichiesta, aggiornaRichiesta, getSPUserLookupId } from '@/lib/sharepoint'
-import { notificaNuovaRichiesta } from '@/lib/notifications'
+import { creaRichiesta, aggiornaRichiesta } from '@/lib/manutenzioni/data'
+import { getSPUserLookupId } from '@/lib/core/sp'
+import { notificaNuovaRichiesta } from '@/lib/manutenzioni/notifiche'
 import { logAzione } from '@/lib/core/audit'
 import type { NuovaRichiestaPayload } from '@/types/manutenzioni'
 

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Header } from '@/components/ui/Header'
-import { getPrestazioniAttive } from '@/lib/prestazioni'
+import { getPrestazioniAttive } from '@/lib/prestazioni/data'
 import type { Prestazione } from '@/types/prestazioni'
 import { GeneraDocumentiButton } from './GeneraDocumentiButton'
 import { ChiusuraNotula } from './ChiusuraNotula'

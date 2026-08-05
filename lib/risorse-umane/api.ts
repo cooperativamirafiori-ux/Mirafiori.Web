@@ -23,11 +23,11 @@ import {
   aggiornaItem,
   eliminaItem,
   validaInput,
-} from '@/lib/risorse-umane'
+} from '@/lib/risorse-umane/data'
 import { graphRU, isRiautenticazione, isAccessoNegato } from '@/lib/core/graph-delegato'
-import { sincronizzaRecordRU } from '@/lib/timbrature-sync'
+import { sincronizzaRecordRU } from '@/lib/timbrature/sync'
 import { logAzione } from '@/lib/core/audit'
-import { generaExportBuffer, nomeFileExport } from '@/lib/ru-export-xlsx'
+import { generaExportBuffer, nomeFileExport } from '@/lib/risorse-umane/export-xlsx'
 import { RU_CONFIG, type RUEntity, type RURecord } from '@/types/risorse-umane'
 
 /**

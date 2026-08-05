@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import { auth } from '@/lib/core/auth'
 import { Header } from '@/components/ui/Header'
-import { acquistiConfigurato, getAcquisti, AREA_ACQUISTI } from '@/lib/acquisti'
-import { getInventario, inventarioConfigurato } from '@/lib/inventario'
+import { acquistiConfigurato, getAcquisti, AREA_ACQUISTI } from '@/lib/acquisti/data'
+import { getInventario, inventarioConfigurato } from '@/lib/inventario/data'
 import { STATI_APERTI } from '@/types/acquisti'
 import { STATI_BENE_CHIUSI } from '@/types/inventario'
 

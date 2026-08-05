@@ -7,8 +7,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { guardValidatore } from '@/lib/timbrature-guard'
-import { statoMeseTutti } from '@/lib/timbrature'
+import { guardValidatore } from '@/lib/timbrature/guard'
+import { statoMeseTutti } from '@/lib/timbrature/data'
 
 export const dynamic = 'force-dynamic'
 

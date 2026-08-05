@@ -1,4 +1,4 @@
-import { exportHandler } from '@/lib/ru-api'
+import { exportHandler } from '@/lib/risorse-umane/api'
 
 export const dynamic = 'force-dynamic'
 

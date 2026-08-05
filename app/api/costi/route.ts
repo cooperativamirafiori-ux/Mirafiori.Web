@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/core/auth'
-import { creaCostoDiretto } from '@/lib/sharepoint'
+import { creaCostoDiretto } from '@/lib/costi/data'
 import { logAzione } from '@/lib/core/audit'
 import type { NuovoCostoPayload } from '@/types/manutenzioni'
 

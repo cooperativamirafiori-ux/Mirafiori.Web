@@ -23,7 +23,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { guardMembroRU } from '@/lib/core/api-guard'
-import { ensureCartellaDipendente, getDocumentiDipendente } from '@/lib/risorse-umane'
+import { ensureCartellaDipendente, getDocumentiDipendente } from '@/lib/risorse-umane/data'
 import { graphRU } from '@/lib/core/graph-delegato'
 import { logAzione } from '@/lib/core/audit'
 

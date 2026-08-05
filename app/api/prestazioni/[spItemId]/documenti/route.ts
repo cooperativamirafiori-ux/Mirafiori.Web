@@ -15,14 +15,14 @@ import {
   aggiornaPrestazione,
   ensureCartellaPrestazione,
   uploadAllegato,
-} from '@/lib/prestazioni'
+} from '@/lib/prestazioni/data'
 import {
   generaDocumentiPrestazione,
   campiMancantiPerDocumenti,
   leggiAllegatiInformativi,
-} from '@/lib/documenti-prestazione'
-import { isDocusignConfigured, inviaBustaFirma } from '@/lib/docusign'
-import { notificaModuliInformativi } from '@/lib/notifications'
+} from '@/lib/prestazioni/documenti'
+import { isDocusignConfigured, inviaBustaFirma } from '@/lib/prestazioni/docusign'
+import { notificaModuliInformativi } from '@/lib/prestazioni/notifiche'
 import { logAzione } from '@/lib/core/audit'
 
 export const runtime = 'nodejs'

@@ -22,14 +22,14 @@ import {
   normalizzaNomeFornitore,
   acquistiConfigurato,
   AREA_ACQUISTI,
-} from '@/lib/acquisti'
+} from '@/lib/acquisti/data'
 import {
   allineaBeniDaRichiesta,
   annullaBeniDaRichiesta,
   creaBeniDaRichiesta,
   getBeniPerRichiesta,
   inventarioConfigurato,
-} from '@/lib/inventario'
+} from '@/lib/inventario/data'
 import {
   consegnaPresidiata,
   emailGestori,
@@ -38,13 +38,10 @@ import {
   registraEsitoConsegna,
   linkGestione,
   luogoRitiro,
-} from '@/lib/acquisti-flusso'
-import { getSPUserLookupId, getStrutture } from '@/lib/sharepoint'
-import {
-  notificaAssegnazioneAcquisto,
-  notificaEsitoValutazione,
-  notificaOrdineEffettuato,
-} from '@/lib/notifications'
+} from '@/lib/acquisti/flusso'
+import { getSPUserLookupId } from '@/lib/core/sp'
+import { getStrutture } from '@/lib/strutture/data'
+import { notificaAssegnazioneAcquisto, notificaEsitoValutazione, notificaOrdineEffettuato } from '@/lib/acquisti/notifiche'
 import { logAzione } from '@/lib/core/audit'
 import {
   ESITI_CONSEGNA,

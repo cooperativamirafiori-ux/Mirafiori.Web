@@ -24,8 +24,8 @@ import {
   aggiornaPrestazione,
   ensureCartellaPrestazione,
   haDocumentiIdentita,
-} from '@/lib/prestazioni'
-import { CASISTICHE_GDPR_KEYS } from '@/lib/casistiche-gdpr'
+} from '@/lib/prestazioni/data'
+import { CASISTICHE_GDPR_KEYS } from '@/lib/prestazioni/casistiche-gdpr'
 
 const CF_REGEX = /^[A-Z]{6}\d{2}[A-EHLMPR-T]\d{2}[A-Z]\d{3}[A-Z]$/
 

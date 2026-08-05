@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { guardArea } from '@/lib/core/api-guard'
-import { getSoftware, creaSoftware } from '@/lib/software'
+import { getSoftware, creaSoftware } from '@/lib/software/data'
 import { logAzione } from '@/lib/core/audit'
 import type { SoftwareInput } from '@/types/software'
 

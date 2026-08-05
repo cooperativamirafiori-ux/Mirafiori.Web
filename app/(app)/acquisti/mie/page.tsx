@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import { auth } from '@/lib/core/auth'
 import { Header } from '@/components/ui/Header'
-import { acquistiConfigurato, getAcquistiByEmail } from '@/lib/acquisti'
-import { luogoRitiro, referentiPresidio, strutturaPresidiata } from '@/lib/acquisti-flusso'
+import { acquistiConfigurato, getAcquistiByEmail } from '@/lib/acquisti/data'
+import { luogoRitiro, referentiPresidio, strutturaPresidiata } from '@/lib/acquisti/flusso'
 import { MieRichiesteAcquisto } from './MieRichiesteAcquisto'
 
 export const dynamic = 'force-dynamic'

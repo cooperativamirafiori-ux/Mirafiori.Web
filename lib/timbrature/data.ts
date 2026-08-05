@@ -15,7 +15,7 @@
 
 import { randomBytes } from 'crypto'
 import { supabase } from '@/lib/core/supabase'
-import { festivitaAnno } from '@/lib/festivita'
+import { festivitaAnno } from '@/lib/timbrature/festivita'
 import type {
   StatoMese,
   TipoVoce,

@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { guardArea } from '@/lib/core/api-guard'
-import { aggiornaSoftware, eliminaSoftware } from '@/lib/software'
+import { aggiornaSoftware, eliminaSoftware } from '@/lib/software/data'
 import { logAzione } from '@/lib/core/audit'
 
 export const dynamic = 'force-dynamic'

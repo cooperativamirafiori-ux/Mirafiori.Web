@@ -13,7 +13,7 @@ import {
   ensureCartellaDipendente,
   getDocumentiDipendente,
   getItem,
-} from '@/lib/risorse-umane'
+} from '@/lib/risorse-umane/data'
 
 export const dynamic = 'force-dynamic'
 

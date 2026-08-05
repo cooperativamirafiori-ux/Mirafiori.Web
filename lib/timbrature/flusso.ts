@@ -22,15 +22,12 @@ import {
   primoUltimoGiorno,
   riepilogoPeriodo,
   statoMese,
-} from '@/lib/timbrature'
-import { pubblicaFoglioOre, type NotaValidazione } from '@/lib/foglio-ore-xlsx'
+} from '@/lib/timbrature/data'
+import { pubblicaFoglioOre, type NotaValidazione } from '@/lib/timbrature/foglio-ore-xlsx'
 import { graphRU, type GraphClient } from '@/lib/core/graph-delegato'
-import { getUtentiPerArea } from '@/lib/sharepoint'
-import { AREA_HR } from '@/lib/timbrature-guard'
-import {
-  notificaContestazioneFoglioOre,
-  notificaFoglioDaConfermare,
-} from '@/lib/notifications'
+import { getUtentiPerArea } from '@/lib/core/permessi'
+import { AREA_HR } from '@/lib/timbrature/guard'
+import { notificaContestazioneFoglioOre, notificaFoglioDaConfermare } from '@/lib/timbrature/notifiche'
 import type { ChiusuraMese, Dipendente } from '@/types/timbrature'
 
 export const MESI_IT = [

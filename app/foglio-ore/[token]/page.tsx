@@ -10,8 +10,8 @@
  * partita da sola sarebbe peggio di una conferma mancante.
  */
 
-import { getChiusuraByToken, primoUltimoGiorno, riepilogoPeriodo, listTimbrature } from '@/lib/timbrature'
-import { MESI_IT } from '@/lib/timbrature-flusso'
+import { getChiusuraByToken, primoUltimoGiorno, riepilogoPeriodo, listTimbrature } from '@/lib/timbrature/data'
+import { MESI_IT } from '@/lib/timbrature/flusso'
 import { ETICHETTA_STATO } from '@/types/timbrature'
 import { ConfermaFoglioOre } from './ConfermaFoglioOre'
 

@@ -7,8 +7,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { guardValidatore, puoAgireSu } from '@/lib/timbrature-guard'
-import { validaFoglio } from '@/lib/timbrature-flusso'
+import { guardValidatore, puoAgireSu } from '@/lib/timbrature/guard'
+import { validaFoglio } from '@/lib/timbrature/flusso'
 import { logAzione } from '@/lib/core/audit'
 
 export const runtime = 'nodejs'

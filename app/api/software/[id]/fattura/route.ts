@@ -13,7 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { guardArea } from '@/lib/core/api-guard'
-import { getSoftwareById, creaSessioneUploadFattura } from '@/lib/software'
+import { getSoftwareById, creaSessioneUploadFattura } from '@/lib/software/data'
 import { MAX_UPLOAD_BYTES, maxUploadMb } from '@/lib/core/upload-diretto'
 
 export const runtime = 'nodejs'

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CASISTICHE_GDPR } from '@/lib/casistiche-gdpr'
+import { CASISTICHE_GDPR } from '@/lib/prestazioni/casistiche-gdpr'
 import {
   MAX_UPLOAD_BYTES,
   maxUploadMb,

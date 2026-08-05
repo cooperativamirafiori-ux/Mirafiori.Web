@@ -14,7 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getPrestazioneByToken } from '@/lib/prestazioni'
+import { getPrestazioneByToken } from '@/lib/prestazioni/data'
 
 export const runtime = 'nodejs'
 

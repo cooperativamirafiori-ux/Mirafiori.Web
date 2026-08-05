@@ -20,8 +20,8 @@ import {
   aggiornaPrestazione,
   ensureCartellaPrestazione,
   getWebUrlFile,
-} from '@/lib/prestazioni'
-import { notificaNotulaCaricata } from '@/lib/notifications'
+} from '@/lib/prestazioni/data'
+import { notificaNotulaCaricata } from '@/lib/prestazioni/notifiche'
 import { logAzione } from '@/lib/core/audit'
 
 export const runtime = 'nodejs'

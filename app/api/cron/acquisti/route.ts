@@ -19,14 +19,14 @@ import {
   getAcquisti,
   aggiornaAcquisto,
   acquistiConfigurato,
-} from '@/lib/acquisti'
+} from '@/lib/acquisti/data'
 import {
   chiudiSenzaRiscontro,
   emailGestori,
   inviaRichiestaConferma,
   linkGestione,
-} from '@/lib/acquisti-flusso'
-import { destinatariAcquisti, notificaDigestAcquisti } from '@/lib/notifications'
+} from '@/lib/acquisti/flusso'
+import { destinatariAcquisti, notificaDigestAcquisti } from '@/lib/acquisti/notifiche'
 import { GIORNI_AUTOCHIUSURA, GIORNI_SOLLECITO, dataBreve } from '@/types/acquisti'
 
 export const runtime = 'nodejs'

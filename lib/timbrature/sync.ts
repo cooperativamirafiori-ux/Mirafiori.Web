@@ -19,8 +19,8 @@
  * conguagli e non vanno persi quando una persona esce.
  */
 
-import { getItems } from '@/lib/risorse-umane'
-import { upsertDipendenteDaRU, type AzioneSync } from '@/lib/timbrature'
+import { getItems } from '@/lib/risorse-umane/data'
+import { upsertDipendenteDaRU, type AzioneSync } from '@/lib/timbrature/data'
 import type { GraphClient } from '@/lib/core/graph-delegato'
 import { RU_CONFIG, type RUEntity, type RURecord } from '@/types/risorse-umane'
 

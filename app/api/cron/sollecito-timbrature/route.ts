@@ -27,18 +27,15 @@ import {
   segnaSollecito,
   statoMeseTutti,
   ultimoGiornoUtile,
-} from '@/lib/timbrature'
-import {
-  notificaFogliDaValidare,
-  notificaSollecitoTimbrature,
-} from '@/lib/notifications'
+} from '@/lib/timbrature/data'
+import { notificaFogliDaValidare, notificaSollecitoTimbrature } from '@/lib/timbrature/notifiche'
 import {
   MESI_IT,
   destinatariValidazione,
   inviaRichiestaConferma,
   linkTimbrature,
   linkValidazione,
-} from '@/lib/timbrature-flusso'
+} from '@/lib/timbrature/flusso'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

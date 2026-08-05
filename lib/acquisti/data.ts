@@ -10,7 +10,8 @@
 
 import { randomBytes } from 'node:crypto'
 import { graphGet, graphPost, graphPatch } from '@/lib/core/graph'
-import { creaCosto, getSPUserLookupId } from '@/lib/sharepoint'
+import { creaCosto } from '@/lib/costi/data'
+import { getSPUserLookupId } from '@/lib/core/sp'
 import {
   aggiungiMesi,
   normalizzaFornitore,

@@ -17,7 +17,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { guardMembroRU } from '@/lib/core/api-guard'
-import { creaSessioneUploadDocumento } from '@/lib/risorse-umane'
+import { creaSessioneUploadDocumento } from '@/lib/risorse-umane/data'
 import { graphRU, isRiautenticazione, isAccessoNegato } from '@/lib/core/graph-delegato'
 
 export const dynamic = 'force-dynamic'

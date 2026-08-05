@@ -1,6 +1,6 @@
 'use client'
 
-import { messaggioErrore } from '@/lib/ru-fetch'
+import { messaggioErrore } from '@/lib/risorse-umane/fetch'
 import { inviaFileABlocchi, MAX_UPLOAD_BYTES } from '@/lib/core/upload-diretto'
 import { useEffect, useRef, useState } from 'react'
 

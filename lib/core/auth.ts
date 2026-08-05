@@ -1,8 +1,8 @@
 import NextAuth from 'next-auth'
 import MicrosoftEntraID from 'next-auth/providers/microsoft-entra-id'
-import { isAdmin, getPermessi } from '@/lib/sharepoint'
+import { isAdmin, getPermessi } from '@/lib/core/permessi'
 import { salvaTokenDelegato, SCOPE_DELEGATO } from '@/lib/core/ms-token'
-import { eMembroGruppoRU } from '@/lib/gruppo-ru'
+import { eMembroGruppoRU } from '@/lib/risorse-umane/gruppo'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [

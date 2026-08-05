@@ -1,6 +1,7 @@
 import { auth } from '@/lib/core/auth'
 import { redirect } from 'next/navigation'
-import { getStrutture, getCosti } from '@/lib/sharepoint'
+import { getStrutture } from '@/lib/strutture/data'
+import { getCosti } from '@/lib/costi/data'
 import { Header } from '@/components/ui/Header'
 import { CruscottoCosti } from './CruscottoCosti'
 import type { CostoPerStruttura } from '@/types/manutenzioni'

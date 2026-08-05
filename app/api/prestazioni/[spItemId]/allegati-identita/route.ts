@@ -18,7 +18,7 @@ import {
   getPrestazioneById,
   ensureCartellaDocumentiIdentita,
   creaSessioneUpload,
-} from '@/lib/prestazioni'
+} from '@/lib/prestazioni/data'
 import { MAX_UPLOAD_BYTES, maxUploadMb } from '@/lib/core/upload-diretto'
 
 export const runtime = 'nodejs'

@@ -15,7 +15,7 @@ import { join } from 'node:path'
 import PizZip from 'pizzip'
 import Docxtemplater from 'docxtemplater'
 import type { Prestazione } from '@/types/prestazioni'
-import { templateGdprPerCasistica } from '@/lib/casistiche-gdpr'
+import { templateGdprPerCasistica } from '@/lib/prestazioni/casistiche-gdpr'
 
 const TEMPLATES_DIR = join(process.cwd(), 'lib', 'templates', 'prestazione-occasionale')
 // Moduli informativi inviati al prestatore via mail semplice (non DocuSign)

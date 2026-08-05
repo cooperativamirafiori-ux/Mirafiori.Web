@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { guardValidatore, puoAgireSu } from '@/lib/timbrature-guard'
+import { guardValidatore, puoAgireSu } from '@/lib/timbrature/guard'
 import {
   getDipendenteById,
   listTimbrature,
@@ -16,7 +16,7 @@ import {
   getChiusura,
   getServizi,
   primoUltimoGiorno,
-} from '@/lib/timbrature'
+} from '@/lib/timbrature/data'
 
 export const dynamic = 'force-dynamic'
 
