@@ -30,6 +30,13 @@ Cartella del progetto: `web/` (la radice del repo git è `web/`, non la cartella
 6. **Non si scava negli interni di un altro modulo** (vedi § Convenzioni).
 7. **Prima di proporre un push: `npx tsc --noEmit`.** L'app non ha test automatici, il compilatore
    è la rete di sicurezza — e con `strict: true` copre molto.
+8. **Non controllare mai il deploy su Vercel.** Parte da sé dopo il push e va per conto suo: niente
+   `list_deployments`, niente attese, niente "ti confermo quando è READY". Finito il push, finito.
+9. **Comandi da terminale: uno per volta.** Si scrive chiaramente cosa deve copiare, **un solo blocco
+   per messaggio**, poi si aspetta che Dennis dica "ok" prima di dare il successivo. Mai una sequenza
+   di cinque comandi da eseguire in fila: se il secondo fallisce, gli altri tre fanno danno.
+   Ricorda anche che è **zsh**: nessun commento `#` sulla stessa riga del comando, finisce fra gli
+   argomenti (vedi § Comandi).
 
 ---
 
