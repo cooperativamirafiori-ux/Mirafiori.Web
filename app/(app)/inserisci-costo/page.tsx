@@ -1,4 +1,4 @@
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/core/auth'
 import { redirect } from 'next/navigation'
 import { getStrutture, getCosti, getTecnici } from '@/lib/sharepoint'
 import { Header } from '@/components/ui/Header'

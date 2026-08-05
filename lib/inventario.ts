@@ -13,7 +13,7 @@
  * Convenzioni Graph identiche al resto dell'app (vedi lib/acquisti.ts).
  */
 
-import { graphGet, graphGetOrNull, graphPost, graphPatch } from '@/lib/graph'
+import { graphGet, graphGetOrNull, graphPost, graphPatch } from '@/lib/core/graph'
 import {
   formattaNumeroInventario,
   progressivoDaNumero,

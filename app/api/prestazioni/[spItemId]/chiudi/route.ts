@@ -6,9 +6,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/core/auth'
 import { getPrestazioneById, aggiornaPrestazione } from '@/lib/prestazioni'
-import { logAzione } from '@/lib/audit'
+import { logAzione } from '@/lib/core/audit'
 
 export const runtime = 'nodejs'
 

@@ -13,14 +13,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { guardArea } from '@/lib/api-guard'
+import { guardArea } from '@/lib/core/api-guard'
 import { AREA_ACQUISTI } from '@/lib/acquisti'
 import {
   creaSessioneUploadDocumento,
   getBeneById,
   inventarioConfigurato,
 } from '@/lib/inventario'
-import { MAX_UPLOAD_BYTES, maxUploadMb } from '@/lib/upload-diretto'
+import { MAX_UPLOAD_BYTES, maxUploadMb } from '@/lib/core/upload-diretto'
 import { TIPI_DOCUMENTO, type TipoDocumento } from '@/types/inventario'
 
 export const runtime = 'nodejs'

@@ -1,4 +1,4 @@
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/core/auth'
 import { redirect } from 'next/navigation'
 import { SessionProvider } from 'next-auth/react'
 

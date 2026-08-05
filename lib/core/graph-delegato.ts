@@ -22,8 +22,8 @@ import {
   graphPatch,
   graphDelete,
   graphPutBinary,
-  graphGetBinary,} from '@/lib/graph'
-import { getDelegatedToken, RiautenticazioneRichiesta } from '@/lib/ms-token'
+  graphGetBinary,} from '@/lib/core/graph'
+import { getDelegatedToken, RiautenticazioneRichiesta } from '@/lib/core/ms-token'
 
 const GRAPH_BASE = 'https://graph.microsoft.com/v1.0'
 

@@ -52,9 +52,12 @@ const CATEGORIE = [
   'Pulizia e igiene', 'Alimentari', 'DPI e sicurezza', 'Manutenzione', 'Servizi', 'Altro',
 ]
 const PAGAMENTI = ['Fattura posticipata', 'Bonifico', 'Carta', 'Contanti']
-// I primi tre sono i pulsanti nella mail al richiedente; l'ultimo lo scrive solo
+// I primi due sono i pulsanti nella mail al richiedente; l'ultimo lo scrive solo
 // la chiusura d'ufficio del cron. Devono coincidere con ESITI_SP in types/acquisti.ts.
-const ESITI = ['Tutto ok', 'Da restituire', 'Non arrivato', 'Consegnata senza riscontro']
+//
+// ⚠️ `estendiChoice` è additivo: togliere un valore da qui NON lo rimuove dalla
+// colonna su SharePoint. Per quello serve `node scripts/pulisci-choice.mjs`.
+const ESITI = ['Tutto ok', 'Da restituire', 'Consegnata senza riscontro']
 
 // I `name` DEVONO coincidere con quelli usati in lib/acquisti.ts
 const COLUMNS = [

@@ -13,10 +13,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/core/auth'
 import { getPrestazioneById } from '@/lib/prestazioni'
 import { notificaRiepilogoPrestazione } from '@/lib/notifications'
-import { logAzione } from '@/lib/audit'
+import { logAzione } from '@/lib/core/audit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

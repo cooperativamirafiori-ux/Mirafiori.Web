@@ -9,7 +9,7 @@
  */
 
 import { randomBytes } from 'node:crypto'
-import { graphGet, graphPost, graphPatch } from '@/lib/graph'
+import { graphGet, graphPost, graphPatch } from '@/lib/core/graph'
 import { creaCosto, getSPUserLookupId } from '@/lib/sharepoint'
 import {
   aggiungiMesi,

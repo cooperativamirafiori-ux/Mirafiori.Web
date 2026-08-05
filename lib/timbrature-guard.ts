@@ -9,7 +9,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/core/auth'
 import type { Session } from 'next-auth'
 import { dipendenteAbilitato, eResponsabile, getDipendenteById } from '@/lib/timbrature'
 import type { Dipendente } from '@/types/timbrature'

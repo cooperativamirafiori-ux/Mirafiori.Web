@@ -21,7 +21,7 @@
 
 import { getItems } from '@/lib/risorse-umane'
 import { upsertDipendenteDaRU, type AzioneSync } from '@/lib/timbrature'
-import type { GraphClient } from '@/lib/graph-delegato'
+import type { GraphClient } from '@/lib/core/graph-delegato'
 import { RU_CONFIG, type RUEntity, type RURecord } from '@/types/risorse-umane'
 
 /** Valore del campo RU che abilita le timbrature. */

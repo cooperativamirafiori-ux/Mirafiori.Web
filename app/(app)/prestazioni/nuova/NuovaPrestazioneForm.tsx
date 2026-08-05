@@ -8,7 +8,7 @@ import {
   maxUploadMb,
   inviaFileABlocchi,
   erroreRisposta,
-} from '@/lib/upload-diretto'
+} from '@/lib/core/upload-diretto'
 
 const CF_REGEX = /^[A-Z]{6}\d{2}[A-EHLMPR-T]{1}\d{2}[A-Z]{1}\d{3}[A-Z]{1}$/
 

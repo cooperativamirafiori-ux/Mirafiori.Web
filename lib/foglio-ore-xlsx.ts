@@ -11,7 +11,7 @@
  */
 
 import ExcelJS from 'exceljs'
-import type { GraphClient } from '@/lib/graph-delegato'
+import type { GraphClient } from '@/lib/core/graph-delegato'
 import {
   listTimbrature,
   riepilogoPeriodo,
@@ -26,7 +26,7 @@ import {
   graphGetBinary,
   graphPost,
   graphPutBinary,
-} from '@/lib/graph'
+} from '@/lib/core/graph'
 
 const GIORNI_IT = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato']
 const MESI_IT = ['', 'GENNAIO', 'FEBBRAIO', 'MARZO', 'APRILE', 'MAGGIO', 'GIUGNO', 'LUGLIO', 'AGOSTO', 'SETTEMBRE', 'OTTOBRE', 'NOVEMBRE', 'DICEMBRE']
@@ -362,7 +362,7 @@ export async function pubblicaFoglioOre(
   // 1) cartella personale RU (match per email aziendale/personale)
   try {
     const ru = await import('@/lib/risorse-umane')
-    const { graphApplicativo } = await import('@/lib/graph-delegato')
+    const { graphApplicativo } = await import('@/lib/core/graph-delegato')
     const gc = gRU ?? graphApplicativo()
     const dipendenti = await ru.getItems(gc, 'dipendenti')
     const match = dipendenti.find(

@@ -12,7 +12,7 @@
  * (lib/software.ts) le tratta come best-effort e NON blocca il salvataggio.
  */
 
-import { graphPost, graphPatch, graphDelete } from '@/lib/graph'
+import { graphPost, graphPatch, graphDelete } from '@/lib/core/graph'
 
 const TIMEZONE = 'Europe/Rome'
 // Promemoria Outlook: 20 giorni prima della scadenza

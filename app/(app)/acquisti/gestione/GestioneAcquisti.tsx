@@ -20,7 +20,7 @@ import {
   type RichiestaAcquisto,
 } from '@/types/acquisti'
 import { STATO_BENE_STILE, type BeneInventario, type TipoDocumento } from '@/types/inventario'
-import { caricaDirettamente, maxUploadMb } from '@/lib/upload-diretto'
+import { caricaDirettamente, maxUploadMb } from '@/lib/core/upload-diretto'
 
 interface Props {
   iniziali: RichiestaAcquisto[]

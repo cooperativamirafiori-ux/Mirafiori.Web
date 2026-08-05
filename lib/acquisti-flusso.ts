@@ -18,10 +18,12 @@ import {
   destinatariAcquisti,
   notificaEsitoConsegna,
   notificaConfermaConsegna,
+  notificaOrdineDaRitirare,
 } from '@/lib/notifications'
 import {
   ESITO_SENZA_RISCONTRO,
   dataBreve,
+  luogoCorrisponde,
   type EsitoConsegna,
   type RichiestaAcquisto,
 } from '@/types/acquisti'
@@ -31,6 +33,42 @@ export const baseApp = () =>
 
 export const linkGestione = () => `${baseApp()}/acquisti/gestione`
 export const linkConsegna = (token: string) => `${baseApp()}/consegna/${token}`
+
+// ============================================================
+// Consegna presidiata (Strada del Drosso)
+// ============================================================
+//
+// Su Strada del Drosso la merce arriva in ufficio, non dove sta il richiedente:
+// chiedere a lui "è arrivato?" significa chiederlo a chi non può vederlo. Lì la
+// conferma la danno i referenti dell'ufficio e, appena confermano, il
+// richiedente riceve l'avviso che può passare a ritirare.
+//
+// I valori stanno in variabili d'ambiente con questi default, così cambiare i
+// referenti non richiede una modifica al codice. Per una seconda struttura
+// presidiata servirebbe invece una piccola estensione: oggi la regola è una.
+
+/** Struttura di consegna presidiata, confrontata per inclusione sull'etichetta. */
+export const strutturaPresidiata = () =>
+  process.env.ACQUISTI_PRESIDIO_STRUTTURA || 'Strada del Drosso'
+
+/** Chi conferma la consegna al posto del richiedente. */
+export const referentiPresidio = (): string[] =>
+  (
+    process.env.ACQUISTI_PRESIDIO_REFERENTI ||
+    'stefano.martino@cooperativamirafiori.com,eleonora.dessi@cooperativamirafiori.com'
+  )
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter((s) => s.includes('@'))
+
+/** Dove il richiedente deve andare a ritirare, come lo scriviamo in mail. */
+export const luogoRitiro = () =>
+  process.env.ACQUISTI_PRESIDIO_RITIRO || 'Ufficio in Strada del Drosso'
+
+/** true se la consegna di questa richiesta è presidiata dall'ufficio. */
+export function consegnaPresidiata(a: RichiestaAcquisto): boolean {
+  return luogoCorrisponde(a, strutturaPresidiata())
+}
 
 /** Email del richiedente: la Person column non la espone, va risolta a parte. */
 export async function emailRichiedente(a: RichiestaAcquisto): Promise<string> {
@@ -53,7 +91,6 @@ export async function emailGestori(): Promise<string[]> {
  *
  * "Tutto ok"        → Consegnata, e la spesa entra in Costi Strutture.
  * "Da restituire"   → Problema: la richiesta torna al gestore.
- * "Non arrivato"    → Problema, idem.
  *
  * Idempotente: se la richiesta non è più in stato Ordinata non fa nulla e lo
  * dichiara, così la pagina pubblica può mostrare "hai già risposto" invece di
@@ -93,6 +130,25 @@ export async function registraEsitoConsegna(
     if (!esitoCosto.generato && esitoCosto.motivo !== 'già generato') {
       console.warn('[acquisti] costo non generato per', a.codice, '→', esitoCosto.motivo)
     }
+
+    // Consegna presidiata: chi ha chiesto l'articolo non l'ha visto arrivare e
+    // non sa che è lì. La conferma dei referenti è il momento in cui glielo si
+    // può dire, ed è l'unico avviso che riceve.
+    if (consegnaPresidiata(a)) {
+      const to = await emailRichiedente(a)
+      if (to) {
+        notificaOrdineDaRitirare({
+          to,
+          richiedenteNome: (a.richiedenteNome || '').split(' ')[0] || '',
+          codice: a.codice,
+          descrizione: a.descrizione,
+          quantita: a.quantita,
+          luogoRitiro: luogoRitiro(),
+        }).catch(console.error)
+      } else {
+        console.warn('[acquisti] avviso di ritiro non inviato, email richiedente assente', a.codice)
+      }
+    }
   }
 
   const gestori = await emailGestori()
@@ -110,7 +166,10 @@ export async function registraEsitoConsegna(
 }
 
 /**
- * Invia (o sollecita) la richiesta di conferma consegna al richiedente.
+ * Invia (o sollecita) la richiesta di conferma consegna.
+ *
+ * Va al richiedente, tranne per le consegne presidiate: lì va ai referenti
+ * dell'ufficio, che sono gli unici a poter vedere se il pacco è arrivato.
  * Ritorna false se non c'è niente da inviare, così il cron può contare.
  */
 export async function inviaRichiestaConferma(
@@ -121,8 +180,10 @@ export async function inviaRichiestaConferma(
     console.warn('[acquisti] token di conferma assente per', a.codice)
     return false
   }
-  const to = await emailRichiedente(a)
-  if (!to) return false
+
+  const presidiata = consegnaPresidiata(a)
+  const to = presidiata ? referentiPresidio() : await emailRichiedente(a)
+  if (!to || (Array.isArray(to) && !to.length)) return false
 
   await notificaConfermaConsegna({
     to,
@@ -133,6 +194,10 @@ export async function inviaRichiestaConferma(
     urlBase: linkConsegna(a.confermaToken),
     sollecito: opts.sollecito,
     giorniAllaChiusura: opts.giorniAllaChiusura,
+    // Per i referenti la mail cambia tono: non "è arrivato il tuo ordine" ma
+    // "è arrivato l'ordine di Tizio", con l'avviso che confermando lo chiamiamo.
+    perRichiedente: presidiata ? a.richiedenteNome || 'un collega' : undefined,
+    luogoRitiro: presidiata ? luogoRitiro() : undefined,
   })
 
   await aggiornaAcquisto(

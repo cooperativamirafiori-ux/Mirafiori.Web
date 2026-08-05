@@ -19,7 +19,7 @@ import {
   graphPatch,
   graphDelete,
   graphPutBinary,
-} from '@/lib/graph'
+} from '@/lib/core/graph'
 import type { Software } from '@/types/software'
 import {
   parseEmails,
@@ -27,7 +27,7 @@ import {
   creaEvento,
   aggiornaEvento,
   eliminaEvento,
-} from '@/lib/calendar'
+} from '@/lib/core/calendar'
 
 const SITE = () => process.env.SHAREPOINT_SITE_ID!
 const LIST = () => process.env.SP_LIST_SOFTWARE!

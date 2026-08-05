@@ -10,11 +10,24 @@ import {
   URGENZA_STILE,
   dataBreve,
   euro,
+  luogoCorrisponde,
   type EsitoConsegna,
   type RichiestaAcquisto,
 } from '@/types/acquisti'
 
-export function MieRichiesteAcquisto({ iniziali }: { iniziali: RichiestaAcquisto[] }) {
+export function MieRichiesteAcquisto({
+  iniziali,
+  strutturaPresidiata,
+  luogoRitiro,
+  sonoReferente,
+}: {
+  iniziali: RichiestaAcquisto[]
+  /** Struttura in cui la consegna la confermano i referenti dell'ufficio. */
+  strutturaPresidiata: string
+  luogoRitiro: string
+  /** true se l'utente è uno dei referenti: allora i pulsanti restano. */
+  sonoReferente: boolean
+}) {
   const router = useRouter()
   const [soloAperte, setSoloAperte] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
@@ -149,7 +162,20 @@ export function MieRichiesteAcquisto({ iniziali }: { iniziali: RichiestaAcquisto
                 </div>
               )}
 
-              {inAttesaEsito && (
+              {/* Consegna presidiata: la conferma non è sua, e dirglielo qui
+                  evita che aspetti una mail che non gli arriverà. */}
+              {inAttesaEsito &&
+                luogoCorrisponde(a, strutturaPresidiata) &&
+                !sonoReferente && (
+                  <div className="pt-1">
+                    <p className="text-xs text-gray-500">
+                      La consegna viene confermata dai referenti di {luogoRitiro}. Appena lo fanno
+                      ricevi una mail e puoi passare a ritirare.
+                    </p>
+                  </div>
+                )}
+
+              {inAttesaEsito && (!luogoCorrisponde(a, strutturaPresidiata) || sonoReferente) && (
                 <div className="pt-1">
                   <p className="text-xs text-gray-500 mb-1.5">
                     È arrivato? Puoi confermare anche dalla mail che ti abbiamo mandato.
@@ -161,11 +187,7 @@ export function MieRichiesteAcquisto({ iniziali }: { iniziali: RichiestaAcquisto
                         disabled={busy === a.spItemId}
                         onClick={() => azione(a, { azione: 'esito', esito: e as EsitoConsegna })}
                         className={`text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 ${
-                          e === 'Tutto ok'
-                            ? 'bg-emerald-600 text-white'
-                            : e === 'Da restituire'
-                              ? 'bg-orange-500 text-white'
-                              : 'bg-red-600 text-white'
+                          e === 'Tutto ok' ? 'bg-emerald-600 text-white' : 'bg-orange-500 text-white'
                         }`}
                       >
                         {e}

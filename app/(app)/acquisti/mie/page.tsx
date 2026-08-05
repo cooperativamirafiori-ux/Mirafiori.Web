@@ -1,7 +1,8 @@
 import Link from 'next/link'
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/core/auth'
 import { Header } from '@/components/ui/Header'
 import { acquistiConfigurato, getAcquistiByEmail } from '@/lib/acquisti'
+import { luogoRitiro, referentiPresidio, strutturaPresidiata } from '@/lib/acquisti-flusso'
 import { MieRichiesteAcquisto } from './MieRichiesteAcquisto'
 
 export const dynamic = 'force-dynamic'
@@ -43,7 +44,14 @@ export default async function MieRichiesteAcquistoPage() {
           </div>
         </div>
 
-        <MieRichiesteAcquisto iniziali={richieste} />
+        {/* La regola della consegna presidiata sta in variabili d'ambiente, che
+            il client non legge: gliela passo come dati. */}
+        <MieRichiesteAcquisto
+          iniziali={richieste}
+          strutturaPresidiata={strutturaPresidiata()}
+          luogoRitiro={luogoRitiro()}
+          sonoReferente={referentiPresidio().includes(email.toLowerCase())}
+        />
       </main>
     </div>
   )

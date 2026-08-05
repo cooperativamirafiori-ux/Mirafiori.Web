@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/core/auth'
 import { Header } from '@/components/ui/Header'
 import { acquistiConfigurato, getAcquisti, AREA_ACQUISTI } from '@/lib/acquisti'
 import { getInventario, inventarioConfigurato } from '@/lib/inventario'

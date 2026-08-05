@@ -24,7 +24,7 @@ import {
   statoMese,
 } from '@/lib/timbrature'
 import { pubblicaFoglioOre, type NotaValidazione } from '@/lib/foglio-ore-xlsx'
-import { graphRU, type GraphClient } from '@/lib/graph-delegato'
+import { graphRU, type GraphClient } from '@/lib/core/graph-delegato'
 import { getUtentiPerArea } from '@/lib/sharepoint'
 import { AREA_HR } from '@/lib/timbrature-guard'
 import {

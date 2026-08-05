@@ -41,7 +41,7 @@
  * Env: `SP_GRUPPO_RU_ID` (object id del gruppo M365 del sito Risorse Umane).
  */
 
-import { graphGet } from '@/lib/graph'
+import { graphGet } from '@/lib/core/graph'
 
 /** Durata della cache. Le variazioni di composizione del gruppo sono rare. */
 const TTL_MS = 5 * 60_000

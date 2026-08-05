@@ -3,7 +3,7 @@
  * Replica la logica dei Flussi 2A, 2B, 2C — sincrona in-process.
  */
 
-import { graphPost } from '@/lib/graph'
+import { graphPost } from '@/lib/core/graph'
 
 /**
  * Casella di sistema: mittente di default (acquisti, manutenzioni) e
@@ -603,10 +603,10 @@ export async function notificaOrdineEffettuato(opts: {
 
 /**
  * Consegna prevista oggi (o sollecito) → richiedente.
- * I tre pulsanti sono link tokenizzati: rispondere non richiede login.
+ * I pulsanti sono link tokenizzati: rispondere non richiede login.
  */
 export async function notificaConfermaConsegna(opts: {
-  to: string
+  to: string | string[]
   richiedenteNome: string
   codice: string
   descrizione: string
@@ -614,7 +614,16 @@ export async function notificaConfermaConsegna(opts: {
   urlBase: string // .../consegna/{token}
   sollecito?: boolean
   giorniAllaChiusura?: number
+  /**
+   * Nome del richiedente, valorizzato solo per le consegne presidiate: la mail
+   * va ai referenti dell'ufficio e deve dire di chi è l'ordine, non dare del
+   * "tuo" a chi non l'ha chiesto.
+   */
+  perRichiedente?: string
+  /** Dove il richiedente verrà mandato a ritirare, da citare ai referenti. */
+  luogoRitiro?: string
 }): Promise<void> {
+  const presidiata = Boolean(opts.perRichiedente)
   const bottone = (esito: string, etichetta: string, colore: string) =>
     `<a href="${opts.urlBase}?esito=${encodeURIComponent(esito)}"
         style="background:${colore};color:#fff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:10px;display:inline-block;margin:0 8px 8px 0">
@@ -625,25 +634,72 @@ export async function notificaConfermaConsegna(opts: {
     to: opts.to,
     subject: opts.sollecito
       ? `Promemoria: com’è andata la consegna di ${opts.codice}?`
-      : `${opts.codice} — è arrivato tutto?`,
+      : presidiata
+        ? `${opts.codice} — è arrivato l’ordine di ${opts.perRichiedente}?`
+        : `${opts.codice} — è arrivato tutto?`,
     html: BOX(`
       <p style="margin:0 0 8px;font-size:16px;font-weight:700;color:#1F4E79">
-        ${opts.sollecito ? '⏰ Ci manca solo la tua conferma' : '📬 Consegna prevista oggi'}
+        ${opts.sollecito ? '⏰ Manca solo la conferma' : '📬 Consegna prevista oggi'}
       </p>
-      <p style="margin:0 0 6px">Ciao ${opts.richiedenteNome},</p>
-      <p style="margin:0 0 10px">per la richiesta <strong>${opts.codice}</strong> — ${opts.descrizione} —
-      la consegna era prevista presso <strong>${opts.luogoConsegna}</strong>.</p>
-      <p style="margin:0 0 14px">Com’è andata? Rispondi con un clic:</p>
+      ${
+        presidiata
+          ? `<p style="margin:0 0 10px">Ciao, la richiesta <strong>${opts.codice}</strong> —
+             ${opts.descrizione} — di <strong>${opts.perRichiedente}</strong> era prevista in consegna
+             presso <strong>${opts.luogoConsegna}</strong>.</p>
+             <p style="margin:0 0 14px">È arrivata? Rispondi con un clic: appena confermi,
+             ${opts.perRichiedente} riceve l’avviso che può passare a ritirarla${
+               opts.luogoRitiro ? ` in ${opts.luogoRitiro}` : ''
+             }.</p>`
+          : `<p style="margin:0 0 6px">Ciao ${opts.richiedenteNome},</p>
+             <p style="margin:0 0 10px">per la richiesta <strong>${opts.codice}</strong> — ${opts.descrizione} —
+             la consegna era prevista presso <strong>${opts.luogoConsegna}</strong>.</p>
+             <p style="margin:0 0 14px">Com’è andata? Rispondi con un clic:</p>`
+      }
       <p style="margin:0">
         ${bottone('Tutto ok', '✅ Tutto ok', '#1E7B34')}
         ${bottone('Da restituire', '↩️ Da restituire', '#E36C09')}
-        ${bottone('Non arrivato', '❌ Non arrivato', '#C00000')}
       </p>
       ${
         opts.giorniAllaChiusura != null
-          ? `<p style="margin:14px 0 0;color:#888;font-size:12px">Se non ricevo risposta, fra ${opts.giorniAllaChiusura} giorni la richiesta viene chiusa come consegnata senza riscontro.</p>`
+          ? `<p style="margin:14px 0 0;color:#888;font-size:12px">Senza risposta, fra ${opts.giorniAllaChiusura} giorni la richiesta viene chiusa come consegnata senza riscontro${
+              presidiata ? ' e nessuno avvisa il richiedente' : ''
+            }.</p>`
           : ''
       }
+    `),
+  })
+}
+
+/**
+ * Consegna presidiata confermata dai referenti → richiedente.
+ *
+ * È l'unico avviso che riceve: la merce è arrivata in un ufficio dove lui non
+ * passa, quindi senza questa mail non saprebbe di doverla ritirare.
+ */
+export async function notificaOrdineDaRitirare(opts: {
+  to: string
+  richiedenteNome: string
+  codice: string
+  descrizione: string
+  quantita: number
+  luogoRitiro: string
+}): Promise<void> {
+  await sendEmail({
+    to: opts.to,
+    subject: `${opts.codice} — il tuo ordine è arrivato, puoi ritirarlo`,
+    html: BOX(`
+      <p style="margin:0 0 8px;font-size:16px;font-weight:700;color:#1E7B34">
+        📦 Il tuo ordine è arrivato
+      </p>
+      ${opts.richiedenteNome ? `<p style="margin:0 0 6px">Ciao ${opts.richiedenteNome},</p>` : ''}
+      <p style="margin:0 0 10px">
+        <strong>${opts.descrizione}</strong>${opts.quantita > 1 ? ` ×${opts.quantita}` : ''}
+        è stato consegnato: vieni a prenderlo in <strong>${opts.luogoRitiro}</strong>.
+      </p>
+      ${TABELLA(RIGA('Richiesta', opts.codice) + RIGA('Ritiro presso', opts.luogoRitiro))}
+      <p style="margin:12px 0 0;color:#888;font-size:12px">
+        Non serve rispondere a questa mail: la consegna è già stata registrata.
+      </p>
     `),
   })
 }

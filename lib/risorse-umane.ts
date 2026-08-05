@@ -24,7 +24,7 @@
  * SHAREPOINT_SITE_ID, cioè l'assetto precedente — vedi `graphRU`.
  */
 
-import type { GraphClient } from '@/lib/graph-delegato'
+import type { GraphClient } from '@/lib/core/graph-delegato'
 import {
   RU_CONFIG,
   type RUEntity,

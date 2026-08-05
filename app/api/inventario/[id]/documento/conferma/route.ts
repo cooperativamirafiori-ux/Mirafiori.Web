@@ -11,10 +11,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { guardArea } from '@/lib/api-guard'
+import { guardArea } from '@/lib/core/api-guard'
 import { AREA_ACQUISTI } from '@/lib/acquisti'
 import { confermaDocumento, getBeneById, inventarioConfigurato } from '@/lib/inventario'
-import { logAzione } from '@/lib/audit'
+import { logAzione } from '@/lib/core/audit'
 import { TIPI_DOCUMENTO, type TipoDocumento } from '@/types/inventario'
 
 export const runtime = 'nodejs'

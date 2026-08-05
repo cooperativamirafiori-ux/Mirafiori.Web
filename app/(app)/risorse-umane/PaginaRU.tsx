@@ -1,9 +1,9 @@
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/core/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Header } from '@/components/ui/Header'
 import { getItems } from '@/lib/risorse-umane'
-import { graphRU } from '@/lib/graph-delegato'
+import { graphRU } from '@/lib/core/graph-delegato'
 import { RU_CONFIG, type RUEntity, type RURecord } from '@/types/risorse-umane'
 import { GestioneRU } from './GestioneRU'
 

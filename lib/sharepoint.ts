@@ -8,7 +8,7 @@
  *   - Le colonne lookup si scrivono come NomeCampoId: <number>
  */
 
-import { graphGet, graphPost, graphPatch, graphDelete } from '@/lib/graph'
+import { graphGet, graphPost, graphPatch, graphDelete } from '@/lib/core/graph'
 import type {
   Struttura,
   Tecnico,

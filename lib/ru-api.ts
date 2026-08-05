@@ -15,7 +15,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { guardMembroRU } from '@/lib/api-guard'
+import { guardMembroRU } from '@/lib/core/api-guard'
 import {
   getItems,
   getItem,
@@ -24,9 +24,9 @@ import {
   eliminaItem,
   validaInput,
 } from '@/lib/risorse-umane'
-import { graphRU, isRiautenticazione, isAccessoNegato } from '@/lib/graph-delegato'
+import { graphRU, isRiautenticazione, isAccessoNegato } from '@/lib/core/graph-delegato'
 import { sincronizzaRecordRU } from '@/lib/timbrature-sync'
-import { logAzione } from '@/lib/audit'
+import { logAzione } from '@/lib/core/audit'
 import { generaExportBuffer, nomeFileExport } from '@/lib/ru-export-xlsx'
 import { RU_CONFIG, type RUEntity, type RURecord } from '@/types/risorse-umane'
 

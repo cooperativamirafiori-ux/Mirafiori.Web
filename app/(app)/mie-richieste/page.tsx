@@ -1,4 +1,4 @@
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/core/auth'
 import { getRichiesteByEmail } from '@/lib/sharepoint'
 import { Header } from '@/components/ui/Header'
 import { StatoBadge } from '@/components/ui/StatoBadge'

@@ -8,7 +8,7 @@
  *   dove ROOT = SP_PRESTAZIONI_FOLDER_PATH (default "Prestazioni Occasionali")
  */
 
-import { graphGet, graphGetOrNull, graphPost, graphPatch, graphPutBinary } from '@/lib/graph'
+import { graphGet, graphGetOrNull, graphPost, graphPatch, graphPutBinary } from '@/lib/core/graph'
 import type {
   Prestazione,
   StatoPrestazione,

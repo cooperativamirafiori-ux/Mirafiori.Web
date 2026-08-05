@@ -7,7 +7,7 @@
  * Il filtro sui dati lo applica il server, non questa pagina.
  */
 
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/core/auth'
 import { redirect } from 'next/navigation'
 import { eResponsabile } from '@/lib/timbrature'
 import CruscottoTimbrature from '@/app/(app)/risorse-umane/timbrature/CruscottoTimbrature'

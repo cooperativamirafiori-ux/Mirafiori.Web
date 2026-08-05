@@ -12,7 +12,7 @@
 import { NextResponse } from 'next/server'
 import { guardHr } from '@/lib/timbrature-guard'
 import { sincronizzaTuttoRU } from '@/lib/timbrature-sync'
-import { graphRU, isRiautenticazione, isAccessoNegato } from '@/lib/graph-delegato'
+import { graphRU, isRiautenticazione, isAccessoNegato } from '@/lib/core/graph-delegato'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

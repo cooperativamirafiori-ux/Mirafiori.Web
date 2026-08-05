@@ -6,13 +6,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { guardArea } from '@/lib/api-guard'
+import { guardArea } from '@/lib/core/api-guard'
 import {
   getTutteAutorizzazioni,
   aggiungiAutorizzazione,
   AREE_PERMESSI,
 } from '@/lib/sharepoint'
-import { logAzione } from '@/lib/audit'
+import { logAzione } from '@/lib/core/audit'
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 

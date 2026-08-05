@@ -27,7 +27,7 @@
  *   Created     (automatico SP) → timestamp
  */
 
-import { graphPost } from '@/lib/graph'
+import { graphPost } from '@/lib/core/graph'
 
 export interface LogInput {
   /** Email dell'utente che compie l'azione (dalla sessione NextAuth). */

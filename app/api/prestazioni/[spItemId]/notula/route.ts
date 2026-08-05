@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { randomBytes } from 'node:crypto'
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/core/auth'
 import {
   getPrestazioneById,
   aggiornaPrestazione,
@@ -20,7 +20,7 @@ import {
 } from '@/lib/prestazioni'
 import { generaNotula, calcolaNotula } from '@/lib/documenti-prestazione'
 import { notificaNotulaAlPrestatore } from '@/lib/notifications'
-import { logAzione } from '@/lib/audit'
+import { logAzione } from '@/lib/core/audit'
 
 export const runtime = 'nodejs'
 

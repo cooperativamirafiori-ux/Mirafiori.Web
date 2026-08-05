@@ -12,9 +12,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { guardArea } from '@/lib/api-guard'
+import { guardArea } from '@/lib/core/api-guard'
 import { getSoftwareById, creaSessioneUploadFattura } from '@/lib/software'
-import { MAX_UPLOAD_BYTES, maxUploadMb } from '@/lib/upload-diretto'
+import { MAX_UPLOAD_BYTES, maxUploadMb } from '@/lib/core/upload-diretto'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

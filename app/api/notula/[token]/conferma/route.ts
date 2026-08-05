@@ -22,7 +22,7 @@ import {
   getWebUrlFile,
 } from '@/lib/prestazioni'
 import { notificaNotulaCaricata } from '@/lib/notifications'
-import { logAzione } from '@/lib/audit'
+import { logAzione } from '@/lib/core/audit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

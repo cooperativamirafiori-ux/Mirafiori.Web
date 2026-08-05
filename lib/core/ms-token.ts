@@ -8,7 +8,7 @@
  * ─── Due vincoli non negoziabili che spiegano le scelte di questo file ───
  *
  * 1. **Compatibilità Edge runtime.** `middleware.ts` fa
- *    `export { auth as middleware } from '@/lib/auth'`, e `lib/auth.ts` importa
+ *    `export { auth as middleware } from '@/lib/core/auth'`, e `lib/auth.ts` importa
  *    questo modulo per salvare i token al login. Il middleware Next.js gira in
  *    Edge runtime, dove `node:crypto` non esiste. Quindi qui si usa la **Web
  *    Crypto API** (`crypto.subtle`, presente sia in Node 18+ sia in Edge) e si

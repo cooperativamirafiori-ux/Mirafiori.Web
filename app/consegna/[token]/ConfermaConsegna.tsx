@@ -25,11 +25,6 @@ const STILE: Record<EsitoConsegna, { attivo: string; emoji: string; nota: string
     emoji: '↩️',
     nota: 'Avvisiamo chi ha fatto l’ordine, che si occuperà del reso.',
   },
-  'Non arrivato': {
-    attivo: 'bg-red-600 text-white border-red-600',
-    emoji: '❌',
-    nota: 'Avvisiamo chi ha fatto l’ordine, che verificherà con il fornitore.',
-  },
 }
 
 export function ConfermaConsegna(props: Props) {
