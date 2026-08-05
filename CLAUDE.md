@@ -95,6 +95,29 @@ Aree presenti: `acquisti` `costi` `inventario` `manutenzioni` `prestazioni` `ris
 Le mail seguono lo stesso principio: `lib/core/mailer.ts` sa **come** spedire, ogni area si porta i
 **propri** testi in `notifiche.ts`.
 
+---
+
+## Kit UI — `components/ui/`
+
+I mattoncini condivisi dell'interfaccia. **Prima di scrivere a mano un blocco
+`label` + `input`, una piastrella con un numero, o un pannello sovrapposto, guarda qui.**
+
+| Componente | A cosa serve | Note |
+|---|---|---|
+| `Campo` | campo di form completo: etichetta, controllo, aiuto, errore | il controllo lo scegli con `tipo` (`text` `textarea` `choice` `date` `number` `currency` `email` `tel`), stesso vocabolario di `RUField`. Ha `maiuscolo`, `min`/`max`/`maxLength`, e `scelte` che accetta stringhe o coppie `{valore, etichetta}` per i select dove il valore salvato è diverso da quello mostrato. Esporta `inputCls` e `labelCls` per i casi grezzi |
+| `Allegato` | campo file: etichetta, nome e peso del file scelto, avviso se sfora | separato da `Campo` perché lega un `File | null`, non una stringa. Il tetto è quello di `core/upload-diretto`, controllato qui una volta per tutte |
+| `Kpi` | piastrella di riepilogo: numero grande + didascalia | `dimensione="lg"` per i conteggi brevi, `tenue` per la variante su fondo grigio |
+| `Voce` | voce di dettaglio etichetta/valore, dentro un `<dl>` | props `t` / `v` / `span` |
+| `Pill` | etichetta tonda con pallino, per stati e categorie | usa `tono` nel codice nuovo; `cls` accetta classi esplicite |
+| `Banner` | messaggio di errore, conferma, avviso | non renderizza niente se non c'è testo: `<Banner tono="errore">{errore}</Banner>` |
+| `Vuoto` | riquadro tratteggiato "qui non c'è niente" | non mostrarlo mentre stai ancora caricando |
+| `Modale` | pannello sovrapposto | foglio dal basso su telefono, card centrata su desktop; gestisce Esc, blocco scorrimento e clic sullo sfondo |
+| `StatoBadge` | stati delle manutenzioni | scorciatoia specifica, più grande di `Pill`: restano separati di proposito |
+| `Header`, `LogoutButton` | intestazione e uscita | — |
+
+Niente file barile: si importa il singolo componente (`@/components/ui/Kpi`), così da
+`npm run mappa` si vede chi usa cosa.
+
 ### Nomi
 
 Cartelle e file in **italiano**, minuscolo, con trattini (`inserisci-costo`, `foglio-ore-xlsx.ts`).
@@ -109,20 +132,58 @@ Fatto (`scripts/riordino.mjs`, passi 1 e 2): `lib/core/` esiste; `sharepoint.ts`
 manutenzioni + costi + permessi + helper) e `notifications.ts` (1026 righe, 24 template di 4 aree)
 sono stati smistati; ogni area ha la sua cartella.
 
-**Prossimo passo — le primitive condivise.** È qui che sta la scalabilità vera, perché oggi
-`components/ui/` contiene 3 file per ~60 righe: ogni area si è ricostruita in casa tabella, filtri,
-modale, form, allegati. È *per questo* che i componenti sono da 900 righe, non perché facciano
-troppo. Due famiglie da estrarre:
+Fatto (passo 3, prima parte): il **kit UI** in `components/ui/` — vedi la sezione sopra. È additivo,
+nessuna schermata è cambiata. Adottato in `GestioneAcquisti` e `InventarioBeni`, dove `Kpi` e `Voce`
+erano duplicati identici (58 righe di copia-incolla in meno).
 
-- **dati**: un modulo generico "lista SharePoint guidata da uno schema" — il pattern schema-driven di
-  Risorse Umane, generalizzato. Dopo, un'area nuova = un file di schema + una pagina.
-- **UI**: `components/ui/` diventa un kit vero — `Tabella` (ordinamento, filtri, export),
-  `CampoForm`, `Modale`, `Allegati` (che incapsula `core/upload-diretto`).
+Una cosa da sapere, perché ribalta l'ipotesi di partenza: **queste schermate non usano tabelle.**
+C'è un solo `<table>` in tutta l'app (in `CruscottoTimbrature`); le altre sono elenchi di card con
+`grid-cols`. Quindi il pezzo grosso da estrarre non è una `Tabella` generica — è il **campo di form**
+(`Campo`), perché i blocchi `label` + `input` scritti a mano sono 21 in `NuovaPrestazioneForm`,
+15 in `GestioneSoftware`, 14 in `GestioneAcquisti`, ognuno con classi Tailwind leggermente diverse.
 
-**Poi i componenti**, e solo allora: a quel punto si sgonfiano da soli, perché il 60-70% di quei file
-è tabella + filtri + modale. Questa è l'unica fase che **cambia il comportamento**, quindi va fatta
-una schermata alla volta con prova a mano — il compilatore non ti dice se un pulsante ha smesso di
-funzionare.
+Fatto: **`NuovaPrestazioneForm` convertita** — 16 campi con `Campo`, 4 con `Allegato`, i due banner
+con `Banner`. Da 561 a 544 righe, e le tre costanti di stile locali sono sparite. È rimasto scritto a
+mano un solo `label`: la ricerca prestatore, che non è un campo del form ma una ricerca con tendina.
+
+Convertire il primo form è servito anche a **scoprire cosa mancava a `Campo`**: maiuscolo forzato
+(codice fiscale, IBAN), limiti numerici (`min`), e scelte con valore diverso dall'etichetta
+(casistica GDPR). Aggiunte perché le ha chieste un form vero, non per completezza.
+
+**Decisione presa: lo stile dei campi è uno solo**, quello del kit. Le schermate che avevano un loro
+`inputClass` cambiano leggermente aspetto quando le si converte — angoli, imbottitura, colore
+dell'anello di focus. È il senso di avere un kit; l'alternativa (una variante per schermata) avrebbe
+solo spostato il problema più in là.
+
+**Prossimo passo — `GestioneSoftware`** (15 blocchi a mano), poi `GestioneAcquisti` (14). Ogni
+schermata un commit suo.
+
+### Come verificare una conversione senza l'app in piedi
+
+L'app vera è dietro il login Entra ID e parla con SharePoint, quindi Claude non può provarla
+end-to-end. Può però **montare il singolo componente in un Chromium headless nella sua sandbox** e
+verificare comportamento e dati inviati — che è quasi tutto quello che serve. Ricetta (rifatta da
+zero ogni volta, non serve niente nel repo):
+
+1. cartella di lavoro con `react`, `react-dom`, `esbuild`, `tailwindcss`;
+2. si copiano il componente, il kit e i moduli `lib` che gli servono; si sostituiscono con finti solo
+   `next/navigation` e `lib/core/upload-diretto`;
+3. si sostituisce `window.fetch` con una versione che **registra ogni chiamata** e risponde finto;
+4. si impacchetta con esbuild (`--alias:@/components=…`), si costruisce il CSS con la vera
+   `tailwind.config`, e si pilota la pagina con Playwright.
+
+Il pezzo che paga più di tutti è il punto 3: leggendo il corpo delle richieste registrate si verifica
+che **i dati che partono siano quelli giusti** — è così che si è confermato che la casistica GDPR
+invia la chiave (`COMUNITA`) e non l'etichetta. Sulla conversione di `NuovaPrestazioneForm` sono
+passati 35 controlli su 35.
+
+E **guarda lo screenshot a fine corsa**: è stato quello, non i controlli verdi, a far notare che dopo
+il salvataggio il nome del file restava scritto accanto a "Choose File" (React non svuota un input
+file — ora lo fa `Allegato`).
+
+Il modulo dati generico ("lista SharePoint guidata da uno schema", generalizzando `RU_CONFIG` in
+`types/risorse-umane.ts`) è **rimandato di proposito**: c'è un solo esempio da cui astrarre, quindi
+farlo adesso sarebbe indovinare. Si fa quando una seconda area lo chiede davvero.
 
 Debito residuo, in ordine di peso (verifica sempre con `npm run mappa`):
 

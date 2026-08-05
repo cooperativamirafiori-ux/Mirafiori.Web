@@ -10,6 +10,8 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Kpi } from '@/components/ui/Kpi'
+import { Voce } from '@/components/ui/Voce'
 import {
   GARANZIA_STILE,
   dataBreve,
@@ -182,25 +184,6 @@ export function InventarioBeni({ iniziali, strutture }: Props) {
           ))}
         </div>
       )}
-    </div>
-  )
-}
-
-function Kpi({
-  titolo,
-  valore,
-  accento,
-}: {
-  titolo: string
-  valore: string
-  accento?: 'emerald' | 'amber'
-}) {
-  const colore =
-    accento === 'emerald' ? 'text-emerald-600' : accento === 'amber' ? 'text-amber-600' : 'text-gray-800'
-  return (
-    <div className="bg-white rounded-xl border border-gray-100 px-3.5 py-3">
-      <p className={`text-xl font-bold ${colore}`}>{valore}</p>
-      <p className="text-[11px] text-gray-500 leading-tight mt-0.5">{titolo}</p>
     </div>
   )
 }
@@ -468,15 +451,6 @@ function Scheda({
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-function Voce({ t, v, span }: { t: string; v: string; span?: boolean }) {
-  return (
-    <div className={span ? 'col-span-2' : undefined}>
-      <dt className="text-gray-500">{t}</dt>
-      <dd className="text-gray-800 font-medium whitespace-pre-wrap">{v}</dd>
     </div>
   )
 }

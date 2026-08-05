@@ -2,6 +2,8 @@
 
 import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Kpi } from '@/components/ui/Kpi'
+import { Voce } from '@/components/ui/Voce'
 import {
   CATEGORIE_SPESA,
   GARANZIA_STILE,
@@ -126,10 +128,10 @@ export function GestioneAcquisti({
     <div className="space-y-4">
       {/* KPI */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <Kpi titolo="Da valutare" valore={(conteggi['Inviata'] ?? 0) + (conteggi['Presa in carico'] ?? 0)} />
-        <Kpi titolo="Approvate, da ordinare" valore={conteggi['Approvata'] ?? 0} accento="amber" />
-        <Kpi titolo="In attesa di consegna" valore={conteggi['Ordinata'] ?? 0} accento="violet" />
-        <Kpi titolo="Problemi aperti" valore={conteggi['Problema'] ?? 0} accento="red" />
+        <Kpi dimensione="lg" titolo="Da valutare" valore={(conteggi['Inviata'] ?? 0) + (conteggi['Presa in carico'] ?? 0)} />
+        <Kpi dimensione="lg" titolo="Approvate, da ordinare" valore={conteggi['Approvata'] ?? 0} accento="amber" />
+        <Kpi dimensione="lg" titolo="In attesa di consegna" valore={conteggi['Ordinata'] ?? 0} accento="violet" />
+        <Kpi dimensione="lg" titolo="Problemi aperti" valore={conteggi['Problema'] ?? 0} accento="red" />
       </div>
       <p className="text-xs text-gray-500 px-1">
         Ordinato nel periodo: <strong>{euro(speso)}</strong> · la spesa entra nel cruscotto costi
@@ -211,31 +213,6 @@ export function GestioneAcquisti({
           ))}
         </div>
       )}
-    </div>
-  )
-}
-
-function Kpi({
-  titolo,
-  valore,
-  accento,
-}: {
-  titolo: string
-  valore: number
-  accento?: 'amber' | 'violet' | 'red'
-}) {
-  const colore =
-    accento === 'amber'
-      ? 'text-amber-600'
-      : accento === 'violet'
-        ? 'text-violet-600'
-        : accento === 'red'
-          ? 'text-red-600'
-          : 'text-gray-800'
-  return (
-    <div className="bg-white rounded-xl border border-gray-100 px-3.5 py-3">
-      <p className={`text-2xl font-bold ${colore}`}>{valore}</p>
-      <p className="text-[11px] text-gray-500 leading-tight mt-0.5">{titolo}</p>
     </div>
   )
 }
@@ -958,15 +935,6 @@ function PulsanteDocumento({
         </a>
       )}
       {errore && <p className="text-[11px] text-red-600 mt-0.5">{errore}</p>}
-    </div>
-  )
-}
-
-function Voce({ t, v, span }: { t: string; v: string; span?: boolean }) {
-  return (
-    <div className={span ? 'col-span-2' : undefined}>
-      <dt className="text-gray-500">{t}</dt>
-      <dd className="text-gray-800 font-medium whitespace-pre-wrap">{v}</dd>
     </div>
   )
 }
