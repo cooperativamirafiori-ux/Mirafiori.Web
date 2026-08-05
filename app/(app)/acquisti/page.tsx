@@ -40,7 +40,7 @@ export default async function AcquistiPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-orange-light/30 via-white to-white">
-      <Header title="Richieste Acquisto" />
+      <Header title="Richieste Acquisto" backHref="/home" backLabel="Torna alla Home" />
 
       <main className="flex-1 w-full max-w-2xl mx-auto px-5 py-7">
         {!configurato && (
@@ -87,13 +87,6 @@ export default async function AcquistiPage() {
             />
           )}
         </div>
-
-        <Link
-          href="/home"
-          className="mt-8 inline-block text-sm text-gray-500 hover:text-gray-700"
-        >
-          ← Torna alla Home
-        </Link>
       </main>
     </div>
   )

@@ -8,15 +8,10 @@ export default async function ManutenzioniPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <Header title="Manutenzioni" />
+      <Header title="Manutenzioni" backHref="/home" backLabel="Torna alla Home" />
 
       <main className="flex-1 px-4 py-7 w-full max-w-md mx-auto flex flex-col">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-primary-dark">Gestione Manutenzioni</h2>
-          <Link href="/home" className="text-sm text-gray-400 hover:text-gray-600">
-            ← Home
-          </Link>
-        </div>
+        <h2 className="text-lg font-bold text-primary-dark mb-6">Gestione Manutenzioni</h2>
 
         <section className="flex flex-col gap-4">
           <ModuloCard

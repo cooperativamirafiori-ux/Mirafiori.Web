@@ -39,15 +39,10 @@ export default async function PrestazioniAttivePage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <Header title="Prestazioni Attive" />
+      <Header title="Prestazioni Attive" backHref="/prestazioni" backLabel="Torna a Prestazioni Occasionali" />
 
       <main className="flex-1 px-4 py-7 w-full max-w-md mx-auto flex flex-col">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-primary-dark">Prestazioni in corso</h2>
-          <Link href="/prestazioni" className="text-sm text-gray-400 hover:text-gray-600">
-            ← Indietro
-          </Link>
-        </div>
+        <h2 className="text-lg font-bold text-primary-dark mb-6">Prestazioni in corso</h2>
 
         {prestazioni.length === 0 ? (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">

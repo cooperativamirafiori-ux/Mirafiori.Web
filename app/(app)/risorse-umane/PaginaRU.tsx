@@ -1,6 +1,5 @@
 import { auth } from '@/lib/core/auth'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { Header } from '@/components/ui/Header'
 import { getItems } from '@/lib/risorse-umane/data'
 import { graphRU } from '@/lib/core/graph-delegato'
@@ -38,17 +37,9 @@ export async function PaginaRU({ entity }: { entity: RUEntity }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <Header title={`Risorse Umane · ${config.label}`} />
+      <Header title={config.label} backHref="/risorse-umane" backLabel="Torna a Risorse Umane" />
 
       <main className="flex-1 px-4 py-6 max-w-3xl mx-auto w-full">
-        <Link
-          href="/risorse-umane"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-6"
-        >
-          ← Torna a Risorse Umane
-        </Link>
-
-        <h2 className="text-xl font-bold text-gray-800 mb-1">{config.label}</h2>
         <p className="text-gray-500 mb-6">{DESCRIZIONE[entity]}</p>
 
         {erroreLista && (

@@ -24,7 +24,7 @@ export default async function NuovaRichiestaAcquistoPage({
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-orange-light/20 via-white to-white">
-      <Header title="Nuova richiesta di acquisto" />
+      <Header title="Nuova richiesta di acquisto" backHref="/acquisti" backLabel="Torna a Richieste Acquisto" />
       <main className="flex-1 w-full max-w-lg mx-auto px-4 py-6">
         <NuovaRichiestaAcquistoForm
           strutture={strutture}

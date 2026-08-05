@@ -14,17 +14,12 @@ export default async function MieRichiestePage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header title="Le mie richieste" />
+      <Header title="Le mie richieste" backHref="/manutenzioni" backLabel="Torna a Manutenzioni" />
 
       <main className="flex-1 px-4 py-6 max-w-2xl mx-auto w-full">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-gray-700">
-            {richieste.length} richieste trovate
-          </h2>
-          <Link href="/manutenzioni" className="text-sm text-primary underline">
-            ← Indietro
-          </Link>
-        </div>
+        <h2 className="text-base font-semibold text-gray-700 mb-4">
+          {richieste.length} richieste trovate
+        </h2>
 
         {richieste.length === 0 ? (
           <div className="bg-white rounded-2xl shadow p-8 text-center text-gray-400">

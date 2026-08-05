@@ -1,6 +1,5 @@
 import { auth } from '@/lib/core/auth'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { Header } from '@/components/ui/Header'
 import { getSoftware } from '@/lib/software/data'
 import type { Software } from '@/types/software'
@@ -26,16 +25,9 @@ export default async function GestioneSoftwarePage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <Header title="Gestione Software" />
+      <Header title="Gestione Software" backHref="/amministrazione" backLabel="Torna all&apos;Amministrazione" />
 
       <main className="flex-1 px-4 py-6 max-w-3xl mx-auto w-full">
-        <Link
-          href="/amministrazione"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-6"
-        >
-          ← Torna all&apos;Amministrazione
-        </Link>
-
         <h2 className="text-xl font-bold text-gray-800 mb-1">Software e abbonamenti</h2>
         <p className="text-gray-500 mb-6">
           Tutti i servizi della cooperativa in un posto solo: credenziali, scadenze,

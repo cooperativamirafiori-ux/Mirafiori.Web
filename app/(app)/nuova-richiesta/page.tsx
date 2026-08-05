@@ -21,7 +21,7 @@ export default async function NuovaRichiestaPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header title="Nuova Richiesta" />
+      <Header title="Nuova Richiesta" backHref="/manutenzioni" backLabel="Torna a Manutenzioni" />
       <main className="flex-1 px-4 py-6 max-w-xl mx-auto w-full">
         <NuovaRichiestaForm
           strutture={strutture}

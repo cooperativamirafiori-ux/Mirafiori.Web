@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { auth } from '@/lib/core/auth'
 import { Header } from '@/components/ui/Header'
 import { acquistiConfigurato, getAcquisti, getFornitoriNoti, AREA_ACQUISTI } from '@/lib/acquisti/data'
@@ -17,7 +16,7 @@ export default async function GestioneAcquistiPage() {
   if (!acquistiConfigurato()) {
     return (
       <div className="min-h-screen flex flex-col">
-        <Header title="Gestione acquisti" />
+        <Header title="Gestione acquisti" backHref="/acquisti" backLabel="Torna a Richieste Acquisto" />
         <main className="flex-1 px-4 py-8 max-w-3xl mx-auto w-full">
           <div className="rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm p-4">
             La sezione non è ancora configurata: esegui{' '}
@@ -43,13 +42,8 @@ export default async function GestioneAcquistiPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <Header title="Gestione acquisti" />
+      <Header title="Gestione acquisti" backHref="/acquisti" backLabel="Torna a Richieste Acquisto" />
       <main className="flex-1 px-4 py-6 max-w-4xl mx-auto w-full">
-        <div className="flex justify-end mb-3">
-          <Link href="/acquisti" className="text-sm text-gray-500">
-            ← Indietro
-          </Link>
-        </div>
         <GestioneAcquisti
           iniziali={acquisti}
           strutture={strutture.map((s) => ({ id: s.id, label: s.strutturaLabel }))}

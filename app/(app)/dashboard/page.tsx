@@ -4,7 +4,6 @@ import { getRichiesteAperte } from '@/lib/manutenzioni/data'
 import { getTecnici } from '@/lib/strutture/data'
 import { Header } from '@/components/ui/Header'
 import { RichiestaCard } from './RichiestaCard'
-import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,7 +23,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <Header title="Pannello di controllo" />
+      <Header title="Pannello di controllo" backHref="/manutenzioni" backLabel="Torna a Manutenzioni" />
 
       <main className="flex-1 px-4 py-6 max-w-3xl mx-auto w-full space-y-6">
 
@@ -54,7 +53,6 @@ export default async function DashboardPage() {
             <h2 className="font-semibold text-gray-700">
               Richieste attive <span className="text-gray-400 font-normal">({richieste.length})</span>
             </h2>
-            <Link href="/manutenzioni" className="text-sm text-primary underline">← Indietro</Link>
           </div>
 
           {richieste.length === 0 ? (

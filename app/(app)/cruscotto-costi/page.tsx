@@ -79,7 +79,7 @@ export default async function CruscottoCostiPage({
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <Header title="Cruscotto Costi" />
+      <Header title="Cruscotto Costi" backHref="/manutenzioni" backLabel="Torna a Manutenzioni" />
       <main className="flex-1 px-4 py-6 max-w-3xl mx-auto w-full">
         <CruscottoCosti
           righe={righe}

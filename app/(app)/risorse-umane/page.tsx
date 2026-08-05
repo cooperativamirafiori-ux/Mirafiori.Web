@@ -58,16 +58,9 @@ export default async function RisorseUmanePage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <Header title="Risorse Umane" />
+      <Header title="Risorse Umane" backHref="/home" backLabel="Torna alla Home" />
 
       <main className="flex-1 px-4 py-6 max-w-3xl mx-auto w-full">
-        <Link
-          href="/home"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-6"
-        >
-          ← Torna alla home
-        </Link>
-
         <h2 className="text-xl font-bold text-gray-800 mb-1">Area riservata</h2>
         <p className="text-gray-500 mb-6">
           Consultazione e gestione del personale: dipendenti e collaboratori (anagrafica unica) e tirocini.

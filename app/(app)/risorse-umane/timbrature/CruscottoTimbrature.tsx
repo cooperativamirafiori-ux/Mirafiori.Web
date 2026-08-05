@@ -332,7 +332,7 @@ export default function CruscottoTimbrature() {
     <div className="min-h-screen bg-gray-50">
       <div className="bg-primary text-white px-5 py-4">
         <Link href={isHr ? '/risorse-umane' : '/home'} className="text-white/70 text-sm hover:text-white">
-          ← {isHr ? 'Risorse Umane' : 'Home'}
+          ← {isHr ? 'Torna a Risorse Umane' : 'Torna alla Home'}
         </Link>
         <h1 className="text-lg font-bold">Fogli ore da validare</h1>
         <p className="text-white/70 text-xs mt-0.5">

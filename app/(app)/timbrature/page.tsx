@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { auth } from '@/lib/core/auth'
 import { redirect } from 'next/navigation'
+import { Header } from '@/components/ui/Header'
 import { dipendenteAbilitato, eResponsabile } from '@/lib/timbrature/data'
 import TimbratureOperatore from './TimbratureOperatore'
 
@@ -51,10 +52,7 @@ function BarraResponsabile() {
 function NonAbilitato({ responsabile }: { responsabile: boolean }) {
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-primary text-white px-5 pt-4 pb-3">
-        <Link href="/home" className="text-white/70 text-sm hover:text-white">← Home</Link>
-        <h1 className="text-lg font-bold">Timbrature</h1>
-      </div>
+      <Header title="Timbrature" backHref="/home" backLabel="Torna alla Home" />
       <div className="max-w-xl mx-auto px-4 py-8">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center">
           <div className="text-4xl mb-3">🔒</div>
@@ -71,9 +69,6 @@ function NonAbilitato({ responsabile }: { responsabile: boolean }) {
               Vai ai fogli ore dei tuoi collaboratori →
             </Link>
           )}
-          <Link href="/home" className="inline-block text-sm font-semibold text-brand-cyan-dark">
-            Torna alla home
-          </Link>
         </div>
       </div>
     </div>

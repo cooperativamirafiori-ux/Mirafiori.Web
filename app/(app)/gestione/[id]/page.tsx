@@ -24,7 +24,7 @@ export default async function GestioneRichiestaPage({
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header title="Gestione richiesta" />
+      <Header title="Gestione richiesta" backHref="/dashboard" backLabel="Torna al Pannello di controllo" />
 
       <main className="flex-1 px-4 py-6 max-w-xl mx-auto w-full space-y-5">
         {/* Riepilogo richiesta */}

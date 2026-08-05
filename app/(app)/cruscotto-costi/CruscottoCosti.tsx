@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import type { CostoPerStruttura } from '@/types/manutenzioni'
 
 interface Props {
@@ -44,20 +43,15 @@ export function CruscottoCosti({
         <h2 className="font-semibold text-gray-700">
           Costi per struttura — {anno}
         </h2>
-        <div className="flex items-center gap-2">
-          <select
-            value={anno}
-            onChange={(e) => router.push(`/cruscotto-costi?anno=${e.target.value}`)}
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            {anni.map((a) => (
-              <option key={a} value={a}>{a}</option>
-            ))}
-          </select>
-          <Link href="/manutenzioni" className="text-sm text-primary underline">
-            ← Indietro
-          </Link>
-        </div>
+        <select
+          value={anno}
+          onChange={(e) => router.push(`/cruscotto-costi?anno=${e.target.value}`)}
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+        >
+          {anni.map((a) => (
+            <option key={a} value={a}>{a}</option>
+          ))}
+        </select>
       </div>
 
       {/* KPI */}

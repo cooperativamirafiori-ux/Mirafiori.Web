@@ -282,16 +282,7 @@ export function NuovaPrestazioneForm() {
   }
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-primary-dark">Nuova prestazione occasionale</h2>
-        <button
-          type="button"
-          onClick={() => router.push('/prestazioni')}
-          className="text-sm text-gray-400 hover:text-gray-600"
-        >
-          ← Indietro
-        </button>
-      </div>
+      <h2 className="text-lg font-semibold text-primary-dark">Nuova prestazione occasionale</h2>
 
       <Banner tono="errore">{error}</Banner>
       <Banner tono="ok">{success}</Banner>

@@ -120,7 +120,7 @@ I mattoncini condivisi dell'interfaccia. **Prima di scrivere a mano un blocco
 | `Vuoto` | riquadro tratteggiato "qui non c'è niente" | non mostrarlo mentre stai ancora caricando |
 | `Modale` | pannello sovrapposto | foglio dal basso su telefono, card centrata su desktop; gestisce Esc, blocco scorrimento e clic sullo sfondo |
 | `StatoBadge` | stati delle manutenzioni | scorciatoia specifica, più grande di `Pill`: restano separati di proposito |
-| `Header`, `LogoutButton` | intestazione e uscita | — |
+| `Header`, `LogoutButton` | intestazione, uscita e navigazione | `backHref`/`backLabel` per il link "torna a…" — vedi § Navigazione |
 
 Niente file barile: si importa il singolo componente (`@/components/ui/Kpi`), così da
 `npm run mappa` si vede chi usa cosa.
@@ -130,6 +130,42 @@ Niente file barile: si importa il singolo componente (`@/components/ui/Kpi`), co
 Cartelle e file in **italiano**, minuscolo, con trattini (`inserisci-costo`, `foglio-ore-xlsx.ts`).
 Componenti React in `PascalCase` (`CruscottoTimbrature.tsx`). Le route API rispecchiano il nome
 dell'area, sempre.
+
+---
+
+## Navigazione — tasti indietro/home
+
+Decisa il 5 ago 2026 con Dennis, dopo una revisione di tutta l'app: erano cresciuti almeno sette
+testi diversi ("← Indietro", "← Home", "← Torna alla home", "← Acquisti"...) sparsi in punti diversi
+della pagina (sopra il titolo, accanto, in fondo, dentro la barra blu solo in Timbrature), con una
+pagina (`gestione/[id]`) senza alcun link e un'altra (Timbrature) con due link ridondanti.
+
+**Regola unica**: il link di navigazione verso la sezione superiore vive dentro `Header`
+(`components/ui/Header.tsx`), mai scritto a mano pagina per pagina.
+
+```tsx
+<Header title="Gestione Software" backHref="/amministrazione" backLabel="Torna all'Amministrazione" />
+```
+
+- **Sempre nello stesso punto**: riga sopra il titolo, dentro la barra blu. Mai a metà pagina, mai in
+  fondo, mai duplicato.
+- **`backLabel` è la frase intera**, articolo compreso ("Torna alla Home", "Torna a Risorse Umane",
+  "Torna all'Amministrazione") — `Header` la stampa così com'è, non compone lui l'articolo giusto.
+- **Un livello alla volta**: si torna al genitore diretto nella gerarchia (Permessi → Amministrazione,
+  Dipendenti → Risorse Umane), non sempre a Home. Le sezioni di primo livello (figlie di `/home`:
+  Acquisti, Manutenzioni, Timbrature, Risorse Umane, Amministrazione, Prestazioni, Amazing) tornano a
+  Home. Così il link funziona anche da breadcrumb implicito.
+- **`backHref` si omette solo in `/home`** (nessun genitore) e nelle pagine token-based fuori
+  dall'app (`/foglio-ore/[token]`, `/notula/[token]`, `/consegna/[token]`, `/login`).
+- **Non è lo stesso link del pulsante "Annulla/Indietro" in fondo ai form** (accanto a "Salva"):
+  quello è un'azione di cancellazione del form, resta dov'è e come sempre.
+- **Non è lo stesso caso del "torna all'elenco" dentro `GestioneRU`**: lì non si cambia pagina, si
+  torna a una vista interna (stato React). Resta un bottone semplice nel corpo della pagina, non va
+  dentro `Header` — altrimenti sembra un cambio di sezione quando non lo è.
+
+**Aggiungendo un'area nuova**: passare sempre `backHref`/`backLabel` al primo `Header` della pagina,
+verso il genitore nella tabella § Mappa. Vedi anche `mirafiori-architettura` e i memo del 5 ago 2026
+in cui è stata decisa questa convenzione.
 
 ---
 

@@ -42,7 +42,7 @@ export default async function InserisciCostoPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <Header title="Inserisci Costo" />
+      <Header title="Inserisci Costo" backHref="/manutenzioni" backLabel="Torna a Manutenzioni" />
       <main className="flex-1 px-4 py-6 max-w-xl mx-auto w-full">
         <InserisciCostoForm
           strutture={strutture}

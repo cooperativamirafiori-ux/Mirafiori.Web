@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
+import { Header } from '@/components/ui/Header'
 import type { Servizio, Timbratura, RiepilogoPeriodo, OrePerVoce, FinestraMese } from '@/types/timbrature'
 
 const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
@@ -328,10 +328,7 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       {/* Barra */}
-      <div className="bg-primary text-white px-5 pt-4 pb-3">
-        <Link href="/home" className="text-white/70 text-sm hover:text-white">← Home</Link>
-        <h1 className="text-lg font-bold">Timbrature</h1>
-      </div>
+      <Header title="Timbrature" backHref="/home" backLabel="Torna alla Home" />
 
       {/* Tab */}
       <div className="bg-primary px-4 pb-3">
