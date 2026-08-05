@@ -10,7 +10,7 @@
  * blocchi di codice **verbatim** e si riscrivono gli import. Tutto ciò che rompe
  * lo fa a tempo di compilazione, quindi dopo ogni passo:
  *
- *   npx tsc --noEmit
+ *   npx tsc --noEmit      (senza commenti sulla stessa riga: zsh non li ignora)
  *
  * Per annullare tutto:  git checkout . && git clean -fd lib
  */
@@ -430,13 +430,15 @@ function esito(problemi, passo) {
     process.exitCode = 1
     return
   }
-  console.log(`\n✅ Passo ${passo} fatto. Adesso, in quest'ordine:
+  console.log(`\n✅ Passo ${passo} fatto. Adesso, in quest'ordine — un comando per riga,
+   senza aggiungere commenti sulla stessa riga (zsh non li ignora):
 
-   npx tsc --noEmit          # il controllo che conta: deve finire senza errori
-   npm run mappa             # aggiorna MAPPA.md con la nuova struttura
+   npx tsc --noEmit
+   npm run mappa
    git add -A && git commit -m "Riordino passo ${passo}"
 
-   Se tsc dà errori: incollali a Claude. Per annullare tutto:
+   Il primo è quello che conta: deve finire senza stampare niente.
+   Se dà errori, incollali a Claude. Per annullare tutto:
    git checkout . && git clean -fd lib
 `)
 }

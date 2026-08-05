@@ -163,16 +163,29 @@ Debito residuo, in ordine di peso (verifica sempre con `npm run mappa`):
 
 ## Comandi
 
-```bash
-npm run dev            # sviluppo locale
-npx tsc --noEmit       # controllo dei tipi — la rete di sicurezza, non ci sono test
-npm run build          # farlo prima di proporre un push
-npm run lint
-npm run mappa          # rigenera MAPPA.md: aree, righe per file, export, dipendenze
+**Nota:** Dennis usa **zsh**, che *non* ignora i commenti `#` a fine riga incollati nel terminale.
+Nei comandi da dare a lui, mai commenti sulla stessa riga: la spiegazione va sopra, o fuori dal blocco.
 
-node scripts/riordino.mjs <1|2>     # riordino architetturale (già eseguiti entrambi)
-node scripts/sp-liste.mjs           # elenca le liste SharePoint del sito
-node scripts/get-site-id.mjs        # ricava il SHAREPOINT_SITE_ID
-node scripts/setup-env-locale.mjs   # rigenera .env.local
-node scripts/ru-assetto.mjs         # interruttore A/B dell'area RU
+```bash
+npm run dev
+npx tsc --noEmit
+npm run build
+npm run lint
+npm run mappa
 ```
+
+`npx tsc --noEmit` è il controllo dei tipi: la rete di sicurezza, dato che non ci sono test.
+`npm run build` va fatto prima di proporre un push. `npm run mappa` rigenera `MAPPA.md`.
+
+```bash
+node scripts/riordino.mjs 1
+node scripts/riordino.mjs 2
+node scripts/sp-liste.mjs
+node scripts/get-site-id.mjs
+node scripts/setup-env-locale.mjs
+node scripts/ru-assetto.mjs
+```
+
+Nell'ordine: i due passi del riordino architetturale (già eseguiti entrambi); l'elenco delle liste
+SharePoint del sito; il `SHAREPOINT_SITE_ID`; la rigenerazione di `.env.local`; l'interruttore A/B
+dell'area RU.
