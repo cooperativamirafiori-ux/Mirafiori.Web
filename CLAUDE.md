@@ -133,6 +133,41 @@ dell'area, sempre.
 
 ---
 
+## Aggiungere un'area nuova
+
+Dennis dirà solo il nome, con la parola che userebbe lui: «nuova sezione Formazione». Il resto si
+ricava da qui, senza fargli ricordare niente.
+
+**Prima, le quattro cose che non si possono indovinare — chiederle:**
+
+1. Dove stanno i dati: una lista **SharePoint** (come quasi tutto) o **Supabase** (come le timbrature)?
+2. Chi ci entra: serve una voce nuova in `AREE_PERMESSI` (`lib/core/permessi.ts`) o basta l'accesso generale?
+3. Manda **email**? → `lib/<area>/notifiche.ts` appoggiato a `core/mailer`.
+4. Servono **allegati** (→ `core/upload-diretto` + `Allegato`) o un **promemoria automatico**
+   (→ `app/api/cron/<area>/`)?
+
+**Poi, la scatola:**
+
+- `lib/<area>/`: `schema.ts` (campi e mapping SP), `data.ts` (letture/scritture), `flusso.ts` (regole
+  di stato), `notifiche.ts` (testi delle mail) — solo quelli che servono davvero
+- `app/(app)/<area>/`: `page.tsx` (server component: auth, permessi, fetch iniziale) + `_componenti/`
+- `app/api/<area>/`: route sottili, che validano e chiamano `lib/<area>`
+- `types/<area>.ts` per i tipi
+- `scripts/provision-<area>.mjs` se ci sono liste o campi da creare su SharePoint
+- `docs/<area>.md` con setup e **decisioni prese**: il perché, che dal codice non si ricava
+
+**UI col kit** (§ Kit UI): non riscrivere a mano campi, piastrelle, banner, stati vuoti, modali.
+
+**Registrare l'area in due posti, o la mappa mente:**
+
+- l'elenco `AREE` in `scripts/mappa.mjs` — se si salta, i suoi file compaiono in "non mappati"
+- la tabella § Mappa qui sopra
+
+Infine la card sulla home (`app/(app)/home/page.tsx`, nella sezione giusta), poi `npm run mappa` e
+`npx tsc --noEmit` prima di proporre il commit.
+
+---
+
 ## Dove siamo nel riordino
 
 Fatto (`scripts/riordino.mjs`, passi 1 e 2): `lib/core/` esiste; `sharepoint.ts` (494 righe, mescolava
