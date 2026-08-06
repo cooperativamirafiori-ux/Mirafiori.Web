@@ -7,8 +7,10 @@
  *      nel mese che sta per chiudersi;
  *   2. finestra scaduta → i mesi ancora aperti passano in "da validare" e i
  *      responsabili ricevono l'elenco dei fogli da controllare;
- *   3. fogli fermi in "da validare" o "contestato" → promemoria quotidiano al
- *      responsabile, finche' non li guarda;
+ *   3. fogli del mese precedente fermi in "da validare" o "contestato" →
+ *      promemoria quotidiano al responsabile (solo al referente reale, mai
+ *      alle HR), finche' non li guarda. I fogli piu' vecchi non vengono
+ *      risollecitati per mail: restano visibili nel cruscotto;
  *   4. fogli "validato" senza risposta → promemoria quotidiano al dipendente.
  *      Il foglio resta in sospeso: nessuna conferma automatica. Se la risposta
  *      non arriva mai, e' il responsabile a chiudere d'ufficio dal cruscotto.
@@ -31,7 +33,7 @@ import {
 import { notificaFogliDaValidare, notificaSollecitoTimbrature } from '@/lib/timbrature/notifiche'
 import {
   MESI_IT,
-  destinatariValidazione,
+  destinatarioResponsabile,
   inviaRichiestaConferma,
   linkTimbrature,
   linkValidazione,
@@ -100,14 +102,20 @@ export async function GET(req: NextRequest) {
     }
     esito.passati_in_validazione = appenaPassati.size
 
-    // --- 3) promemoria ai responsabili ----------------------------------------
-    const inAttesa = await chiusureInStato(['da_validare', 'contestato'])
+    // --- 3) promemoria ai responsabili, solo mese precedente ------------------
+    // Su richiesta di Dennis (06/08/2026): non si risollecitano piu' per mail i
+    // mesi ancora prima del precedente (restano nel cruscotto, non intasano la
+    // mail), e non c'e' piu' ripiego alle HR quando manca il referente.
+    const inAttesaTutte = await chiusureInStato(['da_validare', 'contestato'])
+    const inAttesa = inAttesaTutte.filter(
+      ({ chiusura }) => chiusura.anno === prec.anno && chiusura.mese === prec.mese,
+    )
     const perResponsabile = new Map<
       string,
       { nominativi: string[]; mese: number; anno: number; fermiDa: number; nuovi: boolean }
     >()
     for (const { chiusura, dipendente } of inAttesa) {
-      const destinatari = await destinatariValidazione(dipendente)
+      const destinatari = destinatarioResponsabile(dipendente)
       // "Fermo da": dal giorno in cui la palla e' passata al responsabile, non
       // dall'inizio del mese, altrimenti un mese appena chiuso sembra in ritardo.
       const fermiDa = giorniDa(
@@ -139,6 +147,7 @@ export async function GET(req: NextRequest) {
     }
     esito.responsabili_avvisati = perResponsabile.size
     esito.fogli_da_validare = inAttesa.length
+    esito.fogli_da_validare_arretrati = inAttesaTutte.length - inAttesa.length
 
     // --- 4) promemoria ai dipendenti che non hanno ancora confermato ----------
     const daConfermare = await chiusureInStato(['validato'])

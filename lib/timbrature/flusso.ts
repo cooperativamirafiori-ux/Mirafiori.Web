@@ -59,6 +59,16 @@ export async function destinatariValidazione(dip: Dipendente): Promise<string[]>
 }
 
 /**
+ * Come destinatariValidazione, ma senza il ripiego alle HR: usata dal
+ * sollecito automatico ai responsabili (cron), che non deve piu' arrivare
+ * alle HR quando manca il referente. Chi resta senza referente compare solo
+ * nell'avviso "senza referente" del cruscotto HR, non per mail.
+ */
+export function destinatarioResponsabile(dip: Dipendente): string[] {
+  return dip.referenteEmail ? [dip.referenteEmail] : []
+}
+
+/**
  * Identita' con cui scrivere su SharePoint.
  *
  * Si prova sempre a usare una persona reale, cosi' il log nativo di Microsoft
