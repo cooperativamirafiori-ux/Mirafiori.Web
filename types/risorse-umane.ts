@@ -172,16 +172,18 @@ const ANAGRAFICA_COMUNE: readonly RUField[] = [
 ]
 
 const CONTATTI_COMUNE: readonly RUField[] = [
-  { key: 'IndirizzoResidenza', label: 'Indirizzo di residenza', type: 'text', section: 'Contatti e residenza' },
-  { key: 'CapResidenza', label: 'CAP di residenza', type: 'text', section: 'Contatti e residenza' },
-  { key: 'ComuneResidenza', label: 'Comune di residenza', type: 'text', section: 'Contatti e residenza' },
-  { key: 'IndirizzoDomicilio', label: 'Indirizzo di domicilio', type: 'text', section: 'Contatti e residenza' },
-  { key: 'CapDomicilio', label: 'CAP di domicilio', type: 'text', section: 'Contatti e residenza' },
-  { key: 'ComuneDomicilio', label: 'Comune di domicilio', type: 'text', section: 'Contatti e residenza' },
-  { key: 'CellAziendale', label: 'Cellulare aziendale', type: 'tel', section: 'Contatti e residenza' },
-  { key: 'CellPrivato', label: 'Cellulare privato', type: 'tel', section: 'Contatti e residenza' },
-  { key: 'MailAziendale', label: 'Mail aziendale', type: 'email', section: 'Contatti e residenza' },
-  { key: 'MailPersonale', label: 'Mail personale', type: 'email', section: 'Contatti e residenza' },
+  { key: 'CellAziendale', label: 'Cellulare aziendale', type: 'tel', section: 'Contatti' },
+  { key: 'CellPrivato', label: 'Cellulare privato', type: 'tel', section: 'Contatti' },
+  { key: 'MailAziendale', label: 'Mail aziendale', type: 'email', section: 'Contatti' },
+  { key: 'MailPersonale', label: 'Mail personale', type: 'email', section: 'Contatti' },
+
+  { key: 'IndirizzoResidenza', label: 'Indirizzo di residenza', type: 'text', section: 'Residenza' },
+  { key: 'CapResidenza', label: 'CAP di residenza', type: 'text', section: 'Residenza' },
+  { key: 'ComuneResidenza', label: 'Comune di residenza', type: 'text', section: 'Residenza' },
+
+  { key: 'IndirizzoDomicilio', label: 'Indirizzo di domicilio', type: 'text', section: 'Domicilio' },
+  { key: 'CapDomicilio', label: 'CAP di domicilio', type: 'text', section: 'Domicilio' },
+  { key: 'ComuneDomicilio', label: 'Comune di domicilio', type: 'text', section: 'Domicilio' },
 ]
 
 const FORMAZIONE_COMUNE: readonly RUField[] = [
