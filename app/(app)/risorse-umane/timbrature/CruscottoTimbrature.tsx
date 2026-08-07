@@ -69,6 +69,8 @@ interface FormRiga {
   oraFine: string
   mutua: boolean
   note: string
+  /** Solo per giustificativi "ad ore": scelto "alcune ore" invece di giornata intera. */
+  adOre: boolean
 }
 
 export default function CruscottoTimbrature() {
@@ -254,6 +256,7 @@ export default function CruscottoTimbrature() {
     setRigaForm({
       data: `${anno}-${String(mese).padStart(2, '0')}-01`,
       servizioId: '', oraInizio: '09:00', oraFine: '13:00', mutua: false, note: '',
+      adOre: false,
     })
   }
   function modificaRiga(t: Timbratura) {
@@ -261,6 +264,8 @@ export default function CruscottoTimbrature() {
       id: t.id, data: t.data, servizioId: t.servizioId,
       oraInizio: t.oraInizio ?? '', oraFine: t.oraFine ?? '',
       mutua: t.mutua, note: t.note ?? '',
+      // Un giustificativo con orario salvato era stato preso "ad ore".
+      adOre: t.tipoVoce === 'giustificativo' && !!t.oraInizio,
     })
   }
 
@@ -269,6 +274,9 @@ export default function CruscottoTimbrature() {
     return dettaglio.servizi.find((s) => s.id === Number(rigaForm.servizioId))
   }, [dettaglio, rigaForm])
   const rigaGiustificativo = servizioSelezionato?.tipoVoce === 'giustificativo'
+  const rigaPuoAdOre = rigaGiustificativo && !!servizioSelezionato?.adOre
+  const rigaAdOreAttivo = rigaPuoAdOre && !!rigaForm?.adOre
+  const rigaContaOrario = !rigaGiustificativo || rigaAdOreAttivo
 
   async function salvaRiga() {
     if (!dettaglio || !rigaForm) return
@@ -279,8 +287,8 @@ export default function CruscottoTimbrature() {
         dipendenteId: dettaglio.dipendente.id,
         data: rigaForm.data,
         servizioId: Number(rigaForm.servizioId),
-        oraInizio: rigaGiustificativo ? null : rigaForm.oraInizio,
-        oraFine: rigaGiustificativo ? null : rigaForm.oraFine,
+        oraInizio: rigaContaOrario ? rigaForm.oraInizio : null,
+        oraFine: rigaContaOrario ? rigaForm.oraFine : null,
         mutua: rigaGiustificativo ? false : rigaForm.mutua,
         note: rigaForm.note || null,
       }
@@ -676,7 +684,7 @@ export default function CruscottoTimbrature() {
                     Servizio
                     <select
                       value={rigaForm.servizioId}
-                      onChange={(e) => setRigaForm({ ...rigaForm, servizioId: e.target.value ? Number(e.target.value) : '' })}
+                      onChange={(e) => setRigaForm({ ...rigaForm, servizioId: e.target.value ? Number(e.target.value) : '', adOre: false })}
                       className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm mt-0.5"
                     >
                       <option value="">— scegli —</option>
@@ -693,22 +701,42 @@ export default function CruscottoTimbrature() {
                     </select>
                   </label>
                 </div>
-                {!rigaGiustificativo && (
+                {rigaPuoAdOre && (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setRigaForm({ ...rigaForm, adOre: false })}
+                      className={`flex-1 py-1.5 rounded-lg border text-xs font-semibold ${!rigaForm.adOre ? 'bg-brand-cyan text-white border-brand-cyan' : 'bg-white text-gray-600 border-gray-300'}`}
+                    >
+                      Giornata intera
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRigaForm({ ...rigaForm, adOre: true })}
+                      className={`flex-1 py-1.5 rounded-lg border text-xs font-semibold ${rigaForm.adOre ? 'bg-brand-cyan text-white border-brand-cyan' : 'bg-white text-gray-600 border-gray-300'}`}
+                    >
+                      Alcune ore
+                    </button>
+                  </div>
+                )}
+                {rigaContaOrario && (
                   <div className="flex gap-2">
                     <label className="flex-1 text-xs text-gray-600">
-                      Ingresso
+                      {rigaGiustificativo ? 'Dalle' : 'Ingresso'}
                       <input type="time" value={rigaForm.oraInizio} onChange={(e) => setRigaForm({ ...rigaForm, oraInizio: e.target.value })}
                         className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm mt-0.5" />
                     </label>
                     <label className="flex-1 text-xs text-gray-600">
-                      Uscita
+                      {rigaGiustificativo ? 'Alle' : 'Uscita'}
                       <input type="time" value={rigaForm.oraFine} onChange={(e) => setRigaForm({ ...rigaForm, oraFine: e.target.value })}
                         className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm mt-0.5" />
                     </label>
-                    <label className="flex items-end gap-1 text-xs text-gray-600 pb-1.5">
-                      <input type="checkbox" checked={rigaForm.mutua} onChange={(e) => setRigaForm({ ...rigaForm, mutua: e.target.checked })} />
-                      Mutua
-                    </label>
+                    {!rigaGiustificativo && (
+                      <label className="flex items-end gap-1 text-xs text-gray-600 pb-1.5">
+                        <input type="checkbox" checked={rigaForm.mutua} onChange={(e) => setRigaForm({ ...rigaForm, mutua: e.target.checked })} />
+                        Mutua
+                      </label>
+                    )}
                   </div>
                 )}
                 <label className="block text-xs text-gray-600">

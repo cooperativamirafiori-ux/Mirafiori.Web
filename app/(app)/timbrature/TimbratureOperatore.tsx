@@ -78,6 +78,8 @@ interface FormRiga {
   oraFine: string
   mutua: boolean
   note: string
+  /** Solo per giustificativi "ad ore": scelto "alcune ore" invece di giornata intera. */
+  adOre: boolean
 }
 
 export default function TimbratureOperatore({ nome }: { nome: string }) {
@@ -250,6 +252,7 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
       oraFine: minToHhmm(inizioMin + Math.round(durata * 60)),
       mutua: false,
       note: '',
+      adOre: false,
     })
   }
   function modificaRiga(t: Timbratura) {
@@ -257,6 +260,8 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
       id: t.id, data: t.data, servizioId: t.servizioId,
       oraInizio: t.oraInizio ?? '', oraFine: t.oraFine ?? '',
       mutua: t.mutua, note: t.note ?? '',
+      // Un giustificativo con orario salvato era stato preso "ad ore".
+      adOre: t.tipoVoce === 'giustificativo' && !!t.oraInizio,
     })
   }
 
@@ -270,23 +275,29 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
 
   const servSelezionato = form && form.servizioId ? servizioById.get(Number(form.servizioId)) : undefined
   const isGiust = servSelezionato?.tipoVoce === 'giustificativo'
+  // Alcuni giustificativi (Ferie, Flessibilità, Congedo parentale, Legge 104,
+  // Permessi retribuiti) si possono prendere anche per una fascia oraria,
+  // non solo a giornata intera.
+  const puoAdOre = isGiust && !!servSelezionato?.adOre
+  const adOreAttivo = puoAdOre && !!form?.adOre
+  const contaOrario = !isGiust || adOreAttivo
   // Ore della riga in compilazione: sempre derivate dagli orari, mai digitate.
-  const calcForm = form && !isGiust ? oreTra(form.oraInizio, form.oraFine) : null
+  const calcForm = form && contaOrario ? oreTra(form.oraInizio, form.oraFine) : null
 
   async function salva() {
     if (!form) return
     if (!form.servizioId) { setErrore('Seleziona un servizio'); return }
-    if (!isGiust) {
-      if (!form.oraInizio || !form.oraFine) { setErrore('Inserisci orario di ingresso e di uscita'); return }
+    if (contaOrario) {
+      if (!form.oraInizio || !form.oraFine) { setErrore('Inserisci orario di inizio e di fine'); return }
       if (!calcForm) { setErrore('Orario non valido (formato atteso HH:mm)'); return }
-      if (form.oraInizio === form.oraFine) { setErrore('Ingresso e uscita non possono coincidere'); return }
+      if (form.oraInizio === form.oraFine) { setErrore('Inizio e fine non possono coincidere'); return }
     }
     setSalvando(true); setErrore('')
     try {
       const payload = {
         data: form.data, servizioId: Number(form.servizioId),
-        oraInizio: isGiust ? null : form.oraInizio,
-        oraFine: isGiust ? null : form.oraFine,
+        oraInizio: contaOrario ? form.oraInizio : null,
+        oraFine: contaOrario ? form.oraFine : null,
         mutua: isGiust ? false : form.mutua, note: form.note || null,
       }
       const url = form.id ? `/api/timbrature/${form.id}` : '/api/timbrature'
@@ -607,7 +618,7 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
             </div>
             <select
               value={form.servizioId}
-              onChange={(e) => setForm({ ...form, servizioId: e.target.value ? Number(e.target.value) : '' })}
+              onChange={(e) => setForm({ ...form, servizioId: e.target.value ? Number(e.target.value) : '', adOre: false })}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4 text-sm"
             >
               <option value="">{soloGiustificativi ? '— scegli una voce —' : '— altri servizi / giustificativi —'}</option>
@@ -625,12 +636,32 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
               </optgroup>
             </select>
 
-            {/* Ingresso / uscita (solo lavoro) */}
-            {!isGiust && (
+            {/* Giornata intera / ad ore (solo per i giustificativi che lo ammettono) */}
+            {puoAdOre && (
+              <div className="flex gap-2 mb-4">
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, adOre: false })}
+                  className={`flex-1 py-2 rounded-xl text-sm font-semibold border transition ${!form.adOre ? 'bg-brand-cyan text-white border-brand-cyan' : 'bg-white text-gray-700 border-gray-300 hover:border-brand-cyan'}`}
+                >
+                  Giornata intera
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, adOre: true })}
+                  className={`flex-1 py-2 rounded-xl text-sm font-semibold border transition ${form.adOre ? 'bg-brand-cyan text-white border-brand-cyan' : 'bg-white text-gray-700 border-gray-300 hover:border-brand-cyan'}`}
+                >
+                  Alcune ore
+                </button>
+              </div>
+            )}
+
+            {/* Ingresso / uscita: lavoro, oppure giustificativo preso ad ore */}
+            {contaOrario && (
               <>
                 <div className="flex gap-3 mb-2">
                   <div className="flex-1">
-                    <label className="block text-sm font-semibold text-gray-600 mb-1">Ingresso</label>
+                    <label className="block text-sm font-semibold text-gray-600 mb-1">{isGiust ? 'Dalle' : 'Ingresso'}</label>
                     <input
                       type="time"
                       value={form.oraInizio}
@@ -639,7 +670,7 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="block text-sm font-semibold text-gray-600 mb-1">Uscita</label>
+                    <label className="block text-sm font-semibold text-gray-600 mb-1">{isGiust ? 'Alle' : 'Uscita'}</label>
                     <input
                       type="time"
                       value={form.oraFine}
@@ -681,16 +712,20 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
                   ))}
                 </div>
 
-                <label className="flex items-center gap-2 text-sm text-gray-700 mb-4">
-                  <input type="checkbox" checked={form.mutua} onChange={(e) => setForm({ ...form, mutua: e.target.checked })} />
-                  Malattia (Mutua)
-                </label>
+                {!isGiust && (
+                  <label className="flex items-center gap-2 text-sm text-gray-700 mb-4">
+                    <input type="checkbox" checked={form.mutua} onChange={(e) => setForm({ ...form, mutua: e.target.checked })} />
+                    Malattia (Mutua)
+                  </label>
+                )}
                 <p className="text-xs text-gray-500 mb-4 bg-gray-50 rounded-lg px-3 py-2">
-                  Se la giornata è spezzata (es. mattina e pomeriggio) inserisci una riga per ogni fascia oraria.
+                  {isGiust
+                    ? 'Se ti serve solo una parte della giornata, indica la fascia oraria: il resto del monte ore atteso resta da coprire con lavoro o un\'altra voce.'
+                    : 'Se la giornata è spezzata (es. mattina e pomeriggio) inserisci una riga per ogni fascia oraria.'}
                 </p>
               </>
             )}
-            {isGiust && (
+            {isGiust && !adOreAttivo && (
               <p className="text-xs text-gray-500 mb-4 bg-gray-50 rounded-lg px-3 py-2">Il giustificativo occupa automaticamente il monte ore atteso della giornata.</p>
             )}
 

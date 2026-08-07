@@ -33,6 +33,9 @@ export interface Servizio {
   tipoVoce: TipoVoce
   attivo: boolean
   ordine: number
+  /** Solo per i giustificativi: puo' essere preso anche per una fascia oraria
+   *  (dalle-alle), non solo a giornata intera. Es. Ferie, Permessi retribuiti. */
+  adOre: boolean
 }
 
 export interface Dipendente {

@@ -138,6 +138,7 @@ function mapServizio(r: any): Servizio {
     tipoVoce: r.tipo_voce,
     attivo: r.attivo,
     ordine: r.ordine,
+    adOre: !!r.ad_ore,
   }
 }
 
@@ -472,7 +473,11 @@ async function servizioById(id: number): Promise<Servizio> {
 /**
  * Determina orari, ore e flag notte di una voce.
  *
- * - giustificativo: nessun orario, ore = monte ore atteso di quel giorno
+ * - giustificativo "ad ore" (Ferie, Flessibilità, Congedo parentale, Legge 104,
+ *   Permessi retribuiti) CON ingresso e uscita: si comporta come il lavoro,
+ *   le ore sono calcolate dagli orari al minuto esatto.
+ * - giustificativo (anche ad ore, se lasciato senza orario): nessun orario,
+ *   ore = monte ore atteso di quel giorno (giornata intera).
  * - lavoro: ingresso e uscita OBBLIGATORI, ore calcolate dagli orari al minuto
  *   esatto. Il campo `ore` eventualmente ricevuto in input viene ignorato:
  *   le ore non sono un dato inserito ma un dato derivato.
@@ -483,6 +488,14 @@ async function risolviVoce(
   serv: Servizio,
 ): Promise<{ oraInizio: string | null; oraFine: string | null; ore: number; notte: boolean }> {
   if (serv.tipoVoce === 'giustificativo') {
+    if (serv.adOre && (input.oraInizio || input.oraFine)) {
+      const oraInizio = normalizzaOrario(input.oraInizio, 'Orario di inizio')
+      const oraFine = normalizzaOrario(input.oraFine, 'Orario di fine')
+      if (!oraInizio || !oraFine) throw new Error('Inserisci l\'orario di inizio e di fine')
+      if (oraInizio === oraFine) throw new Error('Inizio e fine non possono coincidere')
+      const calc = calcolaOre(oraInizio, oraFine)
+      return { oraInizio, oraFine, ore: calc.ore, notte: calc.notte }
+    }
     const prof = await profiloVigente(dipendenteId, input.data)
     const monte = monteToSettimana(prof)
     return {
