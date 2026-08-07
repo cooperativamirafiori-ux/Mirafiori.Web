@@ -127,16 +127,22 @@ const MAPPING = [
     },
   },
   {
-    excel: 'Indirizzo + Comune + Pr + Cap', sp: 'Residenza', enabled: true,
+    // Residenza è stata spezzata in due campi il 2026-08-07 (CittaResidenza +
+    // IndirizzoResidenza): vedi types/risorse-umane.ts. Questa riga scrive la
+    // sola città (Comune + Cap + Provincia); l'indirizzo è la voce successiva.
+    excel: 'Comune + Pr + Cap', sp: 'CittaResidenza', enabled: true,
     transform: (r) => {
-      const ind = s(r['Indirizzo'])
       const comune = s(r['Comune'])
       const pr = s(r['Pr'])
       const cap = s(r['Cap'])
-      if (!ind && !comune) return null
-      const parte2 = [cap, comune].filter(Boolean).join(' ') + (pr ? ` (${pr})` : '')
-      return [ind, parte2].filter(Boolean).join(', ')
+      if (!comune) return null
+      const base = [cap, comune].filter(Boolean).join(' ')
+      return pr ? `${base} (${pr})` : base
     },
+  },
+  {
+    excel: 'Indirizzo', sp: 'IndirizzoResidenza', enabled: true,
+    transform: (r) => s(r['Indirizzo']) || null,
   },
 
   // --- rapporto di lavoro: diretti/sicuri ---

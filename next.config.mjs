@@ -11,6 +11,9 @@ const nextConfig = {
     '/api/prestazioni/[spItemId]/notula': [
       './lib/templates/prestazione-occasionale/**',
     ],
+    '/api/risorse-umane/dipendenti/[id]/scheda-socio': [
+      './lib/templates/scheda-socio/**',
+    ],
   },
 }
 

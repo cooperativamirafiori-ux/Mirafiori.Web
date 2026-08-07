@@ -28,6 +28,7 @@ import { graphRU, isRiautenticazione, isAccessoNegato } from '@/lib/core/graph-d
 import { sincronizzaRecordRU } from '@/lib/timbrature/sync'
 import { logAzione } from '@/lib/core/audit'
 import { generaExportBuffer, nomeFileExport } from '@/lib/risorse-umane/export-xlsx'
+import { generaSchedaSocioBuffer, nomeFileSchedaSocio } from '@/lib/risorse-umane/export-scheda-socio'
 import { RU_CONFIG, type RUEntity, type RURecord } from '@/types/risorse-umane'
 
 /**
@@ -198,6 +199,50 @@ export function exportHandler(entity: RUEntity) {
   }
 
   return { POST }
+}
+
+/**
+ * Handler "Scheda socio": genera per UN record l'export .xlsx precompilato
+ * a partire dal modello del libro soci (vedi lib/risorse-umane/export-scheda-socio.ts).
+ *
+ *   export const { GET } = schedaSocioHandler('dipendenti')
+ */
+export function schedaSocioHandler(entity: RUEntity) {
+  async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const g = await guardMembroRU()
+    if (g.error) return g.error
+    const { id } = await params
+    if (!id) return NextResponse.json({ error: 'ID mancante' }, { status: 400 })
+    try {
+      const gc = await graphRU(g.session.user.email)
+      const item = await getItem(gc, entity, id)
+      const buffer = await generaSchedaSocioBuffer(item)
+      const filename = nomeFileSchedaSocio(item)
+
+      await logAzione({
+        utente: g.session.user.email,
+        nome: g.session.user.name,
+        azione: `ru.${ENTITA_SINGOLARE[entity]}.scheda-socio`,
+        entita: ENTITA_SINGOLARE[entity],
+        entitaId: id,
+        dettagli: { nominativo: nominativoDa(item) },
+      })
+
+      const body = new Uint8Array(buffer)
+      return new NextResponse(body, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Content-Disposition': `attachment; filename="${filename}"`,
+          'Content-Length': String(body.byteLength),
+        },
+      })
+    } catch (e) {
+      return errore(e, 'Errore generazione scheda socio')
+    }
+  }
+
+  return { GET }
 }
 
 export function itemHandlers(entity: RUEntity) {

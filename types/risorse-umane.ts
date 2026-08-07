@@ -172,8 +172,12 @@ const ANAGRAFICA_COMUNE: readonly RUField[] = [
 ]
 
 const CONTATTI_COMUNE: readonly RUField[] = [
-  { key: 'Residenza', label: 'Residenza', type: 'text', section: 'Contatti e residenza' },
-  { key: 'Domicilio', label: 'Domicilio', type: 'text', section: 'Contatti e residenza' },
+  { key: 'IndirizzoResidenza', label: 'Indirizzo di residenza', type: 'text', section: 'Contatti e residenza' },
+  { key: 'CapResidenza', label: 'CAP di residenza', type: 'text', section: 'Contatti e residenza' },
+  { key: 'ComuneResidenza', label: 'Comune di residenza', type: 'text', section: 'Contatti e residenza' },
+  { key: 'IndirizzoDomicilio', label: 'Indirizzo di domicilio', type: 'text', section: 'Contatti e residenza' },
+  { key: 'CapDomicilio', label: 'CAP di domicilio', type: 'text', section: 'Contatti e residenza' },
+  { key: 'ComuneDomicilio', label: 'Comune di domicilio', type: 'text', section: 'Contatti e residenza' },
   { key: 'CellAziendale', label: 'Cellulare aziendale', type: 'tel', section: 'Contatti e residenza' },
   { key: 'CellPrivato', label: 'Cellulare privato', type: 'tel', section: 'Contatti e residenza' },
   { key: 'MailAziendale', label: 'Mail aziendale', type: 'email', section: 'Contatti e residenza' },
@@ -247,6 +251,7 @@ const DIPENDENTI_SPECIFICI: readonly RUField[] = [
   { key: 'FondoPensioneDettaglio', label: 'Fondo pensione / dettaglio', type: 'text', section: 'Dati bancari e previdenza' },
 
   { key: 'Socio', label: 'Socio', type: 'choice', choices: SINO, section: 'Socio' },
+  { key: 'NumeroElencoGenerale', label: 'N. Elenco Generale', type: 'number', section: 'Socio' },
   { key: 'DataAmmissioneSocio', label: 'Data ammissione socio', type: 'date', section: 'Socio' },
   { key: 'QuotaSociale', label: 'Quota sociale sottoscritta', type: 'currency', section: 'Socio' },
   { key: 'QuotaSocialeVersata', label: 'Quota sociale già versata', type: 'currency', section: 'Socio' },

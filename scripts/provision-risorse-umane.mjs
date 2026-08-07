@@ -114,8 +114,18 @@ const COMUNE_COLS = [
   { name: 'Nazionalita', ...text() },
   { name: 'AreaGeografica', ...choice(AREA_GEO) },
   { name: 'StatoCivile', ...choice(STATO_CIVILE) },
-  { name: 'Residenza', ...text() },
-  { name: 'Domicilio', ...text() },
+  // 'Residenza', 'Domicilio' e 'CittaResidenza' (storiche, dismesse dallo
+  // schema/UI il 2026-08-07/08-08, sostituite dai 6 campi sotto — Indirizzo/
+  // CAP/Comune per Residenza e per Domicilio, popolati a mano da Dennis nel
+  // file "Dipendenti_indirizzi_split.xlsx" e scritti con
+  // scripts/applica-indirizzi-split.mjs): non ricreate qui, ma NON vanno
+  // eliminate dalla lista SharePoint — restano come storico/backup.
+  { name: 'IndirizzoResidenza', ...text() },
+  { name: 'CapResidenza', ...text() },
+  { name: 'ComuneResidenza', ...text() },
+  { name: 'IndirizzoDomicilio', ...text() },
+  { name: 'CapDomicilio', ...text() },
+  { name: 'ComuneDomicilio', ...text() },
   { name: 'CellAziendale', ...text() },
   { name: 'CellPrivato', ...text() },
   { name: 'MailAziendale', ...text() },
@@ -153,6 +163,7 @@ const DIPENDENTI_SPEC = [
   { name: 'AdesioneFondoPensione', ...choice(SINO) },
   { name: 'FondoPensioneDettaglio', ...text() },
   { name: 'Socio', ...choice(SINO) },
+  { name: 'NumeroElencoGenerale', ...number() },
   { name: 'DataAmmissioneSocio', ...dateOnly() },
   { name: 'QuotaSociale', ...currency() },
   { name: 'QuotaSocialeVersata', ...currency() },

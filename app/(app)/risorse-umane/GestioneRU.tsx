@@ -220,6 +220,8 @@ export function GestioneRU({ entity, iniziali }: Props) {
     return c === 'Dipendente' || c === 'Collaboratore' ? c : 'Tutti'
   })
   const [dettaglio, setDettaglio] = useState<RURecord | null>(null)
+  const [schedaSocioBusy, setSchedaSocioBusy] = useState(false)
+  const [schedaSocioErrore, setSchedaSocioErrore] = useState<string | null>(null)
   const [formAperto, setFormAperto] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState<Record<string, string>>(() => formInizialeDa(null, fields))
@@ -383,6 +385,25 @@ export function GestioneRU({ entity, iniziali }: Props) {
     }
   }
 
+  async function scaricaSchedaSocio(r: RURecord) {
+    if (schedaSocioBusy) return
+    setSchedaSocioBusy(true)
+    setSchedaSocioErrore(null)
+    try {
+      const res = await fetch(`/api/risorse-umane/dipendenti/${r.spItemId}/scheda-socio`)
+      if (!res.ok) throw new Error(await messaggioErrore(res, 'Errore generazione scheda socio'))
+      const blob = await res.blob()
+      const dispo = res.headers.get('Content-Disposition') ?? ''
+      const match = dispo.match(/filename="?([^"]+)"?/)
+      const filename = match?.[1] ?? 'Scheda_Progressiva.xlsx'
+      scaricaBlob(blob, filename)
+    } catch (e) {
+      setSchedaSocioErrore(e instanceof Error ? e.message : 'Errore di rete')
+    } finally {
+      setSchedaSocioBusy(false)
+    }
+  }
+
   function set(k: string, v: string) {
     setForm((p) => ({ ...p, [k]: v }))
   }
@@ -525,6 +546,15 @@ export function GestioneRU({ entity, iniziali }: Props) {
             ← Torna all&apos;elenco
           </button>
           <div className="flex gap-2">
+            {isDip && (
+              <button
+                onClick={() => scaricaSchedaSocio(dettaglio)}
+                disabled={schedaSocioBusy}
+                className="text-sm font-semibold text-gray-700 border border-gray-200 bg-white px-3 py-1.5 rounded-xl hover:bg-gray-50 disabled:opacity-50"
+              >
+                {schedaSocioBusy ? 'Generazione…' : 'Scheda socio'}
+              </button>
+            )}
             <button
               onClick={() => apriModifica(dettaglio)}
               className="text-sm font-semibold text-emerald-700 border border-emerald-200 bg-emerald-50 px-3 py-1.5 rounded-xl hover:bg-emerald-100"
@@ -557,6 +587,12 @@ export function GestioneRU({ entity, iniziali }: Props) {
         {errore && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
             {errore}
+          </div>
+        )}
+
+        {schedaSocioErrore && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+            {schedaSocioErrore}
           </div>
         )}
 
