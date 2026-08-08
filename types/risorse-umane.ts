@@ -258,6 +258,10 @@ const DIPENDENTI_SPECIFICI: readonly RUField[] = [
   { key: 'QuotaSociale', label: 'Quota sociale sottoscritta', type: 'currency', section: 'Socio' },
   { key: 'QuotaSocialeVersata', label: 'Quota sociale già versata', type: 'currency', section: 'Socio' },
   { key: 'QuotaSocialeRestituita', label: 'Quota sociale restituita', type: 'currency', section: 'Socio' },
+  // Sotto l'importo, non altrove: le due informazioni si leggono insieme.
+  // Una data sola perche' la restituzione e' un evento unico (deciso con Dennis
+  // l'8 ago 2026); se un domani capitassero piu' tranche servirebbe altro.
+  { key: 'DataRestituzioneQuota', label: 'Data restituzione quota sociale', type: 'date', section: 'Socio' },
   { key: 'DataDimissioneSocio', label: 'Data dimissione socio', type: 'date', section: 'Socio' },
 
   { key: 'InvalidoSvantaggiato', label: 'Invalido civile / svantaggiato', type: 'choice', choices: SINO, section: 'Svantaggio e informazioni personali' },

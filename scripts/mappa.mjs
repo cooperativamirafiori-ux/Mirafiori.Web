@@ -76,7 +76,7 @@ const AREE = [
       'scripts/provision-risorse-umane', 'scripts/ru-', 'scripts/import-', 'scripts/migra',
       'scripts/completa-mail-aziendali', 'scripts/extract-da-accdb', 'scripts/fix-cf',
       'scripts/diagnosi-gruppo-ru', 'scripts/vercel-env-ru', 'scripts/elimina-lista-collaboratori',
-      'scripts/cedolini-mansione-map',
+      'scripts/cedolini-mansione-map', 'scripts/aggiungi-colonna-ru',
     ],
   },
   {
