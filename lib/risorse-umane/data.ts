@@ -374,6 +374,34 @@ export async function caricaDocumentoDipendente(
 }
 
 /**
+ * La scheda RU di una persona, cercata per mail.
+ *
+ * E' il ponte per chi conosce una persona solo dalla sua mail — le Timbrature,
+ * dove il collegamento fra i due mondi e' la mail aziendale — e ha bisogno dello
+ * `spItemId` per arrivare alla cartella personale. Si guarda anche la mail
+ * personale, perche' capita che l'account con cui si entra nell'app sia quello.
+ *
+ * Sta qui perche' e' una domanda sull'anagrafica RU: prima era scritta a mano
+ * dentro `pubblicaFoglioOre`, e replicarla al secondo chiamante avrebbe voluto
+ * dire due punti da correggere il giorno che cambia il criterio.
+ */
+export async function trovaSchedaPerEmail(
+  g: GraphClient,
+  email: string,
+): Promise<RURecord | null> {
+  const em = (email || '').trim().toLowerCase()
+  if (!em) return null
+  const dipendenti = await getItems(g, 'dipendenti')
+  return (
+    dipendenti.find(
+      (d) =>
+        String(d.MailAziendale ?? '').toLowerCase() === em ||
+        String(d.MailPersonale ?? '').toLowerCase() === em,
+    ) ?? null
+  )
+}
+
+/**
  * Carica un documento in una cartella qualsiasi della raccolta del sito RU,
  * creando il percorso se non c'e'.
  *

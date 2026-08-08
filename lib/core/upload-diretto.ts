@@ -87,13 +87,27 @@ export async function caricaDirettamente<T = unknown>(opzioni: {
   urlSessione: string
   /** Campi extra da inviare insieme a filename/dimensione */
   datiSessione?: Record<string, unknown>
-  /** URL della nostra API di conferma (POST JSON con { nomeFile }) */
+  /** URL della nostra API di conferma (JSON con { nomeFile }) */
   urlConferma: string
+  /**
+   * Verbo della conferma. Default POST. Serve quando apertura e conferma stanno
+   * sulla STESSA route — POST apre, PUT conferma — invece che su due indirizzi
+   * diversi: due passaggi della stessa operazione sulla stessa risorsa.
+   */
+  metodoConferma?: 'POST' | 'PUT' | 'PATCH'
   /** Campi extra da inviare alla conferma */
   datiConferma?: Record<string, unknown>
   onAvanzamento?: (percentuale: number) => void
 }): Promise<T> {
-  const { file, urlSessione, datiSessione, urlConferma, datiConferma, onAvanzamento } = opzioni
+  const {
+    file,
+    urlSessione,
+    datiSessione,
+    urlConferma,
+    metodoConferma = 'POST',
+    datiConferma,
+    onAvanzamento,
+  } = opzioni
 
   if (file.size > MAX_UPLOAD_BYTES) {
     throw new Error(`File troppo grande (max ${maxUploadMb()} MB): ${file.name}`)
@@ -120,7 +134,7 @@ export async function caricaDirettamente<T = unknown>(opzioni: {
   await inviaFileABlocchi(uploadUrl, file, onAvanzamento)
 
   const resConferma = await fetch(urlConferma, {
-    method: 'POST',
+    method: metodoConferma,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ nomeFile, ...datiConferma }),
   })

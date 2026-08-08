@@ -382,12 +382,7 @@ export async function pubblicaFoglioOre(
   const { graphApplicativo } = await import('@/lib/core/graph-delegato')
   const gc = gRU ?? graphApplicativo()
 
-  const dipendenti = await ru.getItems(gc, 'dipendenti')
-  const match = dipendenti.find(
-    (d: any) =>
-      String(d.MailAziendale ?? '').toLowerCase() === dip.email.toLowerCase() ||
-      String(d.MailPersonale ?? '').toLowerCase() === dip.email.toLowerCase(),
-  )
+  const match = await ru.trovaSchedaPerEmail(gc, dip.email)
   if (!match) throw new DipendenteFuoriAnagrafica(dip.email, dip.cognomeNome)
 
   const spId = String(match.spItemId)

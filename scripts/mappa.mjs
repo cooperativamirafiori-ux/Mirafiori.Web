@@ -77,6 +77,7 @@ const AREE = [
       'scripts/completa-mail-aziendali', 'scripts/extract-da-accdb', 'scripts/fix-cf',
       'scripts/diagnosi-gruppo-ru', 'scripts/vercel-env-ru', 'scripts/elimina-lista-collaboratori',
       'scripts/cedolini-mansione-map', 'scripts/aggiungi-colonna-ru',
+      'scripts/crea-cartelle-dipendenti', 'scripts/diagnosi-stato-rapporto',
     ],
   },
   {

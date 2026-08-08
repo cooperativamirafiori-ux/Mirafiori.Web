@@ -128,6 +128,19 @@ firmata), non la rotazione dei turni — quella il modello non la esprime e serv
 altro. Storico visibile, decorrenza libera, motivo in chiaro, cancellazione,
 allegato.
 
+L'allegato passa da `lib/core/upload-diretto`, come tutti gli altri file dell'app:
+i byte non toccano il nostro server. Il ponte fra i due mondi è
+`trovaSchedaPerEmail` — in Timbrature la persona è la sua mail, la cartella
+personale sta su una scheda RU — la stessa funzione che usa l'archiviazione del
+foglio ore, estratta perché ora ha due chiamanti.
+
+La lettera si carica **prima** di registrare la variazione: se il caricamento
+fallisce non resta una variazione che dichiara un documento inesistente.
+
+Il pannello sta in `_componenti/VariazioniOrario.tsx`: ha stato suo, due chiamate
+sue e nessun legame col resto della schermata, e il cruscotto era arrivato a 1025
+righe. Estratto, è tornato a 848.
+
 ### 10. Foglio ore in doppia copia
 
 Andava in **un solo posto**, e se il match per mail con l'anagrafica RU falliva
@@ -266,12 +279,8 @@ rifiutato): tutti verdi.
 
 ## Cosa resta
 
-1. **Allegato della variazione orario.** Colonne, parametro `file` di
-   `salvaProfilo` e visualizzazione del link ci sono; manca il caricamento del
-   file, che richiede una route di sessione verso la cartella personale
-   (`creaSessioneUploadDocumento` vuole lo `spItemId` di RU, che il cruscotto
-   Timbrature non ha ancora).
-2. **Dotazioni e residui** (import in pausa).
-3. **Punti 7 e 8.**
-4. `npm run build` in locale: nella sandbox non sta nei tempi (filesystem
+1. **Dotazioni e residui** di ferie, F.S. e flessibilità (import in pausa: si
+   valuta il CSV dalle paghe invece della lettura dei PDF).
+2. **Punti 7 e 8.**
+3. `npm run build` in locale: nella sandbox non sta nei tempi (filesystem
    montato), quindi va lanciato sul Mac prima del push.

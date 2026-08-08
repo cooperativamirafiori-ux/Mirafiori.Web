@@ -15,6 +15,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { VariazioniOrario } from './_componenti/VariazioniOrario'
 import {
   ETICHETTA_STATO,
   type StatoDipendenteMese,
@@ -27,7 +28,6 @@ import {
 } from '@/types/timbrature'
 
 const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
-const GG = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
 const oreFmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, ''))
 const segno = (n: number) => (n >= 0 ? '+' : '') + oreFmt(n)
 const gg = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}`
@@ -88,14 +88,10 @@ export default function CruscottoTimbrature() {
   const [visionati, setVisionati] = useState<Set<number>>(new Set())
   const [dettaglio, setDettaglio] = useState<Dettaglio | null>(null)
   const [azione, setAzione] = useState(false)
-  const [profiloForm, setProfiloForm] = useState<Record<number, string>>({})
   const [rigaForm, setRigaForm] = useState<FormRiga | null>(null)
   const [sincronizzando, setSincronizzando] = useState(false)
   const [esitoSync, setEsitoSync] = useState<string>('')
   const [ordine, setOrdine] = useState<'nome' | 'flessibilita'>('nome')
-  /** Data da cui vale la variazione di orario che si sta registrando. */
-  const [decorrenza, setDecorrenza] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`)
-  const [motivoVariazione, setMotivoVariazione] = useState('')
 
   const isHr = ruolo === 'hr'
 
@@ -152,11 +148,6 @@ export default function CruscottoTimbrature() {
       setDettaglio(d)
       setRigaForm(null)
       setVisionati((s) => new Set(s).add(dipendenteId))
-      const p: ProfiloOrario | undefined = d.profili?.[0]
-      setProfiloForm({
-        1: String(p?.oreLun ?? ''), 2: String(p?.oreMar ?? ''), 3: String(p?.oreMer ?? ''),
-        4: String(p?.oreGio ?? ''), 5: String(p?.oreVen ?? ''), 6: String(p?.oreSab ?? ''), 7: String(p?.oreDom ?? ''),
-      })
     } catch (e) {
       setErrore(e instanceof Error ? e.message : 'Errore')
     }
@@ -258,59 +249,6 @@ export default function CruscottoTimbrature() {
    * guardando: un passaggio a part-time puo' partire il 16, e con la data
    * imposta sarebbe stato impossibile registrarlo per come e' andato davvero.
    */
-  async function salvaProfilo() {
-    if (!dettaglio) return
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(decorrenza)) { setErrore('Indica la data di decorrenza'); return }
-    setAzione(true); setErrore('')
-    try {
-      const ore = Object.fromEntries(Object.entries(profiloForm).map(([k, v]) => [k, Number(v) || 0]))
-      const r = await fetch('/api/timbrature/hr/profilo', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dipendenteId: dettaglio.dipendente.id,
-          decorrenza,
-          ore,
-          motivo: motivoVariazione || null,
-        }),
-      })
-      const d = await r.json()
-      if (!r.ok) throw new Error(d.error || 'Errore')
-      setMotivoVariazione('')
-      await apriDettaglio(dettaglio.dipendente.id)
-      await carica()
-    } catch (e) {
-      setErrore(e instanceof Error ? e.message : 'Errore')
-    } finally {
-      setAzione(false)
-    }
-  }
-
-  /**
-   * Cancella una variazione.
-   *
-   * Serve perche' il salvataggio e' idempotente sulla data: registrare quella
-   * giusta non fa sparire quella sbagliata, che continua a valere per il periodo
-   * in cui e' la piu' recente. Senza cancellazione l'errore resta per sempre.
-   */
-  async function eliminaVariazione(id: number, dataDecorrenza: string) {
-    if (!dettaglio) return
-    if (!confirm(`Cancellare la variazione dal ${gg(dataDecorrenza)}?\n\nDa quel giorno torneranno a valere le ore della variazione precedente, e le ore attese dei mesi interessati si ricalcolano.`)) return
-    setAzione(true); setErrore('')
-    try {
-      const r = await fetch(`/api/timbrature/hr/profilo?id=${id}&dipendenteId=${dettaglio.dipendente.id}`, {
-        method: 'DELETE',
-      })
-      const d = await r.json()
-      if (!r.ok) throw new Error(d.error || 'Errore')
-      await apriDettaglio(dettaglio.dipendente.id)
-      await carica()
-    } catch (e) {
-      setErrore(e instanceof Error ? e.message : 'Errore')
-    } finally {
-      setAzione(false)
-    }
-  }
-
   // ---------------------------------------------------------------- righe
   function nuovaRiga() {
     if (!dettaglio) return
@@ -696,94 +634,14 @@ export default function CruscottoTimbrature() {
             )}
 
             {isHr && (
-              <div className="border border-gray-200 rounded-xl p-3 mb-5">
-                <div className="font-semibold text-gray-700 text-sm mb-1">Variazioni orario</div>
-                <p className="text-xs text-gray-500 mb-3">
-                  Il monte ore vigente a una data è la variazione più recente che parte da quella data
-                  o da prima. Determina le ore attese di ogni giornata, quindi la completezza, i
-                  solleciti e la flessibilità: una decorrenza sbagliata riscrive le ore attese dei mesi
-                  passati.
-                </p>
-
-                {/* Lo storico: prima non si vedeva, e le variazioni vecchie restavano invisibili. */}
-                <div className="space-y-1 mb-3">
-                  {dettaglio.profili.length === 0 && (
-                    <p className="text-xs text-amber-700">
-                      ⚠ Nessun orario registrato: senza ore attese nessuna giornata risulta mai
-                      incompleta e i solleciti automatici non partono.
-                    </p>
-                  )}
-                  {dettaglio.profili.map((p) => {
-                    const ore = [p.oreLun, p.oreMar, p.oreMer, p.oreGio, p.oreVen, p.oreSab, p.oreDom]
-                    const tot = ore.reduce((s, n) => s + n, 0)
-                    return (
-                      <div key={p.id} className="flex items-start justify-between gap-2 text-xs border-b border-gray-50 pb-1">
-                        <div className="min-w-0">
-                          <span className="font-semibold text-gray-700">dal {gg(p.decorrenza)}</span>
-                          <span className="text-gray-500"> · {ore.map((n) => oreFmt(n)).join('-')} = {oreFmt(tot)} h/sett.</span>
-                          {p.motivo && <div className="text-gray-500 truncate">{p.motivo}</div>}
-                          <div className="text-gray-400">
-                            {p.aggiornatoDa ?? '—'}
-                            {p.fileUrl && (
-                              <>
-                                {' · '}
-                                <a href={p.fileUrl} target="_blank" rel="noopener noreferrer" className="text-brand-cyan-dark hover:underline">
-                                  {p.fileNome || 'lettera'}
-                                </a>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => eliminaVariazione(p.id, p.decorrenza)}
-                          disabled={azione}
-                          title="Cancella questa variazione"
-                          className="text-red-500 hover:text-red-700 shrink-0 disabled:opacity-50"
-                        >
-                          elimina
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-
-                <div className="grid grid-cols-7 gap-1 mb-2">
-                  {GG.map((g, i) => (
-                    <div key={g} className="text-center">
-                      <div className="text-[10px] text-gray-400">{g}</div>
-                      <input
-                        value={profiloForm[i + 1] ?? ''}
-                        onChange={(e) => setProfiloForm({ ...profiloForm, [i + 1]: e.target.value })}
-                        className="w-full border border-gray-300 rounded px-1 py-1 text-center text-sm"
-                        inputMode="decimal"
-                      />
-                    </div>
-                  ))}
-                </div>
-                <div className="flex flex-wrap gap-2 items-end mb-2">
-                  <label className="text-xs text-gray-600">
-                    Decorrenza
-                    <input
-                      type="date"
-                      value={decorrenza}
-                      onChange={(e) => setDecorrenza(e.target.value)}
-                      className="block border border-gray-300 rounded-lg px-2 py-1.5 text-sm mt-0.5"
-                    />
-                  </label>
-                  <label className="text-xs text-gray-600 flex-1 min-w-[180px]">
-                    Motivo
-                    <input
-                      value={motivoVariazione}
-                      onChange={(e) => setMotivoVariazione(e.target.value)}
-                      placeholder="es. passaggio a part-time 20 ore su richiesta del dipendente"
-                      className="block w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm mt-0.5"
-                    />
-                  </label>
-                </div>
-                <button onClick={salvaProfilo} disabled={azione} className="text-sm bg-emerald-600 text-white rounded-lg px-3 py-1.5 font-semibold disabled:opacity-50">
-                  Registra variazione
-                </button>
-              </div>
+              <VariazioniOrario
+                dipendenteId={dettaglio.dipendente.id}
+                profili={dettaglio.profili}
+                onAggiornato={async () => {
+                  await apriDettaglio(dettaglio.dipendente.id)
+                  await carica()
+                }}
+              />
             )}
 
             {/* Righe del mese */}
