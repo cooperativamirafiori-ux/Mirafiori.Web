@@ -107,6 +107,12 @@ export default function CruscottoTimbrature() {
     )
   }, [righe, ordine])
 
+  /** Stesso criterio del server (lib/timbrature/riepilogo.ts): scoperta = non completa e non festiva. */
+  const giorniScoperti = useMemo(
+    () => (dettaglio?.riepilogo.giorni ?? []).filter((g) => !g.completo && !g.festivo),
+    [dettaglio],
+  )
+
   const festivoByData = useMemo(() => {
     const m = new Map<string, string>()
     dettaglio?.riepilogo.giorni.forEach((g) => {
@@ -366,6 +372,28 @@ export default function CruscottoTimbrature() {
           <button onClick={() => cambiaMese(1)} className="text-2xl text-gray-400 hover:text-gray-700 px-2">›</button>
         </div>
 
+        {/*
+          L'ordinamento per flessibilita' sta qui e non piu' sull'intestazione di
+          una colonna: la colonna non c'e' piu', ma il gesto — vedere in cima chi
+          sta accumulando un debito di ore — serve ancora.
+        */}
+        <div className="flex items-center justify-end gap-2 mb-3 text-xs text-gray-500">
+          <span>Ordina per</span>
+          <button
+            onClick={() => setOrdine('nome')}
+            className={`px-2 py-1 rounded-lg border ${ordine === 'nome' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white border-gray-300 hover:border-gray-400'}`}
+          >
+            nome
+          </button>
+          <button
+            onClick={() => setOrdine('flessibilita')}
+            title="I saldi di flessibilità più negativi in cima"
+            className={`px-2 py-1 rounded-lg border ${ordine === 'flessibilita' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white border-gray-300 hover:border-gray-400'}`}
+          >
+            flessibilità
+          </button>
+        </div>
+
         {isHr && (
           <div className="flex items-center justify-between gap-3 bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3 mb-4">
             <div className="text-xs text-gray-500">
@@ -402,29 +430,16 @@ export default function CruscottoTimbrature() {
         ) : (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <table className="w-full text-sm">
+              {/*
+                Poche colonne di proposito: l'elenco serve a scegliere chi
+                aprire, non a leggere i numeri. Settimane, giorni incompleti,
+                flessibilita' e giustificativi stanno nella scheda che si apre
+                con "Controlla", dove c'e' lo spazio per mostrarli davvero.
+              */}
               <thead className="bg-gray-50 text-gray-500">
                 <tr>
                   <th className="text-left px-4 py-2 font-semibold">Dipendente</th>
-                  <th className="text-right px-3 py-2 font-semibold">Lavorate</th>
-                  <th className="text-right px-3 py-2 font-semibold">Attese</th>
-                  <th className="text-right px-3 py-2 font-semibold">Scost.</th>
-                  <th className="text-left px-3 py-2 font-semibold">Settimane</th>
-                  <th className="text-center px-3 py-2 font-semibold">Incompl.</th>
-                  {/*
-                    Ordinabile di proposito: il controllo periodico della
-                    flessibilita' e' un gesto da fare a colpo d'occhio. Ordinando,
-                    chi sta peggio finisce in cima; senza, si leggono cento righe
-                    una per una e in pratica non si fa.
-                  */}
-                  <th className="text-right px-3 py-2 font-semibold">
-                    <button
-                      onClick={() => setOrdine(ordine === 'flessibilita' ? 'nome' : 'flessibilita')}
-                      title="Ordina per saldo di flessibilità del mese"
-                      className={`font-semibold hover:text-gray-800 ${ordine === 'flessibilita' ? 'text-gray-800 underline' : ''}`}
-                    >
-                      Flessib. {ordine === 'flessibilita' ? '↑' : ''}
-                    </button>
-                  </th>
+                  <th className="text-right px-3 py-2 font-semibold">Ore</th>
                   <th className="text-center px-3 py-2 font-semibold">Stato</th>
                   <th className="px-3 py-2"></th>
                 </tr>
@@ -457,39 +472,15 @@ export default function CruscottoTimbrature() {
                         </div>
                         <div className="text-xs text-gray-400">{s.email}</div>
                       </td>
-                      <td className="text-right px-3">{oreFmt(s.oreLavorate)}</td>
-                      <td className="text-right px-3 text-gray-500">{oreFmt(s.oreAttese)}</td>
-                      <td className={`text-right px-3 font-semibold ${s.scostamento < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                        {segno(s.scostamento)}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex flex-wrap gap-1 max-w-[200px]">
-                          {s.settimane.map((w) => (
-                            <span
-                              key={w.inizio}
-                              title={`Sett. ${fmtRange(w.inizio, w.fine)} · ${oreFmt(w.oreLavorate)}/${oreFmt(w.oreAttese)} h${w.conclusa ? '' : ' (in corso)'}`}
-                              className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${w.conclusa ? scostClasse(w.scostamento) : 'bg-gray-50 text-gray-400 italic'}`}
-                            >
-                              {w.conclusa ? segno(w.scostamento) : '·'}
-                            </span>
-                          ))}
-                          {s.settimane.length === 0 && <span className="text-gray-300">—</span>}
-                        </div>
-                      </td>
-                      <td className="text-center px-3">
-                        {s.giorniIncompleti > 0 ? <span className="text-amber-600 font-semibold">{s.giorniIncompleti}</span> : '—'}
-                      </td>
                       <td className="text-right px-3 whitespace-nowrap">
-                        {s.flessibilitaLavorata || s.flessibilitaRecuperata ? (
-                          <span
-                            title={`Lavorata +${oreFmt(s.flessibilitaLavorata)} h · recuperata −${oreFmt(s.flessibilitaRecuperata)} h`}
-                            className={`text-xs font-bold px-2 py-0.5 rounded-full ${scostClasse(s.flessibilitaSaldo)}`}
-                          >
-                            {segno(s.flessibilitaSaldo)}
-                          </span>
-                        ) : (
-                          <span className="text-gray-300">—</span>
-                        )}
+                        <span className="text-gray-800">{oreFmt(s.oreLavorate)}</span>
+                        <span className="text-gray-400">/{oreFmt(s.oreAttese)}</span>
+                        <span
+                          className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${scostClasse(s.scostamento)}`}
+                          title={`Scostamento del mese${s.giorniIncompleti > 0 ? ` · ${s.giorniIncompleti} giorni incompleti` : ''}`}
+                        >
+                          {segno(s.scostamento)}
+                        </span>
                       </td>
                       <td className="text-center px-3">
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STILE_STATO[s.stato]}`}>
@@ -544,7 +535,7 @@ export default function CruscottoTimbrature() {
                 })}
                 {righe.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="text-center text-gray-400 py-8">
+                    <td colSpan={4} className="text-center text-gray-400 py-8">
                       {isHr
                         ? 'Nessun dipendente abilitato. Spunta "Timbratura attiva" sulle schede in Risorse Umane, poi premi "Sincronizza da anagrafica".'
                         : 'Nessun collaboratore assegnato: in anagrafica nessuno ti indica come referente del foglio ore.'}
@@ -583,11 +574,57 @@ export default function CruscottoTimbrature() {
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-2 mb-5">
+            <div className="grid grid-cols-3 gap-2 mb-3">
               <Mini label="Lavorate" value={oreFmt(dettaglio.riepilogo.oreLavorate)} />
               <Mini label="Attese" value={oreFmt(dettaglio.riepilogo.oreAttese)} />
               <Mini label="Scost." value={segno(dettaglio.riepilogo.scostamento)} rosso={dettaglio.riepilogo.scostamento < 0} />
+              <Mini
+                label="Giorni scoperti"
+                value={giorniScoperti.length ? String(giorniScoperti.length) : '—'}
+                rosso={giorniScoperti.length > 0}
+              />
+              <Mini
+                label="Flessibilità"
+                value={
+                  dettaglio.riepilogo.flessibilitaLavorata || dettaglio.riepilogo.flessibilitaRecuperata
+                    ? segno(dettaglio.riepilogo.flessibilitaSaldo)
+                    : '—'
+                }
+                rosso={dettaglio.riepilogo.flessibilitaSaldo < 0}
+              />
+              <Mini label="Notti" value={dettaglio.riepilogo.notti ? String(dettaglio.riepilogo.notti) : '—'} />
             </div>
+
+            {(dettaglio.riepilogo.flessibilitaLavorata > 0 || dettaglio.riepilogo.flessibilitaRecuperata > 0) && (
+              <div className="mb-3 text-xs text-gray-500">
+                Flessibilità lavorata +{oreFmt(dettaglio.riepilogo.flessibilitaLavorata)} h · recuperata −
+                {oreFmt(dettaglio.riepilogo.flessibilitaRecuperata)} h
+                {dettaglio.riepilogo.turniReperibilita > 0 && ` · ${dettaglio.riepilogo.turniReperibilita} turni in reperibilità`}
+              </div>
+            )}
+
+            {/*
+              Le giornate scoperte in chiaro: sono quelle che bloccano la
+              chiusura, e chi controlla deve sapere *quali* sono, non quante.
+            */}
+            {giorniScoperti.length > 0 && (
+              <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+                <div className="text-sm font-semibold text-amber-800 mb-1.5">
+                  Giornate scoperte ({giorniScoperti.length})
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {giorniScoperti.map((g) => (
+                    <span
+                      key={g.data}
+                      title={`${oreFmt(g.oreLavorate + g.oreGiustificativo)} di ${oreFmt(g.oreAttese)} h attese`}
+                      className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-white text-amber-800 border border-amber-200"
+                    >
+                      {gg(g.data)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="border border-gray-200 rounded-xl p-3 mb-5">
               <div className="flex items-center justify-between mb-2">
