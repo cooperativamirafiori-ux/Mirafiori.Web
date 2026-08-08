@@ -43,14 +43,14 @@ function minToHhmm(min: number): string {
  * Ore tra due orari, con la stessa regola del server: se l'uscita non è
  * successiva all'ingresso si assume un turno oltre la mezzanotte.
  */
-function oreTra(oraInizio: string, oraFine: string): { ore: number; notte: boolean } | null {
+function oreTra(oraInizio: string, oraFine: string): { ore: number; oltreMezzanotte: boolean } | null {
   const a = hhmmToMin(oraInizio)
   const b = hhmmToMin(oraFine)
   if (a == null || b == null) return null
   let diff = b - a
-  let notte = false
-  if (diff <= 0) { diff += 1440; notte = true }
-  return { ore: Math.round((diff / 60) * 10000) / 10000, notte }
+  let oltreMezzanotte = false
+  if (diff <= 0) { diff += 1440; oltreMezzanotte = true }
+  return { ore: Math.round((diff / 60) * 10000) / 10000, oltreMezzanotte }
 }
 function fmtRange(from: string, to: string) {
   const f = `${from.slice(8, 10)}/${from.slice(5, 7)}`
@@ -76,10 +76,26 @@ interface FormRiga {
   servizioId: number | ''
   oraInizio: string
   oraFine: string
+  /**
+   * Turno notturno e turno in reperibilita': due dichiarazioni, non due calcoli.
+   * Non vengono mai proposte accese — la maggiorazione notturna e' forfettaria a
+   * notte e l'indennita' di reperibilita' si liquida a turno, quindi una spunta
+   * messa dal sistema al posto della persona sarebbe una voce in busta paga che
+   * nessuno ha dichiarato.
+   */
+  notte: boolean
+  reperibilita: boolean
   mutua: boolean
   note: string
   /** Solo per giustificativi "ad ore": scelto "alcune ore" invece di giornata intera. */
   adOre: boolean
+}
+
+/** Inserimento di un'assenza su piu' giorni consecutivi. */
+interface FormPeriodo {
+  servizioId: number | ''
+  dal: string
+  al: string
 }
 
 export default function TimbratureOperatore({ nome }: { nome: string }) {
@@ -95,7 +111,14 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
   const [scadenza, setScadenza] = useState<string | undefined>()
   const [loading, setLoading] = useState(true)
   const [errore, setErrore] = useState('')
+  /**
+   * Messaggio non-di-errore da mostrare dopo un salvataggio: oggi serve a dire
+   * che un turno oltre la mezzanotte e' stato diviso su due giorni. Ritrovarsi
+   * righe su una data che non si e' digitata va spiegato, non subito.
+   */
+  const [avviso, setAvviso] = useState('')
   const [form, setForm] = useState<FormRiga | null>(null)
+  const [formPeriodo, setFormPeriodo] = useState<FormPeriodo | null>(null)
   const [salvando, setSalvando] = useState(false)
 
   const from = ymd(anno, mese, 1)
@@ -250,6 +273,8 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
       servizioId: '',
       oraInizio: minToHhmm(inizioMin),
       oraFine: minToHhmm(inizioMin + Math.round(durata * 60)),
+      notte: false,
+      reperibilita: false,
       mutua: false,
       note: '',
       adOre: false,
@@ -259,6 +284,7 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
     setForm({
       id: t.id, data: t.data, servizioId: t.servizioId,
       oraInizio: t.oraInizio ?? '', oraFine: t.oraFine ?? '',
+      notte: t.notte, reperibilita: t.reperibilita,
       mutua: t.mutua, note: t.note ?? '',
       // Un giustificativo con orario salvato era stato preso "ad ore".
       adOre: t.tipoVoce === 'giustificativo' && !!t.oraInizio,
@@ -292,12 +318,16 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
       if (!calcForm) { setErrore('Orario non valido (formato atteso HH:mm)'); return }
       if (form.oraInizio === form.oraFine) { setErrore('Inizio e fine non possono coincidere'); return }
     }
-    setSalvando(true); setErrore('')
+    setSalvando(true); setErrore(''); setAvviso('')
     try {
       const payload = {
         data: form.data, servizioId: Number(form.servizioId),
         oraInizio: contaOrario ? form.oraInizio : null,
         oraFine: contaOrario ? form.oraFine : null,
+        // Le spunte valgono solo sulle ore di lavoro: su un giustificativo il
+        // server le rifiuterebbe comunque, tanto vale non mandarle.
+        notte: isGiust ? false : form.notte,
+        reperibilita: isGiust ? false : form.reperibilita,
         mutua: isGiust ? false : form.mutua, note: form.note || null,
       }
       const url = form.id ? `/api/timbrature/${form.id}` : '/api/timbrature'
@@ -306,6 +336,7 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Errore salvataggio')
       setForm(null)
+      if (d.avviso) setAvviso(d.avviso)
       await carica()
     } catch (e) {
       setErrore(e instanceof Error ? e.message : 'Errore')
@@ -324,6 +355,63 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
       await carica()
     } catch (e) {
       setErrore(e instanceof Error ? e.message : 'Errore')
+    }
+  }
+
+  // ---- assenze su un periodo -------------------------------------------------
+
+  /** I giustificativi disponibili, con Ferie in testa: e' il caso piu' frequente. */
+  const vociAssenza = useMemo(() => {
+    const g = servizi.filter((s) => s.tipoVoce === 'giustificativo')
+    return [...g].sort((a, b) => (a.nome === 'Ferie' ? -1 : b.nome === 'Ferie' ? 1 : a.ordine - b.ordine))
+  }, [servizi])
+
+  function apriPeriodo() {
+    const primo = ymd(anno, mese, 1)
+    setFormPeriodo({ servizioId: vociAssenza[0]?.id ?? '', dal: primo, al: primo })
+  }
+
+  /**
+   * Racconta com'e' andato l'inserimento su un periodo, giorno per giorno.
+   * Un "fatto" secco non basta: se di dieci giorni ne sono entrati otto, la
+   * persona deve sapere quali due sono rimasti fuori e perche', altrimenti
+   * scopre il buco a fine mese.
+   */
+  function riassumiPeriodo(d: any, azione: 'inserite' | 'rimosse'): string {
+    const parti: string[] = []
+    const n = azione === 'rimosse' ? (d.rimosse ?? []).length : (d.inserite ?? []).length
+    parti.push(n === 1 ? `1 giornata ${azione === 'rimosse' ? 'rimossa' : 'inserita'}` : `${n} giornate ${azione === 'rimosse' ? 'rimosse' : 'inserite'}`)
+    const gg = (v: string[]) => v.map((x) => Number(x.slice(8, 10))).join(', ')
+    if (d.nonLavorativi?.length) parti.push(`saltati perché non lavorativi: ${gg(d.nonLavorativi)}`)
+    if (d.giaCompilati?.length) parti.push(`saltati perché già compilati: ${gg(d.giaCompilati)}`)
+    if (d.errori?.length) parti.push(`non inseriti: ${d.errori.map((e: any) => `${Number(e.data.slice(8, 10))} (${e.motivo})`).join('; ')}`)
+    return parti.join(' · ')
+  }
+
+  async function salvaPeriodo(rimuovi = false) {
+    if (!formPeriodo) return
+    if (!formPeriodo.servizioId) { setErrore('Scegli la voce da inserire'); return }
+    if (formPeriodo.al < formPeriodo.dal) { setErrore('L\'ultimo giorno è precedente al primo'); return }
+    setSalvando(true); setErrore(''); setAvviso('')
+    try {
+      const r = await fetch('/api/timbrature/assenza', {
+        method: rimuovi ? 'DELETE' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          servizioId: Number(formPeriodo.servizioId),
+          dal: formPeriodo.dal,
+          al: formPeriodo.al,
+        }),
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'Errore')
+      setFormPeriodo(null)
+      setAvviso(riassumiPeriodo(d, rimuovi ? 'rimosse' : 'inserite'))
+      await carica()
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : 'Errore')
+    } finally {
+      setSalvando(false)
     }
   }
 
@@ -362,6 +450,12 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
       <div className="max-w-2xl mx-auto px-4 py-5">
         {errore && (
           <div className="mb-4 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">{errore}</div>
+        )}
+        {avviso && (
+          <div className="mb-4 rounded-xl border border-indigo-300 bg-indigo-50 px-4 py-3 text-sm text-indigo-800 flex items-start justify-between gap-3">
+            <span>{avviso}</span>
+            <button onClick={() => setAvviso('')} className="text-indigo-400 hover:text-indigo-700 shrink-0" aria-label="Chiudi">✕</button>
+          </div>
         )}
 
         {loading ? (
@@ -493,8 +587,19 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
                   <Kpi label="Ore attese" value={oreLabel(riepilogo.oreAttese)} tone="slate" />
                   <Kpi label="Scostamento" value={segno(riepilogo.scostamento)} tone={riepilogo.scostamento < 0 ? 'red' : 'green'} />
                 </div>
+                <Flessibilita r={riepilogo} />
                 <Giustificativi voci={riepilogo.giustificativi} totale={riepilogo.oreGiustificativo} />
               </>
+            )}
+
+            {/* Ferie e permessi su piu' giorni: quattordici giornate non si aprono una per una. */}
+            {!bloccato && (
+              <button
+                onClick={apriPeriodo}
+                className="w-full py-3 rounded-xl border border-dashed border-accent-purple/50 text-sm font-semibold text-accent-purple hover:bg-purple-50"
+              >
+                + Aggiungi assenza su più giorni
+              </button>
             )}
 
             {/* Scostamento per settimana */}
@@ -551,9 +656,25 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
                             )}
                           </span>
                         ) : (
-                          <span className="text-xs text-gray-500">
-                            {oreLabel(oreGiorno)} / {oreLabel(g.oreAttese)} h
-                            {incompleto && <span className="ml-1 text-amber-600 font-semibold">·  incompleto</span>}
+                          <span className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs text-gray-500">
+                              {oreLabel(oreGiorno)} / {oreLabel(g.oreAttese)} h
+                              {incompleto && <span className="ml-1 text-amber-600 font-semibold">·  incompleto</span>}
+                            </span>
+                            {/* Il tag della voce: scorrendo il mese si vede subito
+                                dove si e' lavorato, dove no e perche', senza
+                                dover aprire una giornata alla volta. */}
+                            {g.voci.map((v) => (
+                              <span key={v} className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-100 text-accent-purple">
+                                {v}
+                              </span>
+                            ))}
+                            {g.notte && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700">notte</span>
+                            )}
+                            {g.reperibilita && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700">reperibilità</span>
+                            )}
                           </span>
                         )}
                       </div>
@@ -684,9 +805,9 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
                 <div className="mb-3 rounded-xl bg-gray-50 px-3 py-2 flex items-center justify-between">
                   <span className="text-xs text-gray-500">Ore conteggiate</span>
                   <span className="flex items-center gap-2">
-                    {calcForm?.notte && (
+                    {calcForm?.oltreMezzanotte && (
                       <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
-                        oltre mezzanotte
+                        su due giorni
                       </span>
                     )}
                     <span className="text-lg font-bold text-brand-cyan-dark">
@@ -694,6 +815,15 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
                     </span>
                   </span>
                 </div>
+
+                {/* Il turno scavalca la mezzanotte: dirlo PRIMA di salvare, non dopo. */}
+                {calcForm?.oltreMezzanotte && (
+                  <div className="mb-3 rounded-lg bg-indigo-50 border border-indigo-200 px-3 py-2 text-xs text-indigo-800">
+                    Il turno finisce il giorno dopo: al salvataggio lo divido in due righe, una per
+                    giornata. Le ore che cadono dopo la mezzanotte valgono come ore lavorate del
+                    giorno seguente.
+                  </div>
+                )}
 
                 {/* Durate rapide: spostano l'uscita, l'ingresso resta quello scelto */}
                 <div className="flex gap-2 mb-4">
@@ -713,10 +843,24 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
                 </div>
 
                 {!isGiust && (
-                  <label className="flex items-center gap-2 text-sm text-gray-700 mb-4">
-                    <input type="checkbox" checked={form.mutua} onChange={(e) => setForm({ ...form, mutua: e.target.checked })} />
-                    Malattia (Mutua)
-                  </label>
+                  <div className="mb-4 space-y-2">
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input type="checkbox" checked={form.notte} onChange={(e) => setForm({ ...form, notte: e.target.checked })} />
+                      Turno di notte
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input type="checkbox" checked={form.reperibilita} onChange={(e) => setForm({ ...form, reperibilita: e.target.checked })} />
+                      In reperibilità
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input type="checkbox" checked={form.mutua} onChange={(e) => setForm({ ...form, mutua: e.target.checked })} />
+                      Malattia (Mutua)
+                    </label>
+                    <p className="text-xs text-gray-400">
+                      Spunta la notte una sola volta per turno: se il turno è diviso su due giorni,
+                      mettila sulla riga in cui hai iniziato.
+                    </p>
+                  </div>
                 )}
                 <p className="text-xs text-gray-500 mb-4 bg-gray-50 rounded-lg px-3 py-2">
                   {isGiust
@@ -741,6 +885,71 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
           </div>
         </div>
       )}
+
+      {/* Assenza su piu' giorni: solo giornate intere, e lo dice */}
+      {formPeriodo && (
+        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50" onClick={() => setFormPeriodo(null)}>
+          <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-5" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-bold text-gray-800 mb-1">Assenza su più giorni</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Inserisce una giornata intera per ogni giorno del periodo.
+            </p>
+
+            <label className="block text-sm font-semibold text-gray-600 mb-1">Voce</label>
+            <select
+              value={formPeriodo.servizioId}
+              onChange={(e) => setFormPeriodo({ ...formPeriodo, servizioId: e.target.value ? Number(e.target.value) : '' })}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4 text-sm"
+            >
+              {vociAssenza.map((s) => (
+                <option key={s.id} value={s.id}>{s.nome}</option>
+              ))}
+            </select>
+
+            <div className="flex gap-3 mb-4">
+              <div className="flex-1">
+                <label className="block text-sm font-semibold text-gray-600 mb-1">Dal</label>
+                <input
+                  type="date"
+                  value={formPeriodo.dal}
+                  onChange={(e) => setFormPeriodo({ ...formPeriodo, dal: e.target.value, al: e.target.value > formPeriodo.al ? e.target.value : formPeriodo.al })}
+                  className="w-full h-11 px-2 border border-gray-300 rounded-xl text-sm"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-semibold text-gray-600 mb-1">Al</label>
+                <input
+                  type="date"
+                  value={formPeriodo.al}
+                  min={formPeriodo.dal}
+                  onChange={(e) => setFormPeriodo({ ...formPeriodo, al: e.target.value })}
+                  className="w-full h-11 px-2 border border-gray-300 rounded-xl text-sm"
+                />
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-500 mb-4 bg-gray-50 rounded-lg px-3 py-2">
+              Salto le domeniche, i festivi e i giorni che hai già compilato, e a fine inserimento ti
+              dico quali. Per prendere solo alcune ore di una giornata vai sul singolo giorno.
+            </p>
+
+            <div className="flex gap-3">
+              <button onClick={() => setFormPeriodo(null)} className="flex-1 py-3 rounded-xl border border-gray-300 text-gray-600 font-semibold">Annulla</button>
+              <button onClick={() => salvaPeriodo(false)} disabled={salvando} className="flex-1 py-3 rounded-xl bg-accent-purple text-white font-bold disabled:opacity-50">
+                {salvando ? 'Salvo…' : 'Inserisci'}
+              </button>
+            </div>
+            {/* Il piano cambia: togliere due settimane di ferie una per una e' la stessa noia rovesciata. */}
+            <button
+              onClick={() => salvaPeriodo(true)}
+              disabled={salvando}
+              className="w-full mt-3 py-2 text-sm text-red-500 hover:text-red-700 disabled:opacity-50"
+            >
+              Togli questa voce dal periodo
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -750,8 +959,23 @@ function RigaVoce({ t, bloccato, onEdit, onDelete, compact }: { t: Timbratura; b
     <div className={`flex items-center justify-between ${compact ? 'px-4 py-2' : 'py-2.5'} text-sm`}>
       <div className="min-w-0">
         <span className={`font-medium ${t.tipoVoce === 'giustificativo' ? 'text-accent-purple' : 'text-gray-800'}`}>
-          {t.servizioNome}{t.mutua ? ' (Mutua)' : ''}
+          {t.servizioNome}
         </span>
+        {t.notte && (
+          <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+            notte
+          </span>
+        )}
+        {t.reperibilita && (
+          <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700">
+            reperibilità
+          </span>
+        )}
+        {t.mutua && (
+          <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700">
+            mutua
+          </span>
+        )}
         {t.perConto && (
           <span
             title="Riga inserita dal tuo responsabile"
@@ -765,7 +989,6 @@ function RigaVoce({ t, bloccato, onEdit, onDelete, compact }: { t: Timbratura; b
           {t.oraInizio && t.oraFine && (
             <span>
               {t.oraInizio}–{t.oraFine}
-              {t.notte && <span className="text-indigo-500"> (oltre mezzanotte)</span>}
               {t.note ? ' · ' : ''}
             </span>
           )}
@@ -778,6 +1001,46 @@ function RigaVoce({ t, bloccato, onEdit, onDelete, compact }: { t: Timbratura; b
           <button onClick={onDelete} className="text-red-500 hover:text-red-700">Elimina</button>
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * I due movimenti di flessibilità del mese.
+ *
+ * Sono le stesse due voci che il cedolino tiene separate — flessibilità lavorata
+ * e flessibilità recuperata — perché è così che le paghe le liquidano, e vederle
+ * qui con gli stessi nomi rende il confronto immediato quando arriva la busta.
+ *
+ * Non è il saldo disponibile: quello parte dalla dotazione allineata al cedolino,
+ * che il sistema non conosce ancora. Detto in chiaro, così nessuno legge questo
+ * numero come "le ore che mi restano".
+ */
+function Flessibilita({ r }: { r: RiepilogoPeriodo }) {
+  if (!r.flessibilitaLavorata && !r.flessibilitaRecuperata) return null
+  const saldo = r.flessibilitaSaldo
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-semibold text-gray-500">Flessibilità del mese</span>
+        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${scostClasse(saldo)}`}>
+          {segno(saldo)} h
+        </span>
+      </div>
+      <div className="space-y-1 text-sm">
+        <div className="flex items-center justify-between">
+          <span className="text-gray-600">Lavorata (ore in più)</span>
+          <span className="font-semibold text-emerald-700">+{oreLabel(r.flessibilitaLavorata)} h</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-gray-600">Recuperata (ore non lavorate)</span>
+          <span className="font-semibold text-red-700">−{oreLabel(r.flessibilitaRecuperata)} h</span>
+        </div>
+      </div>
+      <p className="mt-2 text-[11px] text-gray-400">
+        È il movimento di questo mese, non il totale che ti resta: il saldo ufficiale è quello del
+        cedolino.
+      </p>
     </div>
   )
 }

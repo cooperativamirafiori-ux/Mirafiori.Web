@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { guardOperatore } from '@/lib/timbrature/guard'
-import { aggiornaTimbratura, eliminaTimbratura } from '@/lib/timbrature/data'
+import { aggiornaTimbratura, eliminaTimbratura, leggiRiga } from '@/lib/timbrature/data'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,20 +23,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'Data e servizio obbligatori' }, { status: 400 })
   }
   try {
-    const timbratura = await aggiornaTimbratura(
-      g.dipendente.id,
-      id,
-      {
-        data: String(body.data).slice(0, 10),
-        servizioId: Number(body.servizioId),
-        oraInizio: body.oraInizio ?? null,
-        oraFine: body.oraFine ?? null,
-        mutua: !!body.mutua,
-        note: body.note ?? null,
-      },
-      g.session.user.email!,
-    )
-    return NextResponse.json({ timbratura })
+    const esito = await aggiornaTimbratura(g.dipendente.id, id, leggiRiga(body), g.session.user.email!)
+    return NextResponse.json(esito)
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Errore aggiornamento' }, { status: 400 })
   }

@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { guardValidatore, puoAgireSu } from '@/lib/timbrature/guard'
-import { aggiornaTimbratura, eliminaTimbratura } from '@/lib/timbrature/data'
+import { aggiornaTimbratura, eliminaTimbratura, leggiRiga } from '@/lib/timbrature/data'
 import { logAzione } from '@/lib/core/audit'
 
 export const dynamic = 'force-dynamic'
@@ -31,29 +31,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (negato) return NextResponse.json({ error: negato }, { status: 403 })
 
   try {
-    const timbratura = await aggiornaTimbratura(
-      dipendenteId,
-      id,
-      {
-        data: String(body.data).slice(0, 10),
-        servizioId: Number(body.servizioId),
-        oraInizio: body.oraInizio ?? null,
-        oraFine: body.oraFine ?? null,
-        mutua: !!body.mutua,
-        note: body.note ?? null,
-      },
-      g.v.email,
-      { perConto: true },
-    )
+    const esito = await aggiornaTimbratura(dipendenteId, id, leggiRiga(body), g.v.email, {
+      perConto: true,
+    })
+    const prima = esito.righe[0]
     await logAzione({
       utente: g.v.email,
       nome: g.v.session.user.name,
       azione: 'timbrature.riga-per-conto-modifica',
       entita: 'Timbratura',
       entitaId: id,
-      dettagli: { dipendenteId, data: timbratura.data, ore: timbratura.ore },
+      dettagli: { dipendenteId, data: prima.data, ore: prima.ore },
     })
-    return NextResponse.json({ timbratura })
+    return NextResponse.json(esito)
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Errore aggiornamento' }, { status: 400 })
   }

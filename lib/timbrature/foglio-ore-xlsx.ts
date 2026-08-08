@@ -20,13 +20,10 @@ import {
   monteToSettimana,
 } from '@/lib/timbrature/data'
 import type { Dipendente } from '@/types/timbrature'
-import {
-  graphGet,
-  graphGetOrNull,
-  graphGetBinary,
-  graphPost,
-  graphPutBinary,
-} from '@/lib/core/graph'
+// L'archiviazione passa tutta dal modulo RU (`caricaDocumentoDipendente`,
+// `caricaDocumentoInCartella`): e' lui che governa il drive del sito RU. Qui non
+// si parla piu' direttamente con Graph — prima serviva per la cartella di
+// ripiego, che non esiste piu'.
 
 const GIORNI_IT = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato']
 const MESI_IT = ['', 'GENNAIO', 'FEBBRAIO', 'MARZO', 'APRILE', 'MAGGIO', 'GIUGNO', 'LUGLIO', 'AGOSTO', 'SETTEMBRE', 'OTTOBRE', 'NOVEMBRE', 'DICEMBRE']
@@ -185,7 +182,12 @@ export async function generaFoglioOreBuffer(
         row.getCell(3).value = g.festivitaNome ?? ''
         row.getCell(4).value = g.oreAttese
       }
-      row.getCell(5).value = t.mutua ? `${t.servizioNome} (Mutua)` : t.servizioNome
+      // Le tre spunte viaggiano sul documento: sono l'unico modo in cui le HR
+      // vedono notti e reperibilita', su cui si liquidano forfait e indennita'.
+      const marchi = [t.notte && 'Notte', t.reperibilita && 'Reperibilità', t.mutua && 'Mutua']
+        .filter(Boolean)
+        .join(', ')
+      row.getCell(5).value = marchi ? `${t.servizioNome} (${marchi})` : t.servizioNome
       row.getCell(6).value = t.centroCosto
       row.getCell(7).value = t.oraInizio ?? ''
       row.getCell(8).value = t.oraFine ?? ''
@@ -215,6 +217,14 @@ export async function generaFoglioOreBuffer(
   setTot('Ore lavorate:', riepilogo.oreLavorate, true)
   setTot('Ore giustificativo:', riepilogo.oreGiustificativo)
   setTot('Differenza:', riepilogo.scostamento, true)
+  // I due movimenti di flessibilita' del mese, con gli stessi nomi che usa il
+  // cedolino (causali 907 e 908): cosi' la riconciliazione con le paghe si fa
+  // riga per riga, invece di ricavare i numeri a mano.
+  setTot('Flessibilità lavorata:', riepilogo.flessibilitaLavorata)
+  setTot('Flessibilità recuperata:', riepilogo.flessibilitaRecuperata)
+  // Forfait e indennita' si liquidano a evento, non a ore: qui si contano.
+  if (riepilogo.notti) setTot('Notti:', riepilogo.notti)
+  if (riepilogo.turniReperibilita) setTot('Turni in reperibilità:', riepilogo.turniReperibilita)
   if (riepilogo.scostamento < 0) {
     ws.getCell(`H${r}`).value =
       'Le ore rendicontate sono inferiori alle ore lavorative del mese. Giustificare le ore mancanti.'
@@ -287,31 +297,33 @@ export async function generaFoglioOreBuffer(
 
 // ---------------------------------------------------------------- pubblicazione
 
-const SITE = () => process.env.SHAREPOINT_SITE_ID!
-let _driveId: string | null = null
-async function driveId(): Promise<string> {
-  if (process.env.SP_RU_DRIVE_ID) return process.env.SP_RU_DRIVE_ID
-  if (_driveId) return _driveId
-  const d = await graphGet<{ id: string }>(`/sites/${SITE()}/drive?$select=id`)
-  _driveId = d.id
-  return d.id
+/**
+ * Cartella HR dove finisce la copia dei fogli definitivi: tutti i dipendenti
+ * dello stesso mese insieme, che e' la forma comoda per il passaggio alle paghe.
+ * Aprire una cartella e avere il mese completo, invece di pescare cento file da
+ * cento cartelle personali.
+ */
+function cartellaHr(anno: number, mese: number): string {
+  return `Fogli Ore/${anno}/${String(mese).padStart(2, '0')}`
 }
-function encodePath(p: string): string {
-  return p.split('/').map(encodeURIComponent).join('/')
-}
-async function ensureFolder(drive: string, fullPath: string): Promise<void> {
-  const segs = fullPath.split('/').filter(Boolean)
-  let parent = ''
-  for (const seg of segs) {
-    const cur = parent ? `${parent}/${seg}` : seg
-    const ex = await graphGetOrNull<{ id: string }>(`/drives/${drive}/root:/${encodePath(cur)}?$select=id`)
-    if (!ex) {
-      const ep = parent
-        ? `/drives/${drive}/root:/${encodePath(parent)}:/children`
-        : `/drives/${drive}/root/children`
-      await graphPost(ep, { name: seg, folder: {}, '@microsoft.graph.conflictBehavior': 'rename' })
-    }
-    parent = cur
+
+/**
+ * Il dipendente non e' in anagrafica RU.
+ *
+ * Non e' un caso da aggirare: appena una persona viene assunta le si crea la
+ * mail e la si mette in anagrafica, quindi se non c'e' e' un errore da
+ * correggere, non una situazione da gestire con una cartella di ripiego. Prima
+ * il foglio veniva archiviato di nascosto in "Foglio Ore/<Nominativo>" e nessuno
+ * se ne accorgeva: adesso il flusso si ferma e chiede di sistemare l'anagrafica.
+ */
+export class DipendenteFuoriAnagrafica extends Error {
+  constructor(readonly email: string, readonly cognomeNome: string) {
+    super(
+      `${cognomeNome} non risulta nell'anagrafica Risorse Umane con la mail ${email}. ` +
+        `Inseriscilo in anagrafica (o correggi la mail aziendale) e riprova: senza scheda ` +
+        `non esiste la cartella personale in cui archiviare il foglio ore.`,
+    )
+    this.name = 'DipendenteFuoriAnagrafica'
   }
 }
 
@@ -320,6 +332,8 @@ export interface FoglioOrePubblicato {
   xlsxUrl: string
   /** URL del .pdf nella cartella personale: e' la copia che la persona firma. */
   pdfUrl: string | null
+  /** URL del .pdf nella cartella HR del mese. Valorizzato solo per i definitivi. */
+  hrUrl: string | null
   /** Contenuto del PDF, per allegarlo alla mail senza riscaricarlo. */
   pdf: Buffer | null
 }
@@ -339,8 +353,12 @@ const CT_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.she
  * conversione (`?format=pdf`). Un motore di stampa in piu' su Vercel non
  * varrebbe la differenza.
  *
- * Prova prima la cartella personale RU (match per email); se il dipendente non
- * e' nell'anagrafica RU usa la cartella di ripiego "Foglio Ore/<Nominativo>".
+ * Archivia in DUE posti quando `copiaHr` e' attivo:
+ *   1. la cartella personale del dipendente (xlsx + pdf), sempre;
+ *   2. la cartella HR del mese (solo pdf), solo per il foglio definitivo.
+ *
+ * Se il dipendente non e' in anagrafica RU **non archivia niente** e lancia
+ * `DipendenteFuoriAnagrafica`: la cartella di ripiego non c'e' piu'.
  *
  * ⚠️ RIPIEGO APPLICATIVO ESPLICITO. Se `gRU` non viene passato — chiusura da
  * cron, oppure conferma che arriva dal link nella mail, dove per definizione
@@ -355,62 +373,57 @@ export async function pubblicaFoglioOre(
   mese: number,
   gRU?: GraphClient,
   nota?: NotaValidazione,
+  opts: { copiaHr?: boolean } = {},
 ): Promise<FoglioOrePubblicato> {
   const buffer = await generaFoglioOreBuffer(dip, anno, mese, nota)
   const base = nomeBase(dip, anno, mese)
 
-  // 1) cartella personale RU (match per email aziendale/personale)
-  try {
-    const ru = await import('@/lib/risorse-umane/data')
-    const { graphApplicativo } = await import('@/lib/core/graph-delegato')
-    const gc = gRU ?? graphApplicativo()
-    const dipendenti = await ru.getItems(gc, 'dipendenti')
-    const match = dipendenti.find(
-      (d: any) =>
-        String(d.MailAziendale ?? '').toLowerCase() === dip.email.toLowerCase() ||
-        String(d.MailPersonale ?? '').toLowerCase() === dip.email.toLowerCase(),
-    )
-    if (match) {
-      const spId = String(match.spItemId)
-      const xlsx = await ru.caricaDocumentoDipendente(gc, spId, `${base}.xlsx`, buffer, CT_XLSX)
-      let pdf: Buffer | null = null
-      let pdfUrl: string | null = null
-      try {
-        pdf = await ru.pdfDocumentoDipendente(gc, xlsx.id)
-        const doc = await ru.caricaDocumentoDipendente(gc, spId, `${base}.pdf`, pdf, 'application/pdf')
-        pdfUrl = doc.url
-      } catch (e) {
-        // Il PDF e' importante ma non deve far fallire la validazione: senza,
-        // la mail parte con il solo link al foglio.
-        console.error('[foglio-ore] conversione PDF fallita:', e)
-      }
-      return { xlsxUrl: xlsx.url, pdfUrl, pdf }
-    }
-  } catch (e) {
-    console.warn('[foglio-ore] match cartella RU fallito, uso ripiego:', e)
-  }
+  const ru = await import('@/lib/risorse-umane/data')
+  const { graphApplicativo } = await import('@/lib/core/graph-delegato')
+  const gc = gRU ?? graphApplicativo()
 
-  // 2) ripiego: document library del sito, cartella "Foglio Ore/<Nominativo>"
-  const drive = await driveId()
-  const rel = `Foglio Ore/${dip.cognomeNome.replace(/[\\/:*?"<>|]+/g, ' ').trim()}`
-  await ensureFolder(drive, rel)
-  const res = await graphPutBinary<{ webUrl: string; id: string }>(
-    `/drives/${drive}/root:/${encodePath(`${rel}/${base}.xlsx`)}:/content`,
-    buffer,
-    CT_XLSX,
+  const dipendenti = await ru.getItems(gc, 'dipendenti')
+  const match = dipendenti.find(
+    (d: any) =>
+      String(d.MailAziendale ?? '').toLowerCase() === dip.email.toLowerCase() ||
+      String(d.MailPersonale ?? '').toLowerCase() === dip.email.toLowerCase(),
   )
+  if (!match) throw new DipendenteFuoriAnagrafica(dip.email, dip.cognomeNome)
+
+  const spId = String(match.spItemId)
+  const xlsx = await ru.caricaDocumentoDipendente(gc, spId, `${base}.xlsx`, buffer, CT_XLSX)
+
   let pdf: Buffer | null = null
   let pdfUrl: string | null = null
+  let hrUrl: string | null = null
   try {
-    pdf = await graphGetBinary(`/drives/${drive}/items/${res.id}/content?format=pdf`)
-    const resPdf = await graphPutBinary<{ webUrl: string }>(
-      `/drives/${drive}/root:/${encodePath(`${rel}/${base}.pdf`)}:/content`,
-      pdf,
-      'application/pdf',
-    )
-    pdfUrl = resPdf.webUrl
+    pdf = await ru.pdfDocumentoDipendente(gc, xlsx.id)
+    const doc = await ru.caricaDocumentoDipendente(gc, spId, `${base}.pdf`, pdf, 'application/pdf')
+    pdfUrl = doc.url
   } catch (e) {
-    console.error('[foglio-ore] conversione PDF (ripiego) fallita:', e)
+    // Il PDF e' importante ma non deve far fallire la validazione: senza,
+    // la mail parte con il solo link al foglio.
+    console.error('[foglio-ore] conversione PDF fallita:', e)
   }
-  return { xlsxUrl: res.webUrl, pdfUrl, pdf }
+
+  // Copia HR: solo il definitivo, solo il PDF. Se il PDF non c'e' si mette
+  // l'xlsx, perche' meglio il formato sbagliato che il buco.
+  if (opts.copiaHr) {
+    try {
+      const doc = await ru.caricaDocumentoInCartella(
+        gc,
+        cartellaHr(anno, mese),
+        pdf ? `${base}.pdf` : `${base}.xlsx`,
+        pdf ?? buffer,
+        pdf ? 'application/pdf' : CT_XLSX,
+      )
+      hrUrl = doc.url
+    } catch (e) {
+      // La conferma della persona non si perde per una copia mancata: resta
+      // quella nella cartella personale, e il cruscotto mostra il buco.
+      console.error('[foglio-ore] copia nella cartella HR fallita:', e)
+    }
+  }
+
+  return { xlsxUrl: xlsx.url, pdfUrl, hrUrl, pdf }
 }

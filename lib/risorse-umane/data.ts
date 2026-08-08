@@ -374,6 +374,35 @@ export async function caricaDocumentoDipendente(
 }
 
 /**
+ * Carica un documento in una cartella qualsiasi della raccolta del sito RU,
+ * creando il percorso se non c'e'.
+ *
+ * Serve ai documenti che NON appartengono a una singola persona ma a un mese di
+ * lavoro: oggi la copia HR del foglio ore, che vive in `Fogli Ore/<anno>/<mese>/`
+ * con tutti i dipendenti insieme, perche' e' la forma comoda per il passaggio
+ * alle paghe. Sta qui e non in Timbrature perche' il drive del sito RU lo governa
+ * questo modulo: gli altri non devono sapere come si risolve un drive id.
+ */
+export async function caricaDocumentoInCartella(
+  g: GraphClient,
+  cartellaRelativa: string,
+  filename: string,
+  data: ArrayBuffer | Uint8Array,
+  contentType?: string,
+): Promise<DocumentoDipendente> {
+  const driveId = await getDriveId(g)
+  const relPath = cartellaRelativa.split('/').map(sanitize).filter(Boolean).join('/')
+  await ensureFolderPath(g, driveId, relPath)
+  const safe = sanitize(filename) || 'documento'
+  const res = await g.putBinary<any>(
+    `/drives/${driveId}/root:/${encodePath(`${relPath}/${safe}`)}:/content`,
+    data,
+    contentType,
+  )
+  return { id: res.id, nome: res.name ?? safe, url: res.webUrl, dimensione: res.size, modificato: res.lastModifiedDateTime }
+}
+
+/**
  * Conversione in PDF di un documento gia' presente nella cartella personale.
  *
  * La fa Graph (`?format=pdf`): e' il motivo per cui il foglio ore viene prima

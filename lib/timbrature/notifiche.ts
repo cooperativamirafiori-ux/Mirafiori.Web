@@ -224,6 +224,40 @@ export async function notificaFoglioDaConfermare(opts: {
   })
 }
 
+/**
+ * Il foglio ore non si puo' archiviare: la persona non e' in anagrafica RU.
+ *
+ * Va alle HR e non al responsabile che stava validando, perche' e' un buco che
+ * solo loro possono chiudere. Prima il sistema archiviava in silenzio in una
+ * cartella di ripiego e nessuno sapeva niente.
+ */
+export async function notificaDipendenteFuoriAnagrafica(opts: {
+  to: string[]
+  cognomeNome: string
+  email: string
+  linkApp: string
+}): Promise<void> {
+  await sendEmail({
+    to: opts.to,
+    from: TIMBRATURE_MAIL_FROM,
+    subject: `${opts.cognomeNome} non è in anagrafica: foglio ore bloccato`,
+    html: BOX(`
+      <p style="margin:0 0 8px;font-size:16px;font-weight:700;color:#C00000">⛔ Foglio ore non archiviato</p>
+      <p style="margin:0 0 10px">
+        <strong>${opts.cognomeNome}</strong> compila le timbrature, ma non risulta
+        nell'anagrafica Risorse Umane con la mail <strong>${opts.email}</strong>.
+        Senza scheda non esiste la cartella personale, quindi il foglio ore
+        <strong>non e' stato archiviato</strong> e il mese non si chiude.
+      </p>
+      <p style="margin:0 0 12px">
+        Inserisci la persona in anagrafica — o correggi la mail aziendale se e' solo
+        diversa — e chiedi al responsabile di validare di nuovo.
+      </p>
+      <p style="margin:14px 0 4px">${BTN(opts.linkApp, 'Apri l\'anagrafica →', '#C00000')}</p>
+    `),
+  })
+}
+
 /** Il dipendente ha segnalato un errore → torna al responsabile. */
 
 export async function notificaContestazioneFoglioOre(opts: {

@@ -67,6 +67,9 @@ interface FormRiga {
   servizioId: number | ''
   oraInizio: string
   oraFine: string
+  /** Dichiarazioni, non calcoli: vedi la nota in TimbratureOperatore. */
+  notte: boolean
+  reperibilita: boolean
   mutua: boolean
   note: string
   /** Solo per giustificativi "ad ore": scelto "alcune ore" invece di giornata intera. */
@@ -89,8 +92,24 @@ export default function CruscottoTimbrature() {
   const [rigaForm, setRigaForm] = useState<FormRiga | null>(null)
   const [sincronizzando, setSincronizzando] = useState(false)
   const [esitoSync, setEsitoSync] = useState<string>('')
+  const [ordine, setOrdine] = useState<'nome' | 'flessibilita'>('nome')
+  /** Data da cui vale la variazione di orario che si sta registrando. */
+  const [decorrenza, setDecorrenza] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`)
+  const [motivoVariazione, setMotivoVariazione] = useState('')
 
   const isHr = ruolo === 'hr'
+
+  /**
+   * L'elenco nell'ordine scelto. Per nome e' l'ordine naturale in cui si cerca
+   * una persona; per flessibilita' e' il taglio con cui si controlla chi sta
+   * accumulando un debito di ore, con i saldi piu' negativi in cima.
+   */
+  const righeOrdinate = useMemo(() => {
+    if (ordine === 'nome') return righe
+    return [...righe].sort(
+      (a, b) => a.flessibilitaSaldo - b.flessibilitaSaldo || a.cognomeNome.localeCompare(b.cognomeNome, 'it'),
+    )
+  }, [righe, ordine])
 
   const festivoByData = useMemo(() => {
     const m = new Map<string, string>()
@@ -162,11 +181,14 @@ export default function CruscottoTimbrature() {
     }
   }
 
-  async function valida(dipendenteId: number, nominativo: string) {
+  async function valida(dipendenteId: number, nominativo: string, anticipata = false) {
     const d = await chiama(
       '/api/timbrature/hr/valida',
       { dipendenteId, anno, mese },
-      `Validare il foglio ore di ${nominativo}?\n\nIl foglio viene archiviato nella cartella personale e ${nominativo} riceve subito il PDF via mail, con i pulsanti per confermarlo.`,
+      (anticipata
+        ? `Il mese di ${nominativo} è già completo: chiuderlo adesso, senza aspettare la scadenza?\n\n`
+        : `Validare il foglio ore di ${nominativo}?\n\n`) +
+        `Il foglio viene archiviato nella cartella personale e ${nominativo} riceve subito il PDF via mail, con i pulsanti per confermarlo.`,
     )
     if (!d) return
     setAvviso(
@@ -229,15 +251,54 @@ export default function CruscottoTimbrature() {
     }
   }
 
+  /**
+   * Registra una variazione di orario.
+   *
+   * La decorrenza e' scelta, non piu' forzata al primo del mese che si sta
+   * guardando: un passaggio a part-time puo' partire il 16, e con la data
+   * imposta sarebbe stato impossibile registrarlo per come e' andato davvero.
+   */
   async function salvaProfilo() {
     if (!dettaglio) return
-    const decorrenza = `${anno}-${String(mese).padStart(2, '0')}-01`
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(decorrenza)) { setErrore('Indica la data di decorrenza'); return }
     setAzione(true); setErrore('')
     try {
       const ore = Object.fromEntries(Object.entries(profiloForm).map(([k, v]) => [k, Number(v) || 0]))
       const r = await fetch('/api/timbrature/hr/profilo', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dipendenteId: dettaglio.dipendente.id, decorrenza, ore }),
+        body: JSON.stringify({
+          dipendenteId: dettaglio.dipendente.id,
+          decorrenza,
+          ore,
+          motivo: motivoVariazione || null,
+        }),
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'Errore')
+      setMotivoVariazione('')
+      await apriDettaglio(dettaglio.dipendente.id)
+      await carica()
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : 'Errore')
+    } finally {
+      setAzione(false)
+    }
+  }
+
+  /**
+   * Cancella una variazione.
+   *
+   * Serve perche' il salvataggio e' idempotente sulla data: registrare quella
+   * giusta non fa sparire quella sbagliata, che continua a valere per il periodo
+   * in cui e' la piu' recente. Senza cancellazione l'errore resta per sempre.
+   */
+  async function eliminaVariazione(id: number, dataDecorrenza: string) {
+    if (!dettaglio) return
+    if (!confirm(`Cancellare la variazione dal ${gg(dataDecorrenza)}?\n\nDa quel giorno torneranno a valere le ore della variazione precedente, e le ore attese dei mesi interessati si ricalcolano.`)) return
+    setAzione(true); setErrore('')
+    try {
+      const r = await fetch(`/api/timbrature/hr/profilo?id=${id}&dipendenteId=${dettaglio.dipendente.id}`, {
+        method: 'DELETE',
       })
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Errore')
@@ -255,7 +316,8 @@ export default function CruscottoTimbrature() {
     if (!dettaglio) return
     setRigaForm({
       data: `${anno}-${String(mese).padStart(2, '0')}-01`,
-      servizioId: '', oraInizio: '09:00', oraFine: '13:00', mutua: false, note: '',
+      servizioId: '', oraInizio: '09:00', oraFine: '13:00',
+      notte: false, reperibilita: false, mutua: false, note: '',
       adOre: false,
     })
   }
@@ -263,6 +325,7 @@ export default function CruscottoTimbrature() {
     setRigaForm({
       id: t.id, data: t.data, servizioId: t.servizioId,
       oraInizio: t.oraInizio ?? '', oraFine: t.oraFine ?? '',
+      notte: t.notte, reperibilita: t.reperibilita,
       mutua: t.mutua, note: t.note ?? '',
       // Un giustificativo con orario salvato era stato preso "ad ore".
       adOre: t.tipoVoce === 'giustificativo' && !!t.oraInizio,
@@ -289,6 +352,8 @@ export default function CruscottoTimbrature() {
         servizioId: Number(rigaForm.servizioId),
         oraInizio: rigaContaOrario ? rigaForm.oraInizio : null,
         oraFine: rigaContaOrario ? rigaForm.oraFine : null,
+        notte: rigaGiustificativo ? false : rigaForm.notte,
+        reperibilita: rigaGiustificativo ? false : rigaForm.reperibilita,
         mutua: rigaGiustificativo ? false : rigaForm.mutua,
         note: rigaForm.note || null,
       }
@@ -301,6 +366,9 @@ export default function CruscottoTimbrature() {
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Errore')
       setRigaForm(null)
+      // Un turno oltre la mezzanotte e' diventato due righe: dirlo, perche' la
+      // seconda sta su un giorno che chi ha inserito non ha digitato.
+      if (d.avviso) setAvviso(d.avviso)
       await apriDettaglio(dettaglio.dipendente.id)
       await carica()
     } catch (e) {
@@ -404,14 +472,37 @@ export default function CruscottoTimbrature() {
                   <th className="text-right px-3 py-2 font-semibold">Scost.</th>
                   <th className="text-left px-3 py-2 font-semibold">Settimane</th>
                   <th className="text-center px-3 py-2 font-semibold">Incompl.</th>
+                  {/*
+                    Ordinabile di proposito: il controllo periodico della
+                    flessibilita' e' un gesto da fare a colpo d'occhio. Ordinando,
+                    chi sta peggio finisce in cima; senza, si leggono cento righe
+                    una per una e in pratica non si fa.
+                  */}
+                  <th className="text-right px-3 py-2 font-semibold">
+                    <button
+                      onClick={() => setOrdine(ordine === 'flessibilita' ? 'nome' : 'flessibilita')}
+                      title="Ordina per saldo di flessibilità del mese"
+                      className={`font-semibold hover:text-gray-800 ${ordine === 'flessibilita' ? 'text-gray-800 underline' : ''}`}
+                    >
+                      Flessib. {ordine === 'flessibilita' ? '↑' : ''}
+                    </button>
+                  </th>
                   <th className="text-center px-3 py-2 font-semibold">Stato</th>
                   <th className="px-3 py-2"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {righe.map((s) => {
+                {righeOrdinate.map((s) => {
                   const visto = visionati.has(s.dipendenteId)
-                  const puoValidare = s.stato === 'da_validare' || s.stato === 'contestato'
+                  /*
+                   * Un mese ancora aperto si valida se non ha piu' giornate
+                   * scoperte: e' la chiusura anticipata, il caso "sono in ferie
+                   * dal 20 al 31, il foglio e' finito". Con dei buchi il tasto
+                   * resta spento, e non c'e' scappatoia nemmeno per le HR: un
+                   * foglio ore incompleto non si chiude.
+                   */
+                  const anticipabile = s.stato === 'aperto' && s.completo
+                  const puoValidare = s.stato === 'da_validare' || s.stato === 'contestato' || anticipabile
                   return (
                     <tr key={s.dipendenteId} className="hover:bg-gray-50">
                       <td className="px-4 py-2.5">
@@ -450,6 +541,18 @@ export default function CruscottoTimbrature() {
                       <td className="text-center px-3">
                         {s.giorniIncompleti > 0 ? <span className="text-amber-600 font-semibold">{s.giorniIncompleti}</span> : '—'}
                       </td>
+                      <td className="text-right px-3 whitespace-nowrap">
+                        {s.flessibilitaLavorata || s.flessibilitaRecuperata ? (
+                          <span
+                            title={`Lavorata +${oreFmt(s.flessibilitaLavorata)} h · recuperata −${oreFmt(s.flessibilitaRecuperata)} h`}
+                            className={`text-xs font-bold px-2 py-0.5 rounded-full ${scostClasse(s.flessibilitaSaldo)}`}
+                          >
+                            {segno(s.flessibilitaSaldo)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
                       <td className="text-center px-3">
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STILE_STATO[s.stato]}`}>
                           {ETICHETTA_STATO[s.stato]}
@@ -473,12 +576,18 @@ export default function CruscottoTimbrature() {
                         )}
                         {puoValidare && (
                           <button
-                            onClick={() => valida(s.dipendenteId, s.cognomeNome)}
+                            onClick={() => valida(s.dipendenteId, s.cognomeNome, anticipabile)}
                             disabled={azione || !visto}
-                            title={!visto ? 'Apri “Controlla” prima di validare' : ''}
+                            title={
+                              !visto
+                                ? 'Apri “Controlla” prima di validare'
+                                : anticipabile
+                                  ? 'Il mese è completo: si può chiudere senza aspettare la scadenza'
+                                  : ''
+                            }
                             className="text-white bg-primary disabled:bg-gray-300 rounded-lg px-3 py-1.5 font-semibold"
                           >
-                            Valida
+                            {anticipabile ? 'Chiudi e valida' : 'Valida'}
                           </button>
                         )}
                         {s.stato === 'validato' && (
@@ -588,9 +697,56 @@ export default function CruscottoTimbrature() {
 
             {isHr && (
               <div className="border border-gray-200 rounded-xl p-3 mb-5">
-                <div className="font-semibold text-gray-700 text-sm mb-2">
-                  Monte ore settimanale (decorrenza {String(mese).padStart(2, '0')}/{anno})
+                <div className="font-semibold text-gray-700 text-sm mb-1">Variazioni orario</div>
+                <p className="text-xs text-gray-500 mb-3">
+                  Il monte ore vigente a una data è la variazione più recente che parte da quella data
+                  o da prima. Determina le ore attese di ogni giornata, quindi la completezza, i
+                  solleciti e la flessibilità: una decorrenza sbagliata riscrive le ore attese dei mesi
+                  passati.
+                </p>
+
+                {/* Lo storico: prima non si vedeva, e le variazioni vecchie restavano invisibili. */}
+                <div className="space-y-1 mb-3">
+                  {dettaglio.profili.length === 0 && (
+                    <p className="text-xs text-amber-700">
+                      ⚠ Nessun orario registrato: senza ore attese nessuna giornata risulta mai
+                      incompleta e i solleciti automatici non partono.
+                    </p>
+                  )}
+                  {dettaglio.profili.map((p) => {
+                    const ore = [p.oreLun, p.oreMar, p.oreMer, p.oreGio, p.oreVen, p.oreSab, p.oreDom]
+                    const tot = ore.reduce((s, n) => s + n, 0)
+                    return (
+                      <div key={p.id} className="flex items-start justify-between gap-2 text-xs border-b border-gray-50 pb-1">
+                        <div className="min-w-0">
+                          <span className="font-semibold text-gray-700">dal {gg(p.decorrenza)}</span>
+                          <span className="text-gray-500"> · {ore.map((n) => oreFmt(n)).join('-')} = {oreFmt(tot)} h/sett.</span>
+                          {p.motivo && <div className="text-gray-500 truncate">{p.motivo}</div>}
+                          <div className="text-gray-400">
+                            {p.aggiornatoDa ?? '—'}
+                            {p.fileUrl && (
+                              <>
+                                {' · '}
+                                <a href={p.fileUrl} target="_blank" rel="noopener noreferrer" className="text-brand-cyan-dark hover:underline">
+                                  {p.fileNome || 'lettera'}
+                                </a>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => eliminaVariazione(p.id, p.decorrenza)}
+                          disabled={azione}
+                          title="Cancella questa variazione"
+                          className="text-red-500 hover:text-red-700 shrink-0 disabled:opacity-50"
+                        >
+                          elimina
+                        </button>
+                      </div>
+                    )
+                  })}
                 </div>
+
                 <div className="grid grid-cols-7 gap-1 mb-2">
                   {GG.map((g, i) => (
                     <div key={g} className="text-center">
@@ -604,15 +760,29 @@ export default function CruscottoTimbrature() {
                     </div>
                   ))}
                 </div>
+                <div className="flex flex-wrap gap-2 items-end mb-2">
+                  <label className="text-xs text-gray-600">
+                    Decorrenza
+                    <input
+                      type="date"
+                      value={decorrenza}
+                      onChange={(e) => setDecorrenza(e.target.value)}
+                      className="block border border-gray-300 rounded-lg px-2 py-1.5 text-sm mt-0.5"
+                    />
+                  </label>
+                  <label className="text-xs text-gray-600 flex-1 min-w-[180px]">
+                    Motivo
+                    <input
+                      value={motivoVariazione}
+                      onChange={(e) => setMotivoVariazione(e.target.value)}
+                      placeholder="es. passaggio a part-time 20 ore su richiesta del dipendente"
+                      className="block w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm mt-0.5"
+                    />
+                  </label>
+                </div>
                 <button onClick={salvaProfilo} disabled={azione} className="text-sm bg-emerald-600 text-white rounded-lg px-3 py-1.5 font-semibold disabled:opacity-50">
-                  Salva monte ore
+                  Registra variazione
                 </button>
-                {dettaglio.riepilogo.oreAttese === 0 && (
-                  <p className="text-xs text-amber-700 mt-2">
-                    ⚠ Monte ore a zero: senza ore attese nessuna giornata risulta mai incompleta e i
-                    solleciti automatici non partono.
-                  </p>
-                )}
               </div>
             )}
 
@@ -731,12 +901,22 @@ export default function CruscottoTimbrature() {
                       <input type="time" value={rigaForm.oraFine} onChange={(e) => setRigaForm({ ...rigaForm, oraFine: e.target.value })}
                         className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm mt-0.5" />
                     </label>
-                    {!rigaGiustificativo && (
-                      <label className="flex items-end gap-1 text-xs text-gray-600 pb-1.5">
-                        <input type="checkbox" checked={rigaForm.mutua} onChange={(e) => setRigaForm({ ...rigaForm, mutua: e.target.checked })} />
-                        Mutua
-                      </label>
-                    )}
+                  </div>
+                )}
+                {rigaContaOrario && !rigaGiustificativo && (
+                  <div className="flex flex-wrap gap-3">
+                    <label className="flex items-center gap-1 text-xs text-gray-600">
+                      <input type="checkbox" checked={rigaForm.notte} onChange={(e) => setRigaForm({ ...rigaForm, notte: e.target.checked })} />
+                      Notte
+                    </label>
+                    <label className="flex items-center gap-1 text-xs text-gray-600">
+                      <input type="checkbox" checked={rigaForm.reperibilita} onChange={(e) => setRigaForm({ ...rigaForm, reperibilita: e.target.checked })} />
+                      Reperibilità
+                    </label>
+                    <label className="flex items-center gap-1 text-xs text-gray-600">
+                      <input type="checkbox" checked={rigaForm.mutua} onChange={(e) => setRigaForm({ ...rigaForm, mutua: e.target.checked })} />
+                      Mutua
+                    </label>
                   </div>
                 )}
                 <label className="block text-xs text-gray-600">

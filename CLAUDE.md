@@ -47,7 +47,7 @@ e non serve cercare altrove.
 
 | Area | UI | API | Logica (`lib/`) | Altro |
 |---|---|---|---|---|
-| **Timbrature · Foglio ore** | `app/(app)/timbrature/` (operatore + `validazione/`)<br>`app/(app)/risorse-umane/timbrature/` (cruscotto HR) | `app/api/timbrature/**`<br>`app/api/foglio-ore/[token]/`<br>`app/api/cron/{timbrature-alert,sollecito-timbrature,promemoria-ore}/` | `lib/timbrature/`: `data.ts` `flusso.ts` `guard.ts` `sync.ts` `notifiche.ts` `foglio-ore-xlsx.ts` `festivita.ts` | pubblico tokenizzato: `app/foglio-ore/[token]/`<br>`docs/timbrature-*.md` |
+| **Timbrature · Foglio ore** | `app/(app)/timbrature/` (operatore + `validazione/`)<br>`app/(app)/risorse-umane/timbrature/` (cruscotto HR) | `app/api/timbrature/**`<br>`app/api/foglio-ore/[token]/`<br>`app/api/cron/{timbrature-alert,sollecito-timbrature,promemoria-ore}/` | `lib/timbrature/`: **`data.ts` è la porta** e riesporta `date.ts` `anagrafica.ts` `stati.ts` `righe.ts` `riepilogo.ts`<br>più `flusso.ts` `guard.ts` `sync.ts` `notifiche.ts` `foglio-ore-xlsx.ts` `festivita.ts` | pubblico tokenizzato: `app/foglio-ore/[token]/`<br>`docs/timbrature-*.md` — **le decisioni stanno in `docs/timbrature-revisione-agosto-2026.md`** |
 | **Manutenzioni** | `app/(app)/manutenzioni/` `nuova-richiesta/` `mie-richieste/` `dashboard/` `gestione/[id]/` | `app/api/manutenzioni/**` | `lib/manutenzioni/`: `data.ts` `notifiche.ts`<br>anagrafiche: `lib/strutture/data.ts` | — |
 | **Costi strutture** | `app/(app)/inserisci-costo/` `cruscotto-costi/` | `app/api/costi/` | `lib/costi/data.ts` | — |
 | **Acquisti** | `app/(app)/acquisti/` (`nuova/` `mie/` `gestione/`) | `app/api/acquisti/**`<br>`app/api/consegna/[token]/`<br>`app/api/cron/acquisti/` | `lib/acquisti/`: `data.ts` `flusso.ts` `notifiche.ts` | pubblico tokenizzato: `app/consegna/[token]/`<br>`../Area Acquisti - Manuale operativo.docx`<br>`scripts/provision-acquisti.mjs` |
@@ -267,7 +267,7 @@ Debito residuo, in ordine di peso (verifica sempre con `npm run mappa`):
 
 | File | Righe | Nota |
 |---|---|---|
-| `lib/timbrature/data.ts` | ~1090 | 45+ export: date, anagrafica, CRUD, stati mese, responsabili → `{schema,data,stati}.ts` |
+| ~~`lib/timbrature/data.ts`~~ | — | **fatto** (8 ago 2026): spezzato in `date` `anagrafica` `stati` `righe` `riepilogo`, con `data.ts` come unica porta d'ingresso. Nessun altro file toccato |
 | `app/(app)/acquisti/gestione/GestioneAcquisti.tsx` | ~973 | aspetta il kit UI |
 | `app/(app)/risorse-umane/GestioneRU.tsx` | ~935 | idem |
 | `app/(app)/timbrature/TimbratureOperatore.tsx` | ~794 | idem |
@@ -293,6 +293,16 @@ Debito residuo, in ordine di peso (verifica sempre con `npm run mappa`):
   in produzione, verificare che la variabile esista *anche* su Vercel.
 - **Timbrature: chi è abilitato** si decide dalla spunta "Timbratura attiva" nell'anagrafica RU;
   la chiave di collegamento è `MailAziendale`.
+- **Il foglio ore non ha più una cartella di ripiego.** Se la persona non è in anagrafica RU la
+  validazione si ferma e avvisa le HR: prima archiviava in silenzio in `Foglio Ore/<Nominativo>`
+  e nessuno se ne accorgeva.
+- **`timbratura.notte` è una spunta manuale, non un calcolo.** Prima si accendeva da sé quando il
+  turno scavallava la data; adesso i turni oltre la mezzanotte sono spezzati in due righe, quindi
+  nessuna riga scavalla e la colonna significa "turno notturno dichiarato". La maggiorazione è
+  forfettaria a notte: si contano le notti, non le ore in fascia.
+- **Nelle timbrature non esistono contatori memorizzati.** Ogni totale (flessibilità compresa) si
+  ricalcola dalle righe a ogni lettura, perché un saldo salvato divergerebbe alla prima riga
+  corretta a posteriori. Non "ottimizzare" salvandolo.
 - **RU usa auth delegata** (`lib/core/graph-delegato.ts`), non app-only: serve per far comparire
   l'utente reale nel log nativo di Microsoft. Non "semplificarla" a app-only.
 - **Le mail delle timbrature partono da `risorseumane@`**, non dalla casella di sistema: il

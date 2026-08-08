@@ -19,15 +19,24 @@ import {
   marcaConfermato,
   marcaContestato,
   marcaValidato,
+  meseCompleto,
   primoUltimoGiorno,
   riepilogoPeriodo,
   statoMese,
 } from '@/lib/timbrature/data'
-import { pubblicaFoglioOre, type NotaValidazione } from '@/lib/timbrature/foglio-ore-xlsx'
+import {
+  DipendenteFuoriAnagrafica,
+  pubblicaFoglioOre,
+  type NotaValidazione,
+} from '@/lib/timbrature/foglio-ore-xlsx'
 import { graphRU, type GraphClient } from '@/lib/core/graph-delegato'
 import { getUtentiPerArea } from '@/lib/core/permessi'
 import { AREA_HR } from '@/lib/timbrature/guard'
-import { notificaContestazioneFoglioOre, notificaFoglioDaConfermare } from '@/lib/timbrature/notifiche'
+import {
+  notificaContestazioneFoglioOre,
+  notificaDipendenteFuoriAnagrafica,
+  notificaFoglioDaConfermare,
+} from '@/lib/timbrature/notifiche'
 import type { ChiusuraMese, Dipendente } from '@/types/timbrature'
 
 export const MESI_IT = [
@@ -90,6 +99,35 @@ export interface EsitoValidazione {
   chiusura?: ChiusuraMese
   /** Il PDF non e' stato prodotto: la mail parte senza allegato. */
   senzaPdf?: boolean
+  /** La persona non e' in anagrafica RU: niente e' stato archiviato. */
+  fuoriAnagrafica?: boolean
+}
+
+/**
+ * La persona non e' in anagrafica RU: il flusso si ferma qui.
+ *
+ * Chi sta validando e' un responsabile, e un buco in anagrafica non lo puo'
+ * chiudere lui: l'avviso deve arrivare a chi ha le mani sull'anagrafica,
+ * altrimenti resta un messaggio d'errore che qualcuno legge e nessuno risolve.
+ */
+async function fermaPerAnagrafica(
+  dip: Dipendente,
+  e: DipendenteFuoriAnagrafica,
+): Promise<EsitoValidazione> {
+  try {
+    const to = await getUtentiPerArea(AREA_HR)
+    if (to.length) {
+      await notificaDipendenteFuoriAnagrafica({
+        to,
+        cognomeNome: dip.cognomeNome,
+        email: dip.email,
+        linkApp: `${baseApp()}/risorse-umane/dipendenti`,
+      })
+    }
+  } catch (err) {
+    console.error('[timbrature] avviso anagrafica non spedito:', err)
+  }
+  return { ok: false, motivo: e.message, fuoriAnagrafica: true }
 }
 
 /**
@@ -106,21 +144,35 @@ export async function validaFoglio(
   if (!dip) return { ok: false, motivo: 'Dipendente non trovato' }
 
   const stato = await statoMese(dipendenteId, anno, mese)
+  if (stato === 'confermato') return { ok: false, motivo: 'Il foglio ore e gia definitivo.' }
+
+  // Chiusura anticipata: un mese ancora aperto si puo' validare, ma solo se non
+  // ha piu' nemmeno una giornata scoperta. E' il caso "sono in ferie dal 20 al
+  // 31, il mio foglio e' finito": non c'e' motivo di aspettare il calendario.
+  // Un foglio con i buchi invece non si chiude, per nessuno.
   if (stato === 'aperto') {
-    return {
-      ok: false,
-      motivo:
-        'Il mese e ancora aperto alla compilazione: si valida quando la finestra dei tre giorni e scaduta.',
+    if (!(await meseCompleto(dipendenteId, anno, mese))) {
+      return {
+        ok: false,
+        motivo:
+          'Il mese ha ancora giornate scoperte: si valida quando sono tutte complete, ' +
+          'oppure quando la finestra dei tre giorni e scaduta.',
+      }
     }
   }
-  if (stato === 'confermato') return { ok: false, motivo: 'Il foglio ore e gia definitivo.' }
 
   const gc = await clientRU(attore.email)
   const nota: NotaValidazione = {
     validatoDa: attore.nome || attore.email,
     validatoIl: new Date().toISOString(),
   }
-  const pubblicato = await pubblicaFoglioOre(dip, anno, mese, gc, nota)
+  let pubblicato: Awaited<ReturnType<typeof pubblicaFoglioOre>>
+  try {
+    pubblicato = await pubblicaFoglioOre(dip, anno, mese, gc, nota)
+  } catch (e) {
+    if (e instanceof DipendenteFuoriAnagrafica) return await fermaPerAnagrafica(dip, e)
+    throw e
+  }
   const chiusura = await marcaValidato(dipendenteId, anno, mese, attore.email, {
     xlsx: pubblicato.xlsxUrl,
     pdf: pubblicato.pdfUrl,
@@ -196,9 +248,13 @@ export async function confermaFoglio(
     forzato: opts.forzato,
   }
   let pdfUrl: string | null = prima.filePdfUrl
+  let hrUrl: string | null = prima.fileHrUrl
   try {
-    const pubblicato = await pubblicaFoglioOre(dip, anno, mese, gc, nota)
+    // `copiaHr`: e' questo il momento in cui il foglio diventa definitivo, e la
+    // cartella HR del mese contiene solo definitivi, non bozze.
+    const pubblicato = await pubblicaFoglioOre(dip, anno, mese, gc, nota, { copiaHr: true })
     pdfUrl = pubblicato.pdfUrl ?? pdfUrl
+    hrUrl = pubblicato.hrUrl ?? hrUrl
   } catch (e) {
     // La conferma della persona non va persa per un problema di archiviazione:
     // resta il PDF prodotto alla validazione, che ha lo stesso contenuto.
@@ -208,6 +264,7 @@ export async function confermaFoglio(
   const chiusura = await marcaConfermato(dipendenteId, anno, mese, chi, {
     forzato: opts.forzato,
     pdfUrl,
+    hrUrl,
   })
   return { ok: true, chiusura }
 }

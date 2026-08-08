@@ -12,7 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { guardValidatore, puoAgireSu } from '@/lib/timbrature/guard'
-import { creaTimbratura } from '@/lib/timbrature/data'
+import { creaTimbratura, leggiRiga } from '@/lib/timbrature/data'
 import { logAzione } from '@/lib/core/audit'
 
 export const dynamic = 'force-dynamic'
@@ -34,28 +34,18 @@ export async function POST(req: NextRequest) {
   if (negato) return NextResponse.json({ error: negato }, { status: 403 })
 
   try {
-    const timbratura = await creaTimbratura(
-      dipendenteId,
-      {
-        data: String(body.data).slice(0, 10),
-        servizioId: Number(body.servizioId),
-        oraInizio: body.oraInizio ?? null,
-        oraFine: body.oraFine ?? null,
-        mutua: !!body.mutua,
-        note: body.note ?? null,
-      },
-      g.v.email,
-      { perConto: true },
-    )
-    await logAzione({
-      utente: g.v.email,
-      nome: g.v.session.user.name,
-      azione: 'timbrature.riga-per-conto',
-      entita: 'Timbratura',
-      entitaId: timbratura.id,
-      dettagli: { dipendenteId, data: timbratura.data, ore: timbratura.ore },
-    })
-    return NextResponse.json({ timbratura })
+    const esito = await creaTimbratura(dipendenteId, leggiRiga(body), g.v.email, { perConto: true })
+    for (const riga of esito.righe) {
+      await logAzione({
+        utente: g.v.email,
+        nome: g.v.session.user.name,
+        azione: 'timbrature.riga-per-conto',
+        entita: 'Timbratura',
+        entitaId: riga.id,
+        dettagli: { dipendenteId, data: riga.data, ore: riga.ore },
+      })
+    }
+    return NextResponse.json(esito)
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Errore salvataggio' }, { status: 400 })
   }
