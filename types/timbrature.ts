@@ -258,13 +258,13 @@ export interface RiepilogoPeriodo {
   giustificativi: OrePerVoce[]
   /**
    * Flessibilita' LAVORATA: ore di lavoro oltre il monte ore del giorno, al
-   * netto di quanto quel giorno era gia' coperto da assenze. Accumula banca ore.
+   * netto di quanto quel giorno era gia' coperto da assenze. Accumula flessibilità.
    * E' la causale 907 del cedolino.
    */
   flessibilitaLavorata: number
   /**
    * Flessibilita' RECUPERATA: ore dichiarate sulla voce Flessibilita', cioe' ore
-   * non lavorate e attinte dalla banca ore. Consuma. Causale 908 del cedolino.
+   * non lavorate e attinte dal monte di flessibilità. Consuma. Causale 908 del cedolino.
    */
   flessibilitaRecuperata: number
   /**

@@ -587,6 +587,7 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
                   <Kpi label="Ore attese" value={oreLabel(riepilogo.oreAttese)} tone="slate" />
                   <Kpi label="Scostamento" value={segno(riepilogo.scostamento)} tone={riepilogo.scostamento < 0 ? 'red' : 'green'} />
                 </div>
+                <Residui />
                 <Flessibilita r={riepilogo} />
                 <Giustificativi voci={riepilogo.giustificativi} totale={riepilogo.oreGiustificativo} />
               </>
@@ -1006,6 +1007,41 @@ function RigaVoce({ t, bloccato, onEdit, onDelete, compact }: { t: Timbratura; b
 }
 
 /**
+ * Quello che resta: ferie, ex festività e flessibilità non godute.
+ *
+ * Non è un dato di questa app. Il saldo vero lo tiene il cedolino, e a inizio
+ * mese lo carichiamo da lì con i valori del mese precedente: fino ad allora i
+ * riquadri restano col trattino. Stanno qui comunque, vuoti, perché è la domanda
+ * che il dipendente si fa per prima — "quante ferie mi restano?" — e non deve
+ * finire per cercare la risposta nella busta paga cartacea.
+ */
+function Residui() {
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3">
+      <div className="text-xs font-semibold text-gray-500 mb-2">Quanto ti resta</div>
+      <div className="grid grid-cols-3 gap-2">
+        <Residuo label="Ferie" value="—" />
+        <Residuo label="Ex festività" value="—" />
+        <Residuo label="Flessibilità" value="—" />
+      </div>
+      <p className="mt-2 text-[11px] text-gray-400">
+        Sono i residui del cedolino, aggiornati a inizio mese con i dati del mese precedente. Il
+        collegamento non è ancora attivo.
+      </p>
+    </div>
+  )
+}
+
+function Residuo({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-gray-50 rounded-lg py-2 text-center">
+      <div className="font-bold text-gray-800">{value}</div>
+      <div className="text-[11px] text-gray-500">{label}</div>
+    </div>
+  )
+}
+
+/**
  * I due movimenti di flessibilità del mese.
  *
  * Sono le stesse due voci che il cedolino tiene separate — flessibilità lavorata
@@ -1030,11 +1066,15 @@ function Flessibilita({ r }: { r: RiepilogoPeriodo }) {
       <div className="space-y-1 text-sm">
         <div className="flex items-center justify-between">
           <span className="text-gray-600">Lavorata (ore in più)</span>
-          <span className="font-semibold text-emerald-700">+{oreLabel(r.flessibilitaLavorata)} h</span>
+          <span className={`font-semibold ${r.flessibilitaLavorata ? 'text-emerald-700' : 'text-gray-400'}`}>
+            {r.flessibilitaLavorata ? '+' : ''}{oreLabel(r.flessibilitaLavorata)} h
+          </span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-gray-600">Recuperata (ore non lavorate)</span>
-          <span className="font-semibold text-red-700">−{oreLabel(r.flessibilitaRecuperata)} h</span>
+          <span className={`font-semibold ${r.flessibilitaRecuperata ? 'text-red-700' : 'text-gray-400'}`}>
+            {r.flessibilitaRecuperata ? '−' : ''}{oreLabel(r.flessibilitaRecuperata)} h
+          </span>
         </div>
       </div>
       <p className="mt-2 text-[11px] text-gray-400">

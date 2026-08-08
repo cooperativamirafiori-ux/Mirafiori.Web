@@ -40,7 +40,7 @@ import type {
 
 /**
  * Il nome della voce con cui il dipendente dichiara le ore che non ha lavorato
- * e attinge alla banca ore. E' il legame fra l'anagrafica dei servizi e il
+ * e attinge al monte di flessibilità. E' il legame fra l'anagrafica dei servizi e il
  * calcolo della flessibilita': se un domani la voce venisse rinominata,
  * `flessibilitaRecuperata` tornerebbe zero senza dire niente, quindi il nome sta
  * scritto qui una volta sola e non sparso nel codice.
@@ -140,7 +140,7 @@ export async function riepilogoPeriodo(
   // Flessibilita' RECUPERATA: le ore dichiarate sulla voce Flessibilita'.
   // E' la causale 908 del cedolino. Non e' "lo scostamento negativo": una
   // giornata scoperta muove il saldo solo se la persona dichiara di attingere
-  // alla banca ore, e non se la copre con le ferie.
+  // al monte di flessibilità, e non se la copre con le ferie.
   const flessibilitaRecuperata = giustificativi
     .filter((v) => v.nome === VOCE_FLESSIBILITA)
     .reduce((s, v) => s + v.ore, 0)

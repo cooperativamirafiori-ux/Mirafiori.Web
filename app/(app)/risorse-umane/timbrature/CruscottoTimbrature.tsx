@@ -28,6 +28,8 @@ import {
 } from '@/types/timbrature'
 
 const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
+/** Copia del nome usato da lib/timbrature/riepilogo.ts: quel modulo è lato server e qui non si importa. */
+const VOCE_FLESSIBILITA = 'Flessibilità'
 const oreFmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, ''))
 const segno = (n: number) => (n >= 0 ? '+' : '') + oreFmt(n)
 const gg = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}`
@@ -107,9 +109,24 @@ export default function CruscottoTimbrature() {
     )
   }, [righe, ordine])
 
-  /** Stesso criterio del server (lib/timbrature/riepilogo.ts): scoperta = non completa e non festiva. */
+  /**
+   * Le giornate scoperte che sono davvero un problema: solo quelle gia'
+   * trascorse. In un mese in corso i giorni futuri risultano scoperti per forza
+   * — nessuno ha ancora timbrato — e segnalarli sarebbe rumore che nasconde le
+   * poche date su cui serve davvero un intervento.
+   */
+  const oggiYmd = new Date().toLocaleDateString('sv-SE')
   const giorniScoperti = useMemo(
-    () => (dettaglio?.riepilogo.giorni ?? []).filter((g) => !g.completo && !g.festivo),
+    () => (dettaglio?.riepilogo.giorni ?? []).filter((g) => !g.completo && !g.festivo && g.data < oggiYmd),
+    [dettaglio, oggiYmd],
+  )
+
+  /**
+   * Ferie, permessi e simili: la Flessibilita' resta fuori, perche' non e' un
+   * permesso ma un prelievo dal monte di flessibilità, e ha gia' il suo riquadro.
+   */
+  const vociAssenza = useMemo(
+    () => (dettaglio?.riepilogo.giustificativi ?? []).filter((v) => v.nome !== VOCE_FLESSIBILITA),
     [dettaglio],
   )
 
@@ -439,7 +456,7 @@ export default function CruscottoTimbrature() {
               <thead className="bg-gray-50 text-gray-500">
                 <tr>
                   <th className="text-left px-4 py-2 font-semibold">Dipendente</th>
-                  <th className="text-right px-3 py-2 font-semibold">Ore</th>
+                  <th className="text-right px-3 py-2 font-semibold">Lavorate / attese</th>
                   <th className="text-center px-3 py-2 font-semibold">Stato</th>
                   <th className="px-3 py-2"></th>
                 </tr>
@@ -477,7 +494,7 @@ export default function CruscottoTimbrature() {
                         <span className="text-gray-400">/{oreFmt(s.oreAttese)}</span>
                         <span
                           className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${scostClasse(s.scostamento)}`}
-                          title={`Scostamento del mese${s.giorniIncompleti > 0 ? ` · ${s.giorniIncompleti} giorni incompleti` : ''}`}
+                          title="Differenza fra ore lavorate e ore attese del mese"
                         >
                           {segno(s.scostamento)}
                         </span>
@@ -574,70 +591,70 @@ export default function CruscottoTimbrature() {
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-2 mb-3">
-              <Mini label="Lavorate" value={oreFmt(dettaglio.riepilogo.oreLavorate)} />
-              <Mini label="Attese" value={oreFmt(dettaglio.riepilogo.oreAttese)} />
-              <Mini label="Scost." value={segno(dettaglio.riepilogo.scostamento)} rosso={dettaglio.riepilogo.scostamento < 0} />
+            {/* Il mese che si sta controllando. */}
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">
+              Il mese
+            </div>
+            <div className="grid grid-cols-3 gap-2 mb-2">
+              <Mini label="Ore lavorate" value={`${oreFmt(dettaglio.riepilogo.oreLavorate)} h`} />
+              <Mini label="Ore attese" value={`${oreFmt(dettaglio.riepilogo.oreAttese)} h`} />
               <Mini
-                label="Giorni scoperti"
+                label="Differenza"
+                value={`${segno(dettaglio.riepilogo.scostamento)} h`}
+                rosso={dettaglio.riepilogo.scostamento < 0}
+              />
+              <Mini
+                label="Giorni da timbrare"
                 value={giorniScoperti.length ? String(giorniScoperti.length) : '—'}
                 rosso={giorniScoperti.length > 0}
               />
               <Mini
-                label="Flessibilità"
+                label="Flessibilità mese"
                 value={
                   dettaglio.riepilogo.flessibilitaLavorata || dettaglio.riepilogo.flessibilitaRecuperata
-                    ? segno(dettaglio.riepilogo.flessibilitaSaldo)
+                    ? `${segno(dettaglio.riepilogo.flessibilitaSaldo)} h`
                     : '—'
                 }
                 rosso={dettaglio.riepilogo.flessibilitaSaldo < 0}
               />
               <Mini label="Notti" value={dettaglio.riepilogo.notti ? String(dettaglio.riepilogo.notti) : '—'} />
             </div>
-
-            {(dettaglio.riepilogo.flessibilitaLavorata > 0 || dettaglio.riepilogo.flessibilitaRecuperata > 0) && (
-              <div className="mb-3 text-xs text-gray-500">
-                Flessibilità lavorata +{oreFmt(dettaglio.riepilogo.flessibilitaLavorata)} h · recuperata −
-                {oreFmt(dettaglio.riepilogo.flessibilitaRecuperata)} h
-                {dettaglio.riepilogo.turniReperibilita > 0 && ` · ${dettaglio.riepilogo.turniReperibilita} turni in reperibilità`}
-              </div>
-            )}
+            <p className="text-[11px] text-gray-400 mb-5">
+              I giorni contati sono solo quelli già trascorsi: il resto del mese è ancora da timbrare.
+              {giorniScoperti.length > 0 && ` Scoperti: ${giorniScoperti.map((g) => gg(g.data)).join(', ')}.`}
+            </p>
 
             {/*
-              Le giornate scoperte in chiaro: sono quelle che bloccano la
-              chiusura, e chi controlla deve sapere *quali* sono, non quante.
+              Residui di ferie, ex festivita' e flessibilità: sono dati del
+              cedolino, non di questa app. I riquadri stanno qui gia' adesso, col
+              trattino, perche' e' qui che chi controlla li cerca: appena
+              l'import dei cedolini sara' collegato si riempiono da soli.
             */}
-            {giorniScoperti.length > 0 && (
-              <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
-                <div className="text-sm font-semibold text-amber-800 mb-1.5">
-                  Giornate scoperte ({giorniScoperti.length})
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {giorniScoperti.map((g) => (
-                    <span
-                      key={g.data}
-                      title={`${oreFmt(g.oreLavorate + g.oreGiustificativo)} di ${oreFmt(g.oreAttese)} h attese`}
-                      className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-white text-amber-800 border border-amber-200"
-                    >
-                      {gg(g.data)}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">
+              Residui da cedolino
+            </div>
+            <div className="grid grid-cols-3 gap-2 mb-1">
+              <Mini label="Ferie residue" value="—" />
+              <Mini label="Ex festività" value="—" />
+              <Mini label="Flessibilità residua" value="—" />
+            </div>
+            <p className="text-[11px] text-gray-400 mb-5">
+              Aggiornati a inizio mese con i dati del mese precedente. Il collegamento con i cedolini
+              non è ancora attivo.
+            </p>
 
             <div className="border border-gray-200 rounded-xl p-3 mb-5">
               <div className="flex items-center justify-between mb-2">
-                <span className="font-semibold text-gray-700 text-sm">Ferie, permessi e altre voci</span>
+                <span className="font-semibold text-gray-700 text-sm">Ferie, permessi e assenze del mese</span>
                 <span className="text-sm font-semibold text-accent-purple">
-                  {oreFmt(dettaglio.riepilogo.oreGiustificativo)} h
+                  {oreFmt(vociAssenza.reduce((s, v) => s + v.ore, 0))} h
                 </span>
               </div>
-              {dettaglio.riepilogo.giustificativi.length === 0 ? (
-                <div className="text-xs text-gray-400 italic">Nessuna voce usata in questo mese.</div>
+              {vociAssenza.length === 0 ? (
+                <div className="text-xs text-gray-400 italic">Nessuna assenza in questo mese.</div>
               ) : (
                 <div className="space-y-1">
-                  {dettaglio.riepilogo.giustificativi.map((v) => (
+                  {vociAssenza.map((v) => (
                     <div key={v.servizioId} className="flex items-center justify-between text-sm">
                       <span className="text-accent-purple font-medium">{v.nome}</span>
                       <span className="text-gray-500 font-semibold">{oreFmt(v.ore)} h</span>
