@@ -548,18 +548,13 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
               </div>
             )}
 
-            {/* Riepilogo mese compatto */}
-            {riepilogo && (
-              <>
-                <div className="grid grid-cols-3 gap-3">
-                  <Kpi label="Ore mese" value={oreLabel(riepilogo.oreLavorate)} tone="cyan" />
-                  <Kpi label="Attese" value={oreLabel(riepilogo.oreAttese)} tone="slate" />
-                  <Kpi label="Scost." value={segno(riepilogo.scostamento)} tone={riepilogo.scostamento < 0 ? 'red' : 'green'} />
-                </div>
-                <Giustificativi voci={riepilogo.giustificativi} totale={riepilogo.oreGiustificativo} />
-              </>
-            )}
-
+            {/*
+              Qui stavano i tre KPI del mese e il riquadro dei giustificativi.
+              Tolti di proposito: erano gli stessi numeri della vista Mese, dove
+              hanno intorno il contesto che serve a leggerli (settimane,
+              flessibilita', giorno per giorno). "Oggi" serve a timbrare, non a
+              fare i conti del mese.
+            */}
             <button onClick={() => setVista('mese')} className="w-full text-center text-sm font-semibold text-brand-cyan-dark py-2">
               Vedi tutto il mese →
             </button>
