@@ -1,0 +1,22 @@
+{
+  "riunione": "2026-08-10",
+  "oggetto": "Approvazione budget e area timbrature",
+  "task": [
+    {
+      "titolo": "Predisporre il preventivo per la manutenzione della struttura di Via Roma",
+      "responsabile": "Dennis Maseri",
+      "scadenza": "2026-09-15",
+      "note": "Il CDA ha dato mandato di raccogliere almeno tre preventivi prima della prossima seduta.",
+      "checklist": [
+        "Contattare i tre fornitori",
+        "Confrontare le voci di costo",
+        "Portare il confronto al prossimo CDA"
+      ]
+    },
+    {
+      "titolo": "Verificare la copertura assicurativa dei mezzi",
+      "responsabile": "Persona Inesistente",
+      "note": "Emerso durante la discussione sul rinnovo del parco mezzi. Nessuna scadenza fissata in seduta."
+    }
+  ]
+}
