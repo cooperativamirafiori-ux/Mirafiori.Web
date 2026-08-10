@@ -27,23 +27,9 @@ import {
   type Servizio,
 } from '@/types/timbrature'
 
-const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
-/** Copia del nome usato da lib/timbrature/riepilogo.ts: quel modulo è lato server e qui non si importa. */
-const VOCE_FLESSIBILITA = 'Flessibilità'
-const oreFmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, ''))
-const segno = (n: number) => (n >= 0 ? '+' : '') + oreFmt(n)
-const gg = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}`
-
-function fmtRange(from: string, to: string) {
-  const f = gg(from)
-  const t = gg(to)
-  return f === t ? f : `${f}–${t}`
-}
-function scostClasse(n: number) {
-  if (n < -0.001) return 'bg-red-100 text-red-700'
-  if (n > 0.001) return 'bg-emerald-100 text-emerald-700'
-  return 'bg-gray-100 text-gray-600'
-}
+import { RiepilogoMese } from '@/app/(app)/timbrature/_componenti/RiepilogoMese'
+import { GiorniMese } from '@/app/(app)/timbrature/_componenti/GiorniMese'
+import { MESI, oreLabel, pad, scostClasse, segno } from '@/app/(app)/timbrature/_componenti/mese'
 
 /** Colore del badge di stato: deve dire a colpo d'occhio dove si e' fermi. */
 const STILE_STATO: Record<StatoMese, string> = {
@@ -108,35 +94,6 @@ export default function CruscottoTimbrature() {
       (a, b) => a.flessibilitaSaldo - b.flessibilitaSaldo || a.cognomeNome.localeCompare(b.cognomeNome, 'it'),
     )
   }, [righe, ordine])
-
-  /**
-   * Le giornate scoperte che sono davvero un problema: solo quelle gia'
-   * trascorse. In un mese in corso i giorni futuri risultano scoperti per forza
-   * — nessuno ha ancora timbrato — e segnalarli sarebbe rumore che nasconde le
-   * poche date su cui serve davvero un intervento.
-   */
-  const oggiYmd = new Date().toLocaleDateString('sv-SE')
-  const giorniScoperti = useMemo(
-    () => (dettaglio?.riepilogo.giorni ?? []).filter((g) => !g.completo && !g.festivo && g.data < oggiYmd),
-    [dettaglio, oggiYmd],
-  )
-
-  /**
-   * Ferie, permessi e simili: la Flessibilita' resta fuori, perche' non e' un
-   * permesso ma un prelievo dal monte di flessibilità, e ha gia' il suo riquadro.
-   */
-  const vociAssenza = useMemo(
-    () => (dettaglio?.riepilogo.giustificativi ?? []).filter((v) => v.nome !== VOCE_FLESSIBILITA),
-    [dettaglio],
-  )
-
-  const festivoByData = useMemo(() => {
-    const m = new Map<string, string>()
-    dettaglio?.riepilogo.giorni.forEach((g) => {
-      if (g.festivo) m.set(g.data, g.festivitaNome ?? 'Festività')
-    })
-    return m
-  }, [dettaglio])
 
   const carica = useCallback(async () => {
     setLoading(true); setErrore('')
@@ -273,10 +230,10 @@ export default function CruscottoTimbrature() {
    * imposta sarebbe stato impossibile registrarlo per come e' andato davvero.
    */
   // ---------------------------------------------------------------- righe
-  function nuovaRiga() {
+  function nuovaRiga(data: string) {
     if (!dettaglio) return
     setRigaForm({
-      data: `${anno}-${String(mese).padStart(2, '0')}-01`,
+      data,
       servizioId: '', oraInizio: '09:00', oraFine: '13:00',
       notte: false, reperibilita: false, mutua: false, note: '',
       adOre: false,
@@ -490,11 +447,11 @@ export default function CruscottoTimbrature() {
                         <div className="text-xs text-gray-400">{s.email}</div>
                       </td>
                       <td className="text-right px-3 whitespace-nowrap">
-                        <span className="text-gray-800">{oreFmt(s.oreLavorate)}</span>
-                        <span className="text-gray-400">/{oreFmt(s.oreAttese)}</span>
+                        <span className="text-gray-800">{oreLabel(s.oreLavorate)}</span>
+                        <span className="text-gray-400">/{oreLabel(s.oreAttese)}</span>
                         <span
                           className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${scostClasse(s.scostamento)}`}
-                          title="Differenza fra ore lavorate e ore attese del mese"
+                          title="Scostamento fra ore coperte e ore attese dell'intero mese"
                         >
                           {segno(s.scostamento)}
                         </span>
@@ -591,101 +548,21 @@ export default function CruscottoTimbrature() {
               </div>
             )}
 
-            {/* Il mese che si sta controllando. */}
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">
-              Il mese
-            </div>
-            <div className="grid grid-cols-3 gap-2 mb-2">
-              <Mini label="Ore lavorate" value={`${oreFmt(dettaglio.riepilogo.oreLavorate)} h`} />
-              <Mini label="Ore attese" value={`${oreFmt(dettaglio.riepilogo.oreAttese)} h`} />
-              <Mini
-                label="Differenza"
-                value={`${segno(dettaglio.riepilogo.scostamento)} h`}
-                rosso={dettaglio.riepilogo.scostamento < 0}
-              />
-              <Mini
-                label="Giorni da timbrare"
-                value={giorniScoperti.length ? String(giorniScoperti.length) : '—'}
-                rosso={giorniScoperti.length > 0}
-              />
-              <Mini
-                label="Flessibilità mese"
-                value={
-                  dettaglio.riepilogo.flessibilitaLavorata || dettaglio.riepilogo.flessibilitaRecuperata
-                    ? `${segno(dettaglio.riepilogo.flessibilitaSaldo)} h`
-                    : '—'
-                }
-                rosso={dettaglio.riepilogo.flessibilitaSaldo < 0}
-              />
-              <Mini label="Notti" value={dettaglio.riepilogo.notti ? String(dettaglio.riepilogo.notti) : '—'} />
-            </div>
-            <p className="text-[11px] text-gray-400 mb-5">
-              I giorni contati sono solo quelli già trascorsi: il resto del mese è ancora da timbrare.
-              {giorniScoperti.length > 0 && ` Scoperti: ${giorniScoperti.map((g) => gg(g.data)).join(', ')}.`}
-            </p>
-
             {/*
-              Residui di ferie, ex festivita' e flessibilità: sono dati del
-              cedolino, non di questa app. I riquadri stanno qui gia' adesso, col
-              trattino, perche' e' qui che chi controlla li cerca: appena
-              l'import dei cedolini sara' collegato si riempiono da soli.
+              Lo stesso riepilogo che vede il dipendente, senza una riga di
+              differenza: prima chi validava aveva sei piastrelle con altri nomi
+              ("Differenza" invece di "Scostamento"), il punto decimale al posto
+              della virgola e nessun elenco delle voci di assenza disponibili.
+              Chi controlla vedeva meno di chi compila.
             */}
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">
-              Residui da cedolino
+            <div className="mb-5">
+              <RiepilogoMese
+                riepilogo={dettaglio.riepilogo}
+                timbrature={dettaglio.timbrature}
+                servizi={dettaglio.servizi}
+                nome={dettaglio.dipendente.cognomeNome}
+              />
             </div>
-            <div className="grid grid-cols-3 gap-2 mb-1">
-              <Mini label="Ferie residue" value="—" />
-              <Mini label="Ex festività" value="—" />
-              <Mini label="Flessibilità residua" value="—" />
-            </div>
-            <p className="text-[11px] text-gray-400 mb-5">
-              Aggiornati a inizio mese con i dati del mese precedente. Il collegamento con i cedolini
-              non è ancora attivo.
-            </p>
-
-            <div className="border border-gray-200 rounded-xl p-3 mb-5">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-semibold text-gray-700 text-sm">Ferie, permessi e assenze del mese</span>
-                <span className="text-sm font-semibold text-accent-purple">
-                  {oreFmt(vociAssenza.reduce((s, v) => s + v.ore, 0))} h
-                </span>
-              </div>
-              {vociAssenza.length === 0 ? (
-                <div className="text-xs text-gray-400 italic">Nessuna assenza in questo mese.</div>
-              ) : (
-                <div className="space-y-1">
-                  {vociAssenza.map((v) => (
-                    <div key={v.servizioId} className="flex items-center justify-between text-sm">
-                      <span className="text-accent-purple font-medium">{v.nome}</span>
-                      <span className="text-gray-500 font-semibold">{oreFmt(v.ore)} h</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {dettaglio.riepilogo.settimane.length > 0 && (
-              <div className="border border-gray-200 rounded-xl p-3 mb-5">
-                <div className="font-semibold text-gray-700 text-sm mb-2">Scostamento per settimana</div>
-                <div className="space-y-1.5">
-                  {dettaglio.riepilogo.settimane.map((w) => (
-                    <div key={w.inizio} className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Sett. {fmtRange(w.inizio, w.fine)}</span>
-                      <span className="flex items-center gap-2">
-                        <span className="text-gray-400">{oreFmt(w.oreLavorate)}/{oreFmt(w.oreAttese)} h</span>
-                        {w.conclusa ? (
-                          <span className={`font-semibold px-2 py-0.5 rounded-full text-xs ${scostClasse(w.scostamento)}`}>
-                            {segno(w.scostamento)} h
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-400 italic">in corso</span>
-                        )}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {isHr && (
               <VariazioniOrario
@@ -698,51 +575,20 @@ export default function CruscottoTimbrature() {
               />
             )}
 
-            {/* Righe del mese */}
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-semibold text-gray-700 text-sm">Righe del mese ({dettaglio.timbrature.length})</span>
-              {modificabile && (
-                <button onClick={nuovaRiga} className="text-sm font-semibold text-brand-cyan-dark hover:underline">
-                  + aggiungi riga
-                </button>
-              )}
-            </div>
-            <div className="space-y-1 mb-5">
-              {dettaglio.timbrature.map((t) => (
-                <div key={t.id} className="flex justify-between items-start gap-2 text-sm border-b border-gray-50 py-1">
-                  <span className="min-w-0">
-                    {gg(t.data)} · {t.servizioNome}{t.mutua ? ' (Mutua)' : ''}
-                    {t.tipoVoce === 'lavoro' && festivoByData.has(t.data) && (
-                      <span
-                        title={festivoByData.get(t.data)}
-                        className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700"
-                      >
-                        lavoro in festività
-                      </span>
-                    )}
-                    {t.perConto && (
-                      <span
-                        title={`Inserita da ${t.modificataDa ?? t.creataDa ?? 'un responsabile'}`}
-                        className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700"
-                      >
-                        per conto
-                      </span>
-                    )}
-                  </span>
-                  <span className="flex items-center gap-3 shrink-0">
-                    <span className="text-gray-400">
-                      {t.oraInizio && t.oraFine ? `${t.oraInizio}–${t.oraFine} · ` : ''}{oreFmt(t.ore)} h
-                    </span>
-                    {modificabile && (
-                      <>
-                        <button onClick={() => modificaRiga(t)} className="text-xs text-gray-500 hover:text-gray-800">Modifica</button>
-                        <button onClick={() => eliminaRiga(t.id)} className="text-xs text-red-500 hover:text-red-700">Elimina</button>
-                      </>
-                    )}
-                  </span>
-                </div>
-              ))}
-              {dettaglio.timbrature.length === 0 && <div className="text-sm text-gray-400">Nessuna riga inserita.</div>}
+            {/*
+              Il mese giorno per giorno, non piu' l'elenco delle sole righe
+              esistenti: i giorni scoperti non hanno righe e sparivano proprio
+              dalla vista di chi deve dire "questo foglio e' corretto".
+            */}
+            <div className="mb-5">
+              <GiorniMese
+                riepilogo={dettaglio.riepilogo}
+                timbrature={dettaglio.timbrature}
+                modificabile={modificabile}
+                onAggiungi={nuovaRiga}
+                onModifica={modificaRiga}
+                onElimina={eliminaRiga}
+              />
             </div>
 
             {/* Form riga */}

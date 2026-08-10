@@ -2,28 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Header } from '@/components/ui/Header'
-import type { Servizio, Timbratura, RiepilogoPeriodo, OrePerVoce, FinestraMese } from '@/types/timbrature'
-
-const MESI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
-const GIORNI = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab']
-const GIORNI_LUNGHI = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato']
-
-function pad(n: number) { return String(n).padStart(2, '0') }
-function ymd(y: number, m: number, d: number) { return `${y}-${pad(m)}-${pad(d)}` }
-function ultimoGiorno(y: number, m: number) { return new Date(y, m, 0).getDate() }
-function weekdayIdx(dataYmd: string) {
-  const [y, m, d] = dataYmd.split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d)).getUTCDay()
-}
-function weekdayShort(dataYmd: string) { return GIORNI[weekdayIdx(dataYmd)] }
-function dataEstesa(dataYmd: string) {
-  const [, m, d] = dataYmd.split('-').map(Number)
-  return `${GIORNI_LUNGHI[weekdayIdx(dataYmd)]} ${d} ${MESI[m - 1].toLowerCase()}`
-}
-
-const oreFmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, ''))
-const oreLabel = (n: number) => oreFmt(n).replace('.', ',')
-const segno = (n: number) => (n >= 0 ? '+' : '') + oreLabel(n)
+import type { Servizio, Timbratura, RiepilogoPeriodo, FinestraMese } from '@/types/timbrature'
+import { RiepilogoMese } from './_componenti/RiepilogoMese'
+import { GiorniMese, RigaVoce } from './_componenti/GiorniMese'
+import {
+  MESI,
+  dataEstesa,
+  oggiYmd,
+  oreLabel,
+  pad,
+  ultimoGiornoMese as ultimoGiorno,
+  weekdayShort,
+  ymd,
+} from './_componenti/mese'
 
 // ---- orari HH:mm ----
 /** 'HH:mm' → minuti dalla mezzanotte, oppure null se non valido. */
@@ -52,24 +43,6 @@ function oreTra(oraInizio: string, oraFine: string): { ore: number; oltreMezzano
   if (diff <= 0) { diff += 1440; oltreMezzanotte = true }
   return { ore: Math.round((diff / 60) * 10000) / 10000, oltreMezzanotte }
 }
-function fmtRange(from: string, to: string) {
-  const f = `${from.slice(8, 10)}/${from.slice(5, 7)}`
-  const t = `${to.slice(8, 10)}/${to.slice(5, 7)}`
-  return f === t ? f : `${f}–${t}`
-}
-/** Classe colore per uno scostamento (verde/rosso/neutro). */
-function scostClasse(n: number) {
-  if (n < -0.001) return 'bg-red-100 text-red-700'
-  if (n > 0.001) return 'bg-emerald-100 text-emerald-700'
-  return 'bg-gray-100 text-gray-600'
-}
-
-/** Data odierna YYYY-MM-DD nel fuso locale del dispositivo. */
-function oggiYmd(): string {
-  const d = new Date()
-  return ymd(d.getFullYear(), d.getMonth() + 1, d.getDate())
-}
-
 interface FormRiga {
   id?: string
   data: string
@@ -494,7 +467,13 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
               {righeOggi.length > 0 && (
                 <div className="mt-4 divide-y divide-gray-50 border-t border-gray-100">
                   {righeOggi.map((t) => (
-                    <RigaVoce key={t.id} t={t} bloccato={bloccato} onEdit={() => modificaRiga(t)} onDelete={() => elimina(t.id)} />
+                    <RigaVoce
+                      key={t.id}
+                      t={t}
+                      modificabile={!bloccato}
+                      onModifica={modificaRiga}
+                      onElimina={elimina}
+                    />
                   ))}
                 </div>
               )}
@@ -576,16 +555,7 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
             </div>
 
             {riepilogo && (
-              <>
-                <div className="grid grid-cols-3 gap-3">
-                  <Kpi label="Ore lavorate" value={oreLabel(riepilogo.oreLavorate)} tone="cyan" />
-                  <Kpi label="Ore attese" value={oreLabel(riepilogo.oreAttese)} tone="slate" />
-                  <Kpi label="Scostamento" value={segno(riepilogo.scostamento)} tone={riepilogo.scostamento < 0 ? 'red' : 'green'} />
-                </div>
-                <Residui />
-                <Flessibilita r={riepilogo} />
-                <Giustificativi voci={riepilogo.giustificativi} totale={riepilogo.oreGiustificativo} />
-              </>
+              <RiepilogoMese riepilogo={riepilogo} timbrature={timbrature} servizi={servizi} />
             )}
 
             {/* Ferie e permessi su piu' giorni: quattordici giornate non si aprono una per una. */}
@@ -598,110 +568,24 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
               </button>
             )}
 
-            {/* Scostamento per settimana */}
-            {riepilogo && riepilogo.settimane.length > 0 && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3">
-                <div className="text-xs font-semibold text-gray-500 mb-2">Scostamento per settimana</div>
-                <div className="space-y-1.5">
-                  {riepilogo.settimane.map((s) => (
-                    <div key={s.inizio} className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Sett. {fmtRange(s.inizio, s.fine)}</span>
-                      <span className="flex items-center gap-2">
-                        <span className="text-gray-400">{oreLabel(s.oreLavorate)}/{oreLabel(s.oreAttese)} h</span>
-                        {s.conclusa ? (
-                          <span className={`font-semibold px-2 py-0.5 rounded-full text-xs ${scostClasse(s.scostamento)}`}>
-                            {segno(s.scostamento)} h
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-400 italic">in corso</span>
-                        )}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {bloccato && (
               <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                 🔒 {finestra?.motivo || 'Mese non modificabile'}. Le righe sono in sola lettura.
               </div>
             )}
 
-            <div className="space-y-2">
-              {(riepilogo?.giorni ?? []).map((g) => {
-                const righe = timbPerGiorno.get(g.data) ?? []
-                const oreGiorno = righe.reduce((s, t) => s + t.ore, 0)
-                const oreLavoroGiorno = righe.reduce((s, t) => s + (t.tipoVoce === 'lavoro' ? t.ore : 0), 0)
-                const incompleto = !g.festivo && oreGiorno + 1e-9 < g.oreAttese
-                return (
-                  <div key={g.data} className={`bg-white rounded-xl border ${incompleto ? 'border-amber-200' : 'border-gray-100'} shadow-sm`}>
-                    <div className="flex items-center justify-between px-4 py-2.5">
-                      <div className="flex items-center gap-3">
-                        <div className="text-center w-10">
-                          <div className="text-xs text-gray-400">{weekdayShort(g.data)}</div>
-                          <div className="font-bold text-gray-700">{Number(g.data.slice(8, 10))}</div>
-                        </div>
-                        {g.festivo ? (
-                          <span className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs font-semibold text-rose-500">{g.festivitaNome}</span>
-                            {oreLavoroGiorno > 0.001 && (
-                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                                lavoro in festività · {oreLabel(oreLavoroGiorno)} h
-                              </span>
-                            )}
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-xs text-gray-500">
-                              {oreLabel(oreGiorno)} / {oreLabel(g.oreAttese)} h
-                              {incompleto && <span className="ml-1 text-amber-600 font-semibold">·  incompleto</span>}
-                            </span>
-                            {/* Il tag della voce: scorrendo il mese si vede subito
-                                dove si e' lavorato, dove no e perche', senza
-                                dover aprire una giornata alla volta. */}
-                            {g.voci.map((v) => (
-                              <span key={v} className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-100 text-accent-purple">
-                                {v}
-                              </span>
-                            ))}
-                            {g.notte && (
-                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700">notte</span>
-                            )}
-                            {g.reperibilita && (
-                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700">reperibilità</span>
-                            )}
-                          </span>
-                        )}
-                      </div>
-                      {!bloccato && (
-                        <button
-                          onClick={() => nuovaRiga(g.data)}
-                          title={fuoriFinestra(g.data) ? 'Fuori finestra: solo ferie, permessi o malattia' : undefined}
-                          className={`text-sm font-semibold hover:underline ${fuoriFinestra(g.data) ? 'text-gray-400' : 'text-brand-cyan-dark'}`}
-                        >
-                          + riga
-                        </button>
-                      )}
-                    </div>
-                    {righe.length > 0 && (
-                      <div className="border-t border-gray-100 divide-y divide-gray-50">
-                        {righe.map((t) => (
-                          <RigaVoce
-                            key={t.id}
-                            t={t}
-                            bloccato={bloccato || (t.tipoVoce === 'lavoro' && fuoriFinestra(t.data))}
-                            onEdit={() => modificaRiga(t)}
-                            onDelete={() => elimina(t.id)}
-                            compact
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+            {riepilogo && (
+              <GiorniMese
+                riepilogo={riepilogo}
+                timbrature={timbrature}
+                oggi={OGGI}
+                modificabile={!bloccato}
+                fuoriFinestra={fuoriFinestra}
+                onAggiungi={nuovaRiga}
+                onModifica={modificaRiga}
+                onElimina={elimina}
+              />
+            )}
           </div>
         )}
       </div>
@@ -946,178 +830,6 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-function RigaVoce({ t, bloccato, onEdit, onDelete, compact }: { t: Timbratura; bloccato: boolean; onEdit: () => void; onDelete: () => void; compact?: boolean }) {
-  return (
-    <div className={`flex items-center justify-between ${compact ? 'px-4 py-2' : 'py-2.5'} text-sm`}>
-      <div className="min-w-0">
-        <span className={`font-medium ${t.tipoVoce === 'giustificativo' ? 'text-accent-purple' : 'text-gray-800'}`}>
-          {t.servizioNome}
-        </span>
-        {t.notte && (
-          <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
-            notte
-          </span>
-        )}
-        {t.reperibilita && (
-          <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700">
-            reperibilità
-          </span>
-        )}
-        {t.mutua && (
-          <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700">
-            mutua
-          </span>
-        )}
-        {t.perConto && (
-          <span
-            title="Riga inserita dal tuo responsabile"
-            className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700"
-          >
-            dal responsabile
-          </span>
-        )}
-        <span className="text-gray-400 ml-2 font-semibold">{oreLabel(t.ore)} h</span>
-        <div className="text-xs text-gray-400 truncate">
-          {t.oraInizio && t.oraFine && (
-            <span>
-              {t.oraInizio}–{t.oraFine}
-              {t.note ? ' · ' : ''}
-            </span>
-          )}
-          {t.note}
-        </div>
-      </div>
-      {!bloccato && (
-        <div className="flex gap-3 text-xs shrink-0">
-          <button onClick={onEdit} className="text-gray-500 hover:text-gray-800">Modifica</button>
-          <button onClick={onDelete} className="text-red-500 hover:text-red-700">Elimina</button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-/**
- * Quello che resta: ferie, ex festività e flessibilità non godute.
- *
- * Non è un dato di questa app. Il saldo vero lo tiene il cedolino, e a inizio
- * mese lo carichiamo da lì con i valori del mese precedente: fino ad allora i
- * riquadri restano col trattino. Stanno qui comunque, vuoti, perché è la domanda
- * che il dipendente si fa per prima — "quante ferie mi restano?" — e non deve
- * finire per cercare la risposta nella busta paga cartacea.
- */
-function Residui() {
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3">
-      <div className="text-xs font-semibold text-gray-500 mb-2">Quanto ti resta</div>
-      <div className="grid grid-cols-3 gap-2">
-        <Residuo label="Ferie" value="—" />
-        <Residuo label="Ex festività" value="—" />
-        <Residuo label="Flessibilità" value="—" />
-      </div>
-      <p className="mt-2 text-[11px] text-gray-400">
-        Sono i residui del cedolino, aggiornati a inizio mese con i dati del mese precedente. Il
-        collegamento non è ancora attivo.
-      </p>
-    </div>
-  )
-}
-
-function Residuo({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="bg-gray-50 rounded-lg py-2 text-center">
-      <div className="font-bold text-gray-800">{value}</div>
-      <div className="text-[11px] text-gray-500">{label}</div>
-    </div>
-  )
-}
-
-/**
- * I due movimenti di flessibilità del mese.
- *
- * Sono le stesse due voci che il cedolino tiene separate — flessibilità lavorata
- * e flessibilità recuperata — perché è così che le paghe le liquidano, e vederle
- * qui con gli stessi nomi rende il confronto immediato quando arriva la busta.
- *
- * Non è il saldo disponibile: quello parte dalla dotazione allineata al cedolino,
- * che il sistema non conosce ancora. Detto in chiaro, così nessuno legge questo
- * numero come "le ore che mi restano".
- */
-function Flessibilita({ r }: { r: RiepilogoPeriodo }) {
-  if (!r.flessibilitaLavorata && !r.flessibilitaRecuperata) return null
-  const saldo = r.flessibilitaSaldo
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold text-gray-500">Flessibilità del mese</span>
-        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${scostClasse(saldo)}`}>
-          {segno(saldo)} h
-        </span>
-      </div>
-      <div className="space-y-1 text-sm">
-        <div className="flex items-center justify-between">
-          <span className="text-gray-600">Lavorata (ore in più)</span>
-          <span className={`font-semibold ${r.flessibilitaLavorata ? 'text-emerald-700' : 'text-gray-400'}`}>
-            {r.flessibilitaLavorata ? '+' : ''}{oreLabel(r.flessibilitaLavorata)} h
-          </span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-gray-600">Recuperata (ore non lavorate)</span>
-          <span className={`font-semibold ${r.flessibilitaRecuperata ? 'text-red-700' : 'text-gray-400'}`}>
-            {r.flessibilitaRecuperata ? '−' : ''}{oreLabel(r.flessibilitaRecuperata)} h
-          </span>
-        </div>
-      </div>
-      <p className="mt-2 text-[11px] text-gray-400">
-        È il movimento di questo mese, non il totale che ti resta: il saldo ufficiale è quello del
-        cedolino.
-      </p>
-    </div>
-  )
-}
-
-/**
- * Ore usate per ogni giustificativo nel mese (Ferie, Flessibilità, Permessi…).
- * I tre KPI da soli non dicono *cosa* è stato usato: questo riquadro sì.
- */
-function Giustificativi({ voci, totale }: { voci: OrePerVoce[]; totale: number }) {
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold text-gray-500">Ferie, permessi e altre voci</span>
-        <span className="text-xs font-semibold text-accent-purple">{oreLabel(totale)} h</span>
-      </div>
-      {voci.length === 0 ? (
-        <div className="text-xs text-gray-400 italic">Nessuna voce usata in questo mese.</div>
-      ) : (
-        <div className="space-y-1.5">
-          {voci.map((v) => (
-            <div key={v.servizioId} className="flex items-center justify-between text-sm">
-              <span className="text-accent-purple font-medium">{v.nome}</span>
-              <span className="text-gray-500 font-semibold">{oreLabel(v.ore)} h</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function Kpi({ label, value, tone }: { label: string; value: string; tone: 'cyan' | 'slate' | 'red' | 'green' }) {
-  const tones: Record<string, string> = {
-    cyan: 'text-brand-cyan-dark',
-    slate: 'text-slate-600',
-    red: 'text-red-600',
-    green: 'text-emerald-600',
-  }
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-3 py-3 text-center">
-      <div className={`text-xl font-bold ${tones[tone]}`}>{value}</div>
-      <div className="text-xs text-gray-500 mt-0.5">{label}</div>
     </div>
   )
 }
