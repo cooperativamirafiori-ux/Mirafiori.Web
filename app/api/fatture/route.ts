@@ -14,6 +14,7 @@ import { auth } from '@/lib/core/auth'
 import { logAzione } from '@/lib/core/audit'
 import { creaRichiestaFattura, fattureConfigurato } from '@/lib/fatture/data'
 import { notificaRichiestaFattura } from '@/lib/fatture/notifiche'
+import { clientiConfigurato, salvaCliente } from '@/lib/clienti/data'
 import { intestatario, richiestaVuota, validaRichiesta } from '@/types/fatture'
 import type { NuovaRichiestaFatturaInput } from '@/types/fatture'
 
@@ -53,6 +54,38 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Prima l'anagrafica, poi la richiesta: così la richiesta può portarsi
+    // l'id del cliente, anche quando il cliente è nato adesso. Se l'anagrafica
+    // dà problemi la richiesta si salva comunque — è lei che non si può perdere.
+    let anagrafica: Awaited<ReturnType<typeof salvaCliente>> | undefined
+    if (clientiConfigurato()) {
+      try {
+        anagrafica = await salvaCliente(
+          {
+            denominazione: intestatario(input),
+            cognome: input.cognome,
+            nome: input.nome,
+            tipoSoggetto: input.tipoSoggetto,
+            indirizzo: input.indirizzo,
+            comune: input.citta,
+            cap: input.cap,
+            provincia: input.provincia,
+            nazione: input.nazione,
+            partitaIva: input.partitaIva,
+            codiceFiscale: input.codiceFiscale,
+            telefono: input.telefono,
+            email: input.email,
+            pec: input.pec,
+            codiceSdi: input.codiceSdi,
+          },
+          input.clienteId || undefined,
+        )
+        input.clienteId = anagrafica.cliente.spItemId
+      } catch (err) {
+        console.error('[POST /api/fatture] anagrafica cliente non salvata', err)
+      }
+    }
+
     const richiesta = await creaRichiestaFattura(input, {
       email: session.user.email,
       nome: session.user.name,
@@ -61,7 +94,7 @@ export async function POST(req: NextRequest) {
     // La mail non deve poter far fallire una richiesta già salvata: se salta,
     // il dato è comunque nella lista.
     try {
-      await notificaRichiestaFattura(richiesta)
+      await notificaRichiestaFattura(richiesta, anagrafica)
     } catch (err) {
       console.error('[POST /api/fatture] notifica fallita (richiesta salvata)', err)
     }
@@ -79,10 +112,20 @@ export async function POST(req: NextRequest) {
         tipoSoggetto: richiesta.tipoSoggetto,
         intestatario: intestatario(richiesta),
         importo: richiesta.importo,
+        cliente: anagrafica
+          ? { id: anagrafica.cliente.spItemId, esito: anagrafica.esito, campi: anagrafica.cambiati.map((c) => c.campo) }
+          : undefined,
       },
     })
 
-    return NextResponse.json({ ok: true, numero: richiesta.numero }, { status: 201 })
+    return NextResponse.json(
+      {
+        ok: true,
+        numero: richiesta.numero,
+        cliente: anagrafica ? { esito: anagrafica.esito, cambiati: anagrafica.cambiati.length } : undefined,
+      },
+      { status: 201 },
+    )
   } catch (err: any) {
     console.error('[POST /api/fatture]', err)
     return NextResponse.json({ error: err?.message ?? 'Errore interno' }, { status: 500 })

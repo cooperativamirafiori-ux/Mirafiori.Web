@@ -4,6 +4,7 @@ import { Header } from '@/components/ui/Header'
 import { Banner } from '@/components/ui/Banner'
 import { fattureConfigurato } from '@/lib/fatture/data'
 import { getCentriDiCosto } from '@/lib/fatture/centri-di-costo'
+import { getIndiceClienti } from '@/lib/clienti/data'
 import { RichiestaFatturaForm } from './RichiestaFatturaForm'
 
 export const dynamic = 'force-dynamic'
@@ -13,7 +14,13 @@ export default async function RichiestaFatturaPage() {
   // Nessun permesso d'area: la sezione è aperta a tutta la cooperativa.
   if (!session?.user?.email) redirect('/login')
 
-  const centri = fattureConfigurato() ? await getCentriDiCosto() : []
+  // L'indice dei clienti è leggero (una riga per cliente) e serve a cercare
+  // mentre si scrive, senza una chiamata al server per lettera. La scheda
+  // completa la chiede il modulo solo quando l'utente scegle un cliente.
+  const [centri, clienti] = await Promise.all([
+    fattureConfigurato() ? getCentriDiCosto() : Promise.resolve([]),
+    getIndiceClienti(),
+  ])
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -28,6 +35,7 @@ export default async function RichiestaFatturaPage() {
         ) : (
           <RichiestaFatturaForm
             centriDiCosto={centri}
+            clienti={clienti}
             richiedente={session.user.email}
             richiedenteNome={session.user.name ?? ''}
           />

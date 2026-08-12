@@ -1,20 +1,17 @@
 #!/usr/bin/env node
 /**
- * Provisioning della lista SharePoint "Fatture inviate".
+ * Provisioning della lista SharePoint "Clienti".
  *
- * Crea (se non esiste) la lista usata dalla sezione Richiesta Fattura, sul sito
- * Controllo Gestione, con le credenziali Graph dell'app.
+ * Anagrafica dei clienti a cui si intestano le fatture, sul sito Controllo
+ * Gestione. La riempie `scripts/import-clienti.mjs` partendo dall'export del
+ * gestionale di fatturazione; da lì in avanti la tiene aggiornata l'app, che
+ * salva i clienti nuovi e le correzioni fatte in sede di richiesta fattura.
  *
  * Uso (dalla cartella web/):
- *   node scripts/provision-fatture.mjs
- *
- * Richiede in .env.local (o nell'ambiente):
- *   GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET, SHAREPOINT_SITE_ID
- *
- * Permesso Graph necessario: Sites.ReadWrite.All (Application) — già presente.
+ *   node scripts/provision-clienti.mjs
  *
  * Idempotente: se la lista esiste già aggiunge solo le colonne mancanti.
- * Al termine stampa la riga SP_LIST_FATTURE=... da incollare in .env.local e su Vercel.
+ * Al termine stampa la riga SP_LIST_CLIENTI=... da incollare in .env.local e su Vercel.
  */
 
 import { readFileSync } from 'node:fs'
@@ -23,7 +20,7 @@ import { dirname, join } from 'node:path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
-const LIST_NAME = 'Fatture inviate'
+const LIST_NAME = 'Clienti'
 
 // Devono coincidere con types/fatture.ts
 const TIPI_SOGGETTO = [
@@ -31,45 +28,44 @@ const TIPI_SOGGETTO = [
   'Persona fisica titolare di Partita IVA',
   'Soggetto diverso da persona fisica',
 ]
-const NAZIONALITA = ['Italiana', 'Estera']
 
-// I `name` DEVONO coincidere con quelli usati in lib/fatture/data.ts.
-// Il Title della lista contiene il numero della richiesta (RF-0001).
+/**
+ * I `name` DEVONO coincidere con quelli usati in lib/clienti/data.ts.
+ * Il Title contiene la denominazione: è il campo su cui si cerca, e SharePoint
+ * mostra il Title come etichetta della riga.
+ *
+ * Scadenza, TipoPagamento e AddebitoBollo restano **testo** e non scelte: sono
+ * dati che arrivano dal gestionale e l'app non li interpreta, quindi un valore
+ * nuovo di là non deve fare fallire un salvataggio di qua.
+ */
 const COLUMNS = [
-  { name: 'CentroCosto', text: {} },
-  { name: 'Richiedente', text: {} },
-  { name: 'RichiedenteNome', text: {} },
-
-  { name: 'TipoSoggetto', choice: { choices: TIPI_SOGGETTO, displayAs: 'dropDownMenu' } },
-  { name: 'Nazionalita', choice: { choices: NAZIONALITA, displayAs: 'dropDownMenu' } },
-  { name: 'Condominio', boolean: {} },
-
   { name: 'Cognome', text: {} },
   { name: 'Nome', text: {} },
-  { name: 'RagioneSociale', text: {} },
-  { name: 'PartitaIVA', text: {} },
-  { name: 'CodiceFiscale', text: {} },
+  { name: 'TipoSoggetto', choice: { choices: TIPI_SOGGETTO, displayAs: 'dropDownMenu' } },
 
   { name: 'Indirizzo', text: {} },
+  { name: 'Comune', text: {} },
   { name: 'Cap', text: {} },
-  { name: 'Citta', text: {} },
   { name: 'Provincia', text: {} },
   { name: 'Nazione', text: {} },
 
+  { name: 'PartitaIVA', text: {} },
+  { name: 'CodiceFiscale', text: {} },
+  { name: 'CodiceEstero', text: {} },
+
+  { name: 'Cellulare', text: {} },
   { name: 'Telefono', text: {} },
   { name: 'Email', text: {} },
   { name: 'Pec', text: {} },
-  { name: 'CodiceSdi', text: {} },
-  // Riga della lista Clienti da cui vengono (o dove sono finiti) i dati.
-  { name: 'ClienteId', text: {} },
 
-  { name: 'Descrizione', text: { allowMultipleLines: true } },
-  { name: 'Importo', currency: { locale: 'it-IT' } },
-  { name: 'DataPrestazione', dateTime: { format: 'dateOnly', displayAs: 'standard' } },
-  { name: 'Note', text: { allowMultipleLines: true } },
+  { name: 'CodiceSdi', text: {} },
+  { name: 'CodiceIpa', text: {} },
+
+  { name: 'Scadenza', text: {} },
+  { name: 'TipoPagamento', text: {} },
+  { name: 'AddebitoBollo', text: {} },
 ]
 
-// --- carica .env.local se le env non sono già nell'ambiente ---
 function loadEnvLocal() {
   try {
     const raw = readFileSync(join(__dirname, '..', '.env.local'), 'utf8')
@@ -145,7 +141,6 @@ async function main() {
   printEnv(created.id)
 }
 
-/** Aggiunge alla lista esistente le sole colonne mancanti (idempotente) */
 async function ensureColumns(token, site, listId) {
   const cols = await graph(token, 'GET', `/sites/${site}/lists/${listId}/columns?$select=name&$top=200`)
   const present = new Set((cols.value || []).map((c) => c.name))
@@ -163,10 +158,9 @@ async function ensureColumns(token, site, listId) {
 function printEnv(id) {
   console.log('\n============================================================')
   console.log('Aggiungi questa riga a .env.local e alle Environment Variables su Vercel:')
-  console.log(`\n  SP_LIST_FATTURE=${id}\n`)
-  console.log('Facoltative:')
-  console.log('  FATTURE_MAIL_TO=andrea.granato@cooperativamirafiori.com')
-  console.log('  SP_LIST_CENTRI_COSTO=<guid>   (quando la lista dei centri di costo esisterà)')
+  console.log(`\n  SP_LIST_CLIENTI=${id}\n`)
+  console.log('Poi importa l\'anagrafica:')
+  console.log('  node scripts/import-clienti.mjs ../Clienti_Full.xlsx --prova')
   console.log('============================================================')
 }
 

@@ -32,7 +32,8 @@ export function fattureConfigurato(): boolean {
 const CAMPI =
   'id,fields&$expand=fields($select=Title,CentroCosto,Richiedente,RichiedenteNome,TipoSoggetto,' +
   'Nazionalita,Condominio,Cognome,Nome,RagioneSociale,PartitaIVA,CodiceFiscale,Indirizzo,Cap,' +
-  'Citta,Provincia,Nazione,Telefono,Email,Pec,Descrizione,Importo,DataPrestazione,Note,Created)'
+  'Citta,Provincia,Nazione,Telefono,Email,Pec,CodiceSdi,ClienteId,Descrizione,Importo,' +
+  'DataPrestazione,Note,Created)'
 
 function mapRichiesta(item: any): RichiestaFattura {
   const f = item.fields ?? {}
@@ -58,6 +59,8 @@ function mapRichiesta(item: any): RichiestaFattura {
     telefono: f.Telefono ?? '',
     email: f.Email ?? '',
     pec: f.Pec ?? '',
+    codiceSdi: f.CodiceSdi ?? '',
+    clienteId: f.ClienteId ?? '',
     descrizione: f.Descrizione ?? '',
     importo: Number(f.Importo ?? 0),
     dataPrestazione: String(f.DataPrestazione ?? '').slice(0, 10),
@@ -151,6 +154,10 @@ export async function creaRichiestaFattura(
       Telefono: t(input.telefono),
       Email: t(input.email).toLowerCase(),
       Pec: t(input.pec).toLowerCase(),
+      CodiceSdi: t(input.codiceSdi).replace(/\s/g, '').toUpperCase(),
+      // Riga dell'anagrafica Clienti usata: la scrive l'API dopo il salvataggio
+      // del cliente, così anche un cliente nuovo resta agganciato alla sua scheda.
+      ClienteId: t(input.clienteId),
 
       Descrizione: t(input.descrizione),
       Importo: importo,

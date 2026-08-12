@@ -86,6 +86,14 @@ export function chiedeCondominio(tipo: TipoSoggetto): boolean {
 export interface NuovaRichiestaFatturaInput {
   centroCosto: string
 
+  /**
+   * Riga dell'anagrafica Clienti da cui sono stati presi i dati, se chi compila
+   * ha scelto un cliente già in memoria. Vuoto = cliente nuovo, o compilato a
+   * mano senza passare dalla ricerca: in quel caso l'API prova comunque a
+   * riconoscerlo da partita IVA/codice fiscale prima di crearne uno nuovo.
+   */
+  clienteId: string
+
   tipoSoggetto: TipoSoggetto | ''
   nazionalita: Nazionalita | ''
   condominio: boolean
@@ -105,6 +113,8 @@ export interface NuovaRichiestaFatturaInput {
   telefono: string
   email: string
   pec: string
+  /** Codice destinatario della fattura elettronica: 7 caratteri, facoltativo. */
+  codiceSdi: string
 
   descrizione: string
   importo: string
@@ -129,6 +139,7 @@ export interface RichiestaFattura
 export function richiestaVuota(): NuovaRichiestaFatturaInput {
   return {
     centroCosto: '',
+    clienteId: '',
     tipoSoggetto: '',
     nazionalita: 'Italiana',
     condominio: false,
@@ -141,10 +152,12 @@ export function richiestaVuota(): NuovaRichiestaFatturaInput {
     cap: '',
     citta: '',
     provincia: '',
-    nazione: 'Italia',
+    // Codice ISO, non il nome del paese: è la forma dell'anagrafica Clienti.
+    nazione: 'IT',
     telefono: '',
     email: '',
     pec: '',
+    codiceSdi: '',
     descrizione: '',
     importo: '',
     dataPrestazione: new Date().toISOString().slice(0, 10),
@@ -214,6 +227,14 @@ export function validaRichiesta(r: NuovaRichiestaFatturaInput): Record<string, s
   if (vuoto(r.indirizzo)) e.indirizzo = 'Indica via e numero civico'
   if (vuoto(r.citta)) e.citta = 'Indica la città'
   if (vuoto(r.nazione)) e.nazione = 'Indica la nazione'
+  // Nazione e nazionalità sono due campi distinti perché l'ufficio vuole la
+  // dichiarazione esplicita, ma non possono contraddirsi: un cliente in Italia
+  // con nazionalità Estera è un errore di compilazione, non un caso di frontiera.
+  else if (italiano !== (r.nazione.trim().toUpperCase() === 'IT')) {
+    e.nazionalita = italiano
+      ? 'Hai indicato nazionalità Italiana ma una nazione estera'
+      : 'Hai indicato nazionalità Estera ma la nazione è Italia'
+  }
   if (italiano) {
     if (vuoto(r.cap)) e.cap = 'Indica il CAP'
     else if (!/^\d{5}$/.test(r.cap.trim())) e.cap = 'Il CAP italiano ha 5 cifre'
@@ -223,6 +244,12 @@ export function validaRichiesta(r: NuovaRichiestaFatturaInput): Record<string, s
   if (vuoto(r.email)) e.email = 'Serve un indirizzo email per mandare la fattura'
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email.trim())) e.email = 'Email non valida'
   if (!vuoto(r.pec) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.pec.trim())) e.pec = 'PEC non valida'
+  // Il codice destinatario è facoltativo, ma se c'è deve avere la sua forma:
+  // 7 caratteri per i privati, 6 per la pubblica amministrazione.
+  const sdi = r.codiceSdi.replace(/\s/g, '').toUpperCase()
+  if (sdi && !/^[A-Z0-9]{6,7}$/.test(sdi)) {
+    e.codiceSdi = 'Il codice destinatario ha 7 caratteri (6 per la PA)'
+  }
 
   if (vuoto(r.descrizione)) e.descrizione = 'Descrivi cosa va fatturato'
   if (vuoto(r.dataPrestazione)) e.dataPrestazione = 'Indica la data della prestazione'
