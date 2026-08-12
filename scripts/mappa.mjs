@@ -60,6 +60,13 @@ const AREE = [
     ],
   },
   {
+    nome: 'Richiesta fattura',
+    prefissi: [
+      'app/(app)/richiesta-fattura', 'app/api/fatture', 'lib/fatture',
+      'scripts/provision-fatture', 'docs/richiesta-fattura',
+    ],
+  },
+  {
     nome: 'Prestazioni occasionali',
     prefissi: [
       'app/(app)/prestazioni', 'app/api/prestazioni', 'app/api/prestatori', 'app/notula',

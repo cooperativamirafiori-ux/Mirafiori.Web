@@ -236,6 +236,14 @@ const DIPENDENTI_SPECIFICI: readonly RUField[] = [
 
   { key: 'StatoRapporto', label: 'Stato rapporto', type: 'choice', choices: STATO_RAPPORTO, section: 'Rapporto di lavoro' },
   { key: 'Matricola', label: 'Matricola', type: 'text', section: 'Rapporto di lavoro', inList: true },
+  // Le dieci cifre che PULSE pretende nel file di importazione presenze:
+  // 0257 (ditta) + qualifica INPS + codice personale a 5 cifre.
+  // Sta a parte da `Matricola` perche' quella arriva dal vecchio Access, e' spezzata
+  // diversamente (257 + qualifica + 6 cifre) e su alcune schede ha la qualifica
+  // vecchia o il codice trascritto male. Questa la si ricava dal cedolino, che e'
+  // la matricola che GENIUS conosce davvero.
+  // Si popola con scripts/popola-matricola-pulse.mjs, si verifica con diagnosi-matricole-pulse.mjs.
+  { key: 'MatricolaPulse', label: 'Matricola PULSE (10 cifre, per import presenze)', type: 'text', section: 'Rapporto di lavoro' },
   { key: 'DataAssunzione', label: 'Data assunzione', type: 'date', section: 'Rapporto di lavoro' },
   { key: 'OreLavoroPreviste', label: 'Ore lavoro previste', type: 'number', section: 'Rapporto di lavoro' },
   { key: 'TipoContratto', label: 'Tipo di contratto', type: 'choice', choices: TIPO_CONTRATTO, section: 'Rapporto di lavoro' },

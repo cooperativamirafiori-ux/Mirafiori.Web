@@ -1,18 +1,18 @@
 # MAPPA — indice generato di Mirafiori Web
 
-> Generato da `npm run mappa` il 2026-08-08. **Non modificare a mano**: le decisioni e le
+> Generato da `npm run mappa` il 2026-08-11. **Non modificare a mano**: le decisioni e le
 > convenzioni stanno in `CLAUDE.md`, qui c'è solo la fotografia dei file.
 
-**242 file · 40.653 righe totali.**
+**256 file · 43.117 righe totali.**
 
 ## ⚠️ File oltre 500 righe — da spezzare
 
 | File | Area | Righe | KB |
 |---|---|---:|---:|
-| `app/(app)/timbrature/TimbratureOperatore.tsx` | Timbrature · Foglio ore | 1089 | 50 |
 | `app/(app)/risorse-umane/GestioneRU.tsx` | Risorse Umane | 971 | 34 |
 | `app/(app)/acquisti/gestione/GestioneAcquisti.tsx` | Acquisti | 941 | 34 |
-| `app/(app)/risorse-umane/timbrature/CruscottoTimbrature.tsx` | Timbrature · Foglio ore | 849 | 40 |
+| `app/(app)/timbrature/TimbratureOperatore.tsx` | Timbrature · Foglio ore | 836 | 37 |
+| `app/(app)/risorse-umane/timbrature/CruscottoTimbrature.tsx` | Timbrature · Foglio ore | 749 | 34 |
 | `app/(app)/prestazioni/nuova/NuovaPrestazioneForm.tsx` | Prestazioni occasionali | 536 | 18 |
 | `app/api/acquisti/[id]/route.ts` | Acquisti | 525 | 20 |
 | `app/(app)/amministrazione/software/GestioneSoftware.tsx` | Amministrazione · Software | 524 | 20 |
@@ -21,13 +21,16 @@
 
 ### Timbrature · Foglio ore
 
-_45 file · 7979 righe_
+_48 file · 8389 righe_
 
 - `app/(app)/risorse-umane/timbrature/_componenti/VariazioniOrario.tsx` (237 righe)
-- `app/(app)/risorse-umane/timbrature/CruscottoTimbrature.tsx` (849 righe) ⚠️
+- `app/(app)/risorse-umane/timbrature/CruscottoTimbrature.tsx` (749 righe) ⚠️
 - `app/(app)/risorse-umane/timbrature/page.tsx` (16 righe)
+- `app/(app)/timbrature/_componenti/GiorniMese.tsx` (211 righe)
+- `app/(app)/timbrature/_componenti/mese.ts` (273 righe)
+- `app/(app)/timbrature/_componenti/RiepilogoMese.tsx` (279 righe)
 - `app/(app)/timbrature/page.tsx` (77 righe)
-- `app/(app)/timbrature/TimbratureOperatore.tsx` (1089 righe) ⚠️
+- `app/(app)/timbrature/TimbratureOperatore.tsx` (836 righe) ⚠️
 - `app/(app)/timbrature/validazione/page.tsx` (29 righe)
 - `app/api/cron/promemoria-ore/route.ts` (90 righe)
 - `app/api/cron/sollecito-timbrature/route.ts` (175 righe)
@@ -120,6 +123,19 @@ _17 file · 4248 righe_
 - `lib/acquisti/flusso.ts` (231 righe) — esporta: baseApp, linkGestione, linkConsegna, strutturaPresidiata, referentiPresidio, luogoRitiro, consegnaPresidiata, emailRichiedente, emailGestori, registraEsitoConsegna, inviaRichiestaConferma, chiudiSenzaRiscontro
 - `lib/acquisti/notifiche.ts` (394 righe) — esporta: destinatariAcquisti, notificaAcquistoUrgente, notificaAssegnazioneAcquisto, notificaDigestAcquisti, notificaEsitoValutazione, notificaOrdineEffettuato, notificaConfermaConsegna, notificaOrdineDaRitirare, notificaEsitoConsegna
 - `scripts/provision-acquisti.mjs` (431 righe)
+
+### Richiesta fattura
+
+_8 file · 1109 righe_
+
+- `app/(app)/richiesta-fattura/page.tsx` (39 righe)
+- `app/(app)/richiesta-fattura/RichiestaFatturaForm.tsx` (366 righe)
+- `app/api/fatture/route.ts` (91 righe)
+- `docs/richiesta-fattura.md` (98 righe)
+- `lib/fatture/centri-di-costo.ts` (48 righe) — esporta: getCentriDiCosto
+- `lib/fatture/data.ts` (192 righe) — esporta: fattureConfigurato, creaRichiestaFattura, getRichiesteFattura, getRichiesteFatturaDi
+- `lib/fatture/notifiche.ts` (101 righe) — esporta: destinatariFatture, notificaRichiestaFattura
+- `scripts/provision-fatture.mjs` (174 righe)
 
 ### Prestazioni occasionali
 
@@ -269,10 +285,10 @@ _2 file · 313 righe_
 
 ### Home / hub
 
-_6 file · 315 righe_
+_6 file · 322 righe_
 
 - `app/(app)/amazing/page.tsx` (17 righe)
-- `app/(app)/home/page.tsx` (246 righe)
+- `app/(app)/home/page.tsx` (253 righe)
 - `app/(app)/layout.tsx` (17 righe)
 - `app/globals.css` (10 righe)
 - `app/layout.tsx` (16 righe)
@@ -288,7 +304,7 @@ _3 file · 67 righe_
 
 ### Infrastruttura condivisa (core)
 
-_38 file · 4974 righe_
+_39 file · 5217 righe_
 
 - `app/api/debug-fields/route.ts` (45 righe)
 - `components/ui/Allegato.tsx` (83 righe)
@@ -315,13 +331,14 @@ _38 file · 4974 righe_
 - `lib/core/upload-diretto.ts` (146 righe) — esporta: BLOCCO_UPLOAD, MAX_UPLOAD_BYTES, maxUploadMb, inviaFileABlocchi, erroreRisposta, caricaDirettamente
 - `next.config.mjs` (21 righe)
 - `scripts/get-site-id.mjs` (122 righe)
-- `scripts/mappa.mjs` (300 righe)
+- `scripts/mappa.mjs` (307 righe)
 - `scripts/pulisci-choice.mjs` (146 righe)
 - `scripts/riordino.mjs` (457 righe)
 - `scripts/setup-env-locale.mjs` (322 righe)
 - `scripts/sp-liste.mjs` (113 righe)
 - `tailwind.config.ts` (48 righe)
 - `types/acquisti.ts` (359 righe)
+- `types/fatture.ts` (236 righe)
 - `types/inventario.ts` (122 righe)
 - `types/manutenzioni.ts` (129 righe)
 - `types/prestazioni.ts` (68 righe)
@@ -337,15 +354,15 @@ candidati da spezzare per area o da spostare in `lib/core/` (vedi `CLAUDE.md` §
 
 | Modulo `lib/` | Aree che lo usano | N. file | Importato da |
 |---|---|---:|---|
-| `lib/core/auth` 🔴 | Accesso / login · Acquisti · Amministrazione (hub) · Amministrazione · Permessi · Amministrazione · Software · Costi strutture · Home / hub · Infrastruttura condivisa (core) · Inventario beni · Manutenzioni · Prestazioni occasionali · Risorse Umane · Timbrature · Foglio ore | 41 | app/(app)/acquisti/gestione/page.tsx, app/(app)/acquisti/mie/page.tsx, app/(app)/acquisti/page.tsx, app/(app)/amministrazione/page.tsx, app/(app)/amministrazione/permessi/page.tsx, app/(app)/amministrazione/software/page.tsx, … |
-| `lib/core/audit` 🔴 | Acquisti · Amministrazione · Permessi · Amministrazione · Software · Costi strutture · Inventario beni · Manutenzioni · Prestazioni occasionali · Risorse Umane · Timbrature · Foglio ore | 29 | app/api/acquisti/[id]/route.ts, app/api/acquisti/route.ts, app/api/consegna/[token]/route.ts, app/api/costi/route.ts, app/api/foglio-ore/[token]/route.ts, app/api/inventario/[id]/documento/conferma/route.ts, … |
-| `lib/core/graph` 🔴 | Acquisti · Amministrazione · Permessi · Amministrazione · Software · Costi strutture · Infrastruttura condivisa (core) · Inventario beni · Manutenzioni · Prestazioni occasionali · Risorse Umane | 15 | app/api/debug-fields/route.ts, lib/acquisti/data.ts, lib/core/audit.ts, lib/core/calendar.ts, lib/core/graph-delegato.ts, lib/core/mailer.ts, … |
+| `lib/core/auth` 🔴 | Accesso / login · Acquisti · Amministrazione (hub) · Amministrazione · Permessi · Amministrazione · Software · Costi strutture · Home / hub · Infrastruttura condivisa (core) · Inventario beni · Manutenzioni · Prestazioni occasionali · Richiesta fattura · Risorse Umane · Timbrature · Foglio ore | 43 | app/(app)/acquisti/gestione/page.tsx, app/(app)/acquisti/mie/page.tsx, app/(app)/acquisti/page.tsx, app/(app)/amministrazione/page.tsx, app/(app)/amministrazione/permessi/page.tsx, app/(app)/amministrazione/software/page.tsx, … |
+| `lib/core/audit` 🔴 | Acquisti · Amministrazione · Permessi · Amministrazione · Software · Costi strutture · Inventario beni · Manutenzioni · Prestazioni occasionali · Richiesta fattura · Risorse Umane · Timbrature · Foglio ore | 30 | app/api/acquisti/[id]/route.ts, app/api/acquisti/route.ts, app/api/consegna/[token]/route.ts, app/api/costi/route.ts, app/api/fatture/route.ts, app/api/foglio-ore/[token]/route.ts, … |
+| `lib/core/graph` 🔴 | Acquisti · Amministrazione · Permessi · Amministrazione · Software · Costi strutture · Infrastruttura condivisa (core) · Inventario beni · Manutenzioni · Prestazioni occasionali · Richiesta fattura · Risorse Umane | 17 | app/api/debug-fields/route.ts, lib/acquisti/data.ts, lib/core/audit.ts, lib/core/calendar.ts, lib/core/graph-delegato.ts, lib/core/mailer.ts, … |
 | `lib/core/upload-diretto` 🔴 | Acquisti · Amministrazione · Software · Infrastruttura condivisa (core) · Inventario beni · Prestazioni occasionali · Risorse Umane · Timbrature · Foglio ore | 12 | app/(app)/acquisti/gestione/GestioneAcquisti.tsx, app/(app)/amministrazione/software/GestioneSoftware.tsx, app/(app)/prestazioni/nuova/NuovaPrestazioneForm.tsx, app/(app)/risorse-umane/CartellaDipendente.tsx, app/(app)/risorse-umane/timbrature/_componenti/VariazioniOrario.tsx, app/api/inventario/[id]/documento/route.ts, … |
 | `lib/core/api-guard` 🔴 | Acquisti · Amministrazione · Permessi · Amministrazione · Software · Inventario beni · Risorse Umane | 15 | app/api/acquisti/route.ts, app/api/inventario/[id]/documento/conferma/route.ts, app/api/inventario/[id]/documento/route.ts, app/api/inventario/[id]/route.ts, app/api/permessi/[id]/route.ts, app/api/permessi/route.ts, … |
+| `lib/core/mailer` 🔴 | Acquisti · Manutenzioni · Prestazioni occasionali · Richiesta fattura · Timbrature · Foglio ore | 5 | lib/acquisti/notifiche.ts, lib/fatture/notifiche.ts, lib/manutenzioni/notifiche.ts, lib/prestazioni/notifiche.ts, lib/timbrature/notifiche.ts |
 | `lib/strutture/data` 🔴 | Acquisti · Costi strutture · Inventario beni · Manutenzioni | 10 | app/(app)/acquisti/gestione/page.tsx, app/(app)/acquisti/nuova/page.tsx, app/(app)/cruscotto-costi/page.tsx, app/(app)/dashboard/page.tsx, app/(app)/gestione/[id]/page.tsx, app/(app)/inserisci-costo/page.tsx, … |
 | `lib/core/sp` 🔴 | Acquisti · Amministrazione · Permessi · Costi strutture · Manutenzioni | 10 | app/api/acquisti/[id]/route.ts, app/api/acquisti/route.ts, app/api/manutenzioni/[id]/route.ts, app/api/manutenzioni/route.ts, lib/acquisti/data.ts, lib/acquisti/flusso.ts, … |
 | `lib/core/permessi` 🔴 | Acquisti · Amministrazione · Permessi · Infrastruttura condivisa (core) · Timbrature · Foglio ore | 7 | app/(app)/acquisti/gestione/page.tsx, app/(app)/amministrazione/permessi/page.tsx, app/api/permessi/[id]/route.ts, app/api/permessi/route.ts, lib/acquisti/flusso.ts, lib/core/auth.ts, … |
-| `lib/core/mailer` 🔴 | Acquisti · Manutenzioni · Prestazioni occasionali · Timbrature · Foglio ore | 4 | lib/acquisti/notifiche.ts, lib/manutenzioni/notifiche.ts, lib/prestazioni/notifiche.ts, lib/timbrature/notifiche.ts |
 | `lib/costi/data` 🔴 | Acquisti · Costi strutture · Manutenzioni | 5 | app/(app)/cruscotto-costi/page.tsx, app/(app)/inserisci-costo/page.tsx, app/api/costi/route.ts, app/api/manutenzioni/[id]/route.ts, lib/acquisti/data.ts |
 | `lib/prestazioni/data` | Prestazioni occasionali · Timbrature · Foglio ore | 15 | app/(app)/prestazioni/attive/page.tsx, app/api/cron/promemoria-ore/route.ts, app/api/notula/[token]/conferma/route.ts, app/api/notula/[token]/route.ts, app/api/notula/[token]/sessione/route.ts, app/api/prestatori/documenti/route.ts, … |
 | `lib/acquisti/data` | Acquisti · Inventario beni | 13 | app/(app)/acquisti/gestione/page.tsx, app/(app)/acquisti/mie/page.tsx, app/(app)/acquisti/page.tsx, app/(app)/inventario/page.tsx, app/api/acquisti/[id]/route.ts, app/api/acquisti/route.ts, … |
@@ -371,11 +388,14 @@ candidati da spezzare per area o da spostare in `lib/core/` (vedi `CLAUDE.md` §
 | `lib/timbrature/notifiche` | Timbrature · Foglio ore | 3 | app/api/cron/sollecito-timbrature/route.ts, app/api/cron/timbrature-alert/route.ts, lib/timbrature/flusso.ts |
 | `lib/timbrature/righe` | Timbrature · Foglio ore | 3 | lib/timbrature/assenze.ts, lib/timbrature/data.ts, lib/timbrature/riepilogo.ts |
 | `lib/timbrature/stati` | Timbrature · Foglio ore | 3 | lib/timbrature/data.ts, lib/timbrature/riepilogo.ts, lib/timbrature/righe.ts |
+| `lib/fatture/data` | Richiesta fattura | 2 | app/(app)/richiesta-fattura/page.tsx, app/api/fatture/route.ts |
 | `lib/risorse-umane/fetch` | Risorse Umane | 2 | app/(app)/risorse-umane/CartellaDipendente.tsx, app/(app)/risorse-umane/GestioneRU.tsx |
 | `lib/manutenzioni/notifiche` | Manutenzioni | 2 | app/api/manutenzioni/[id]/route.ts, app/api/manutenzioni/route.ts |
 | `lib/prestazioni/docusign` | Prestazioni occasionali | 2 | app/api/prestazioni/[spItemId]/documenti/route.ts, lib/prestazioni/firma.ts |
 | `lib/core/ms-token` | Infrastruttura condivisa (core) | 2 | lib/core/auth.ts, lib/core/graph-delegato.ts |
 | `lib/timbrature/festivita` | Timbrature · Foglio ore | 2 | lib/timbrature/assenze.ts, lib/timbrature/riepilogo.ts |
+| `lib/fatture/centri-di-costo` | Richiesta fattura | 1 | app/(app)/richiesta-fattura/page.tsx |
+| `lib/fatture/notifiche` | Richiesta fattura | 1 | app/api/fatture/route.ts |
 | `lib/risorse-umane/gruppo` | Infrastruttura condivisa (core) | 1 | lib/core/auth.ts |
 | `lib/risorse-umane/export-scheda-socio` | Risorse Umane | 1 | lib/risorse-umane/api.ts |
 | `lib/risorse-umane/export-xlsx` | Risorse Umane | 1 | lib/risorse-umane/api.ts |
@@ -390,5 +410,7 @@ candidati da spezzare per area o da spostare in `lib/core/` (vedi `CLAUDE.md` §
 Se qui compare qualcosa, è un'area nuova (o rinominata): aggiungila all'elenco `AREE`
 in `scripts/mappa.mjs` e a `CLAUDE.md`.
 
+- `docs/cda-planner.md` (150 righe)
 - `scripts/applica-indirizzi-split.mjs` (227 righe)
 - `scripts/chi-manca-token-ru.mjs` (128 righe)
+- `scripts/verbale-a-planner.mjs` (545 righe)

@@ -63,6 +63,13 @@ export default async function HomePage() {
             titolo="Richieste Acquisto"
             sottotitolo="Richiedi materiali e forniture"
           />
+          <FunzioneCard
+            href="/richiesta-fattura"
+            emoji="🧾"
+            accent="cyan"
+            titolo="Richiesta Fattura"
+            sottotitolo="Chiedi la fattura per un cliente"
+          />
           {puoPrestazioni && (
             <FunzioneCard
               href="/prestazioni"

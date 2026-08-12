@@ -51,6 +51,7 @@ e non serve cercare altrove.
 | **Manutenzioni** | `app/(app)/manutenzioni/` `nuova-richiesta/` `mie-richieste/` `dashboard/` `gestione/[id]/` | `app/api/manutenzioni/**` | `lib/manutenzioni/`: `data.ts` `notifiche.ts`<br>anagrafiche: `lib/strutture/data.ts` | — |
 | **Costi strutture** | `app/(app)/inserisci-costo/` `cruscotto-costi/` | `app/api/costi/` | `lib/costi/data.ts` | — |
 | **Acquisti** | `app/(app)/acquisti/` (`nuova/` `mie/` `gestione/`) | `app/api/acquisti/**`<br>`app/api/consegna/[token]/`<br>`app/api/cron/acquisti/` | `lib/acquisti/`: `data.ts` `flusso.ts` `notifiche.ts` | pubblico tokenizzato: `app/consegna/[token]/`<br>`../Area Acquisti - Manuale operativo.docx`<br>`scripts/provision-acquisti.mjs` |
+| **Richiesta fattura** | `app/(app)/richiesta-fattura/` | `app/api/fatture/` | `lib/fatture/`: `data.ts` `notifiche.ts` `centri-di-costo.ts`<br>campi e validazione in `types/fatture.ts` | aperta a **tutti** gli utenti, nessun permesso d'area<br>`scripts/provision-fatture.mjs` · `docs/richiesta-fattura.md` |
 | **Prestazioni occasionali** | `app/(app)/prestazioni/` (`nuova/` `attive/`) | `app/api/prestazioni/**`<br>`app/api/prestatori/**`<br>`app/api/notula/[token]/**`<br>`app/api/docusign/callback/` | `lib/prestazioni/`: `data.ts` `documenti.ts` `firma.ts` `docusign.ts` `casistiche-gdpr.ts` `notifiche.ts` | modelli docx: `lib/templates/prestazione-occasionale/`<br>allegati: `lib/allegati-prestatore/`<br>pubblico: `app/notula/[token]/`<br>`docs/prestazioni-*.md` `docs/docusign-setup.md` |
 | **Risorse Umane** | `app/(app)/risorse-umane/` (`GestioneRU.tsx`, `CartellaDipendente.tsx`, `dipendenti/` `collaboratori/` `tirocini/`) | `app/api/risorse-umane/**` | `lib/risorse-umane/`: `data.ts` `api.ts` `fetch.ts` `export-xlsx.ts` `gruppo.ts` | RU vive su **sito SharePoint dedicato** con auth **delegata** (`lib/core/graph-delegato.ts`)<br>`docs/risorse-umane-setup.md` `docs/piano-ru-*.md` `docs/runbook-ru-*.md`<br>`scripts/ru-assetto.mjs` + gli `import-*.mjs` |
 | **Inventario beni** | `app/(app)/inventario/` | `app/api/inventario/**` | `lib/inventario/data.ts` | `scripts/provision-inventario.mjs` |
@@ -88,8 +89,8 @@ lib/<area>/        una cartella per area di dominio
 types/<area>.ts    tipi, già una per area
 ```
 
-Aree presenti: `acquisti` `costi` `inventario` `manutenzioni` `prestazioni` `risorse-umane`
-`software` `strutture` `timbrature`.
+Aree presenti: `acquisti` `costi` `fatture` `inventario` `manutenzioni` `prestazioni`
+`risorse-umane` `software` `strutture` `timbrature`.
 
 **Le due regole che tengono separate le scatole:**
 

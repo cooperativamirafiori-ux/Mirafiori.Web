@@ -1,0 +1,64 @@
+{
+  "riunione": "2026-08-03",
+  "oggetto": "Recupero della perdita, formazione e organizzazione interna",
+  "task": [
+    {
+      "titolo": "Raccogliere e prioritizzare gli ordini del giorno del CDA via Teams",
+      "responsabile": "Stefania Melissari",
+      "scadenza": "2026-08-31",
+      "note": "Confermata la cadenza delle riunioni CDA ogni circa 15 giorni, di norma il lunedì. La raccolta e la priorità degli ordini del giorno passano da Teams; la documentazione da esaminare va condivisa in anticipo per rendere più efficienti gli incontri. Prossimi incontri: lunedì 31 agosto 2026 ore 9:30, poi lunedì 14 settembre 2026."
+    },
+    {
+      "titolo": "Proposta di formazione con distinzione soci/dipendenti e budget annuale",
+      "responsabile": "Stefania Melissari",
+      "scadenza": "2026-08-31",
+      "note": "Mandato del CDA a Silvia (responsabile formazione/risorse umane), che non è membro del gruppo CDA: il task è assegnato a Stefania Melissari come referente per il seguito.\n\nDal verbale: discussa l'esigenza di distinguere la formazione tecnica/obbligatoria da quella dedicata alla partecipazione e alla fidelizzazione di soci e lavoratori, dopo l'elevato investimento in ore di formazione dell'ultimo anno. È emersa anche dai soci una sensazione diffusa di scarsa comunicazione interna e di scarse occasioni di partecipazione, con l'ipotesi di costituire un vero settore di comunicazione interna. La proposta va portata al prossimo CDA utile, con obiettivi e budget."
+    },
+    {
+      "titolo": "Piano di riduzione dei costi del personale per il recupero della perdita",
+      "responsabile": "Stefano Martino",
+      "scadenza": "2026-08-31",
+      "checklist": [
+        "Coordinamento con i responsabili di servizio",
+        "Quantificazione del contributo al recupero",
+        "Presentazione al CDA"
+      ],
+      "note": "Mandato del CDA alle Risorse Umane — Silvia responsabile, Giorgia referente tecnico-operativo — nessuna delle due è membro del gruppo CDA. Seguito condiviso con Stefania Melissari.\n\nDal verbale: il piano va predisposto in coordinamento con i responsabili di servizio, per contribuire al recupero della perdita stimata (circa €400.000 al 31/05/2026, dato non definitivo) entro dicembre 2026. Le decisioni sulla riduzione del personale nei singoli servizi devono essere prese in coordinamento tra responsabile di servizio e risorse umane, evitando decisioni unilaterali."
+    },
+    {
+      "titolo": "Avviare la contabilità analitica interna per centro di costo",
+      "responsabile": "Claudia Carena",
+      "scadenza": "2026-09-01",
+      "note": "Il verbale non indica un responsabile per questo mandato.\n\nDal verbale: avvio da settembre 2026 di una contabilità analitica interna per centro di costo, in affiancamento (non sostituzione) alla contabilità ordinaria gestita esternamente tramite Union Coop, con l'obiettivo di una gestione interna unificata dal 2028."
+    },
+    {
+      "titolo": "Introduzione delle timbrature: test, tutorial e avvio operativo",
+      "responsabile": "Dennis Maseri",
+      "scadenza": "2026-10-01",
+      "checklist": [
+        "Test interno (agosto 2026)",
+        "Test nei servizi in parallelo al foglio ore (settembre 2026)",
+        "Tutorial per i responsabili",
+        "Avvio operativo definitivo (1 ottobre 2026)"
+      ],
+      "note": "Confermato il mandato già assegnato dal CDA per l'introduzione delle timbrature. Il verbale non nomina un responsabile: assegnato a Dennis Maseri in quanto sta realizzando la sezione presenze dell'applicativo.\n\nPercorso deciso in seduta: test interno nel mese di agosto, test in parallelo con il foglio ore attuale nei servizi a settembre, avvio operativo definitivo dal 1° ottobre 2026, con relativi tutorial per i responsabili."
+    },
+    {
+      "titolo": "Ogni responsabile di servizio dovrà predisporre un piano di recupero economico specifico per il proprio servizio",
+      "responsabile": "Stefano Martino",
+      "scadenza": "2026-09-14",
+      "note": "Seguito condiviso con Stefania Melissari."
+    },
+    {
+      "titolo": "Inserire Dennis nel gruppo comunicazione",
+      "responsabile": "Stefano Martino",
+      "scadenza": "2026-08-31"
+    },
+    {
+      "titolo": "Idea di sviluppo verso i servizi per anziani / invecchiamento attivo",
+      "responsabile": "info@cooperativamirafiori.com",
+      "scadenza": "2026-12-15",
+      "note": "Mandato a Luca Cordaro, che nel CDA usa la casella condivisa info@cooperativamirafiori.com."
+    }
+  ]
+}
