@@ -47,16 +47,17 @@ export function NuovaRichiestaAcquistoForm({ strutture, centri, iniziali }: Prop
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }))
 
   /**
-   * La struttura è il luogo di consegna e porta con sé il centro di costo di
-   * default, che resta modificabile: chi lavora nelle scuole si fa consegnare
-   * in ufficio ma la spesa la imputa a sé.
+   * Il centro di costo si sceglie per primo: chi lavora nelle scuole imputa la
+   * spesa a sé e si fa consegnare in ufficio. La struttura propone il proprio
+   * centro di costo solo se chi compila non ne ha ancora indicato uno, così non
+   * cancella una scelta già fatta.
    */
   function scegliStruttura(value: string) {
     const cc = ccDiStruttura(value)
     setForm((f) => ({
       ...f,
       strutturaId: value,
-      centroCostoId: cc ? String(cc) : f.centroCostoId,
+      centroCostoId: f.centroCostoId || (cc ? String(cc) : ''),
     }))
   }
 
@@ -65,7 +66,7 @@ export function NuovaRichiestaAcquistoForm({ strutture, centri, iniziali }: Prop
     setErrore(null)
 
     if (!form.strutturaId || !form.centroCostoId || !form.descrizione.trim() || !form.categoria) {
-      setErrore('Compila struttura, centro di costo, descrizione e categoria.')
+      setErrore('Compila centro di costo, struttura, descrizione e categoria.')
       return
     }
 
@@ -135,6 +136,24 @@ export function NuovaRichiestaAcquistoForm({ strutture, centri, iniziali }: Prop
       {errore && <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg">{errore}</div>}
 
       <div>
+        <label className={labelCls}>Centro di costo *</label>
+        <select
+          value={form.centroCostoId}
+          onChange={(e) => set('centroCostoId', e.target.value)}
+          className={campoCls}
+          required
+        >
+          <option value="">— Seleziona —</option>
+          {centri.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.area ? `${c.area} · ${c.nome}` : c.nome}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-gray-400 mt-1">A chi viene imputata la spesa.</p>
+      </div>
+
+      <div>
         <label className={labelCls}>Struttura / servizio *</label>
         <select
           value={form.strutturaId}
@@ -150,27 +169,7 @@ export function NuovaRichiestaAcquistoForm({ strutture, centri, iniziali }: Prop
           ))}
         </select>
         <p className="text-xs text-gray-400 mt-1">
-          È il luogo di consegna predefinito.
-        </p>
-      </div>
-
-      <div>
-        <label className={labelCls}>Centro di costo *</label>
-        <select
-          value={form.centroCostoId}
-          onChange={(e) => set('centroCostoId', e.target.value)}
-          className={campoCls}
-          required
-        >
-          <option value="">— Seleziona —</option>
-          {centri.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.area ? `${c.area} · ${c.nome}` : c.nome}
-            </option>
-          ))}
-        </select>
-        <p className="text-xs text-gray-400 mt-1">
-          A chi viene imputata la spesa. Lo propone la struttura, ma puoi cambiarlo.
+          In quale struttura deve essere fatta la consegna.
         </p>
       </div>
 
