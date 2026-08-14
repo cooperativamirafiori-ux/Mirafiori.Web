@@ -98,7 +98,8 @@ export async function generaFoglioOreBuffer(
     { key: 'festivita', width: 16 },
     { key: 'attese', width: 10 },
     { key: 'servizio', width: 30 },
-    { key: 'centro', width: 8 },
+    // Larga: adesso ci sta il nome del centro di costo, non più un numero.
+    { key: 'centro', width: 30 },
     { key: 'ingresso', width: 10 },
     { key: 'uscita', width: 10 },
     { key: 'ore', width: 8 },
@@ -188,7 +189,7 @@ export async function generaFoglioOreBuffer(
         .filter(Boolean)
         .join(', ')
       row.getCell(5).value = marchi ? `${t.servizioNome} (${marchi})` : t.servizioNome
-      row.getCell(6).value = t.centroCosto
+      row.getCell(6).value = t.centroCostoNome ?? '—'
       row.getCell(7).value = t.oraInizio ?? ''
       row.getCell(8).value = t.oraFine ?? ''
       row.getCell(9).value = t.ore
@@ -235,20 +236,25 @@ export async function generaFoglioOreBuffer(
   const rc = wb.addWorksheet('Rendicontazione')
   rc.columns = [
     { key: 'a', width: 34 },
-    { key: 'b', width: 12 },
+    { key: 'b', width: 34 },
     { key: 'c', width: 12 },
   ]
-  const perServizio = new Map<string, { centro: number; ore: number }>()
-  const perCentro = new Map<number, number>()
+  // Più servizi possono confluire nello stesso centro di costo: l'educativa
+  // territoriale Nord ne ha tre, la Sud quattro. Il raggruppamento sotto è
+  // proprio il motivo per cui esiste questo foglio.
+  const perServizio = new Map<string, { centro: string; ore: number }>()
+  const perCentro = new Map<string, number>()
   const perGiust = new Map<string, number>()
+  const senzaCentro = 'Senza centro di costo'
   for (const t of timbrature) {
     if (t.tipoVoce === 'giustificativo') {
       perGiust.set(t.servizioNome!, (perGiust.get(t.servizioNome!) ?? 0) + t.ore)
     } else {
-      const s = perServizio.get(t.servizioNome!) ?? { centro: t.centroCosto!, ore: 0 }
+      const centro = t.centroCostoNome ?? senzaCentro
+      const s = perServizio.get(t.servizioNome!) ?? { centro, ore: 0 }
       s.ore += t.ore
       perServizio.set(t.servizioNome!, s)
-      perCentro.set(t.centroCosto!, (perCentro.get(t.centroCosto!) ?? 0) + t.ore)
+      perCentro.set(centro, (perCentro.get(centro) ?? 0) + t.ore)
     }
   }
 
@@ -264,23 +270,27 @@ export async function generaFoglioOreBuffer(
   }
   sectionHead('Ore per servizio')
   rc.getCell(`A${rr}`).value = 'Servizio'
-  rc.getCell(`B${rr}`).value = 'C.costo'
+  rc.getCell(`B${rr}`).value = 'Centro di costo'
   rc.getCell(`C${rr}`).value = 'Ore'
   rc.getRow(rr).font = { bold: true }
   rr++
-  ;[...perServizio.entries()].sort((a, b) => a[1].centro - b[1].centro).forEach(([nome, v]) => {
-    rc.getCell(`A${rr}`).value = nome
-    rc.getCell(`B${rr}`).value = v.centro
-    rc.getCell(`C${rr}`).value = v.ore
-    rr++
-  })
+  ;[...perServizio.entries()]
+    .sort((a, b) => a[1].centro.localeCompare(b[1].centro, 'it') || a[0].localeCompare(b[0], 'it'))
+    .forEach(([nome, v]) => {
+      rc.getCell(`A${rr}`).value = nome
+      rc.getCell(`B${rr}`).value = v.centro
+      rc.getCell(`C${rr}`).value = v.ore
+      rr++
+    })
   rr++
   sectionHead('Ore per centro di costo')
-  ;[...perCentro.entries()].sort((a, b) => a[0] - b[0]).forEach(([centro, ore]) => {
-    rc.getCell(`A${rr}`).value = `Centro ${centro}`
-    rc.getCell(`C${rr}`).value = ore
-    rr++
-  })
+  ;[...perCentro.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0], 'it'))
+    .forEach(([centro, ore]) => {
+      rc.getCell(`A${rr}`).value = centro
+      rc.getCell(`C${rr}`).value = ore
+      rr++
+    })
   if (perGiust.size) {
     rr++
     sectionHead('Giustificativi')

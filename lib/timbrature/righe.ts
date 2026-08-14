@@ -50,11 +50,13 @@ function mapTimbratura(r: any): Timbratura {
     modificataIl: r.modificata_il ?? null,
     perConto: !!r.per_conto,
     servizioNome: s?.nome,
-    centroCosto: s?.centro_costo,
+    centroCostoCodice: s?.centro_costo_codice ?? null,
+    centroCostoNome: s?.centro_costo_nome ?? null,
   }
 }
 
-const SELECT_TIMB = '*, servizio:servizio_id ( nome, centro_costo, tipo_voce )'
+const SELECT_TIMB =
+  '*, servizio:servizio_id ( nome, tipo_voce, centro_costo_codice, centro_costo_nome )'
 
 export async function listTimbrature(
   dipendenteId: number,

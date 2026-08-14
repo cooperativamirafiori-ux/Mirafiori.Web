@@ -23,7 +23,9 @@ export function mapServizio(r: any): Servizio {
   return {
     id: r.id,
     nome: r.nome,
-    centroCosto: r.centro_costo,
+    macroGruppo: r.centro_costo,
+    centroCostoCodice: r.centro_costo_codice ?? null,
+    centroCostoNome: r.centro_costo_nome ?? null,
     categoria: r.categoria ?? null,
     tipoVoce: r.tipo_voce,
     attivo: r.attivo,

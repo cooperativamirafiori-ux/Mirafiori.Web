@@ -28,7 +28,17 @@ export const ETICHETTA_STATO: Record<StatoMese, string> = {
 export interface Servizio {
   id: number
   nome: string
-  centroCosto: number // 1-5 = lavoro, 99 = giustificativi
+  /**
+   * Vecchio macro-raggruppamento del foglio ore Excel (1=Interni, 2=Sanitari,
+   * 3=Cultura, 4=Educativi/sociali, 5=Altri, 99=Giustificativi). **Non** è un
+   * centro di costo: quello vero è `centroCostoCodice`. Resta finché non si
+   * rinomina la colonna su Supabase.
+   */
+  macroGruppo: number
+  /** cc1…cc23 — aggancio alla lista Centri di Costo di SharePoint. */
+  centroCostoCodice: string | null
+  /** Etichetta del centro di costo, copiata per il foglio ore. */
+  centroCostoNome: string | null
   categoria: string | null
   tipoVoce: TipoVoce
   attivo: boolean
@@ -113,7 +123,8 @@ export interface Timbratura {
   perConto: boolean
   // arricchimenti (join con servizio)
   servizioNome?: string
-  centroCosto?: number
+  centroCostoCodice?: string | null
+  centroCostoNome?: string | null
 }
 
 export interface TimbraturaInput {
