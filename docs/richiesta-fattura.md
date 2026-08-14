@@ -18,6 +18,9 @@ acquisti e inventario) e stampa la riga `SP_LIST_FATTURE=…` da mettere in `.en
 
 Variabili d'ambiente:
 
+Lo script è idempotente: rilanciandolo aggiunge solo le colonne che mancano, quindi va rieseguito
+ogni volta che si aggiungono campi al modulo.
+
 Poi l'anagrafica clienti, una volta sola:
 
 ```bash
@@ -149,6 +152,83 @@ il prefisso `x:`, cosa che fanno gli esportatori .NET. Per questo lo script legg
 riga delle intestazioni la cerca da sé (nell'export sono alla quarta, sopra c'è il titolo del
 report). Se un futuro export dà errore di parsing, si apre e si salva come CSV.
 
+## IVA, documento, pagamento: cosa chiede il modulo e cosa no
+
+Aggiunto il 13 agosto 2026 dopo le osservazioni di Andrea Granato, che emette le fatture.
+
+### L'IVA non si chiede a chi compila
+
+L'aliquota dipende dal tipo di prestazione — ristorazione 10%, servizi educativi 5%, ordinaria 22% —
+e chi sta alla cassa non ha motivo di saperlo: chiedendoglielo si ottengono risposte a caso. Ma la
+prestazione il modulo la conosce già, perché è il **centro di costo**.
+
+Quindi il regime si configura **una volta per centro di costo** (`REGIMI_NOTI` in `types/fatture.ts`)
+e chi compila non scegli niente:
+
+- l'etichetta del campo importo diventa «Totale pagato dal cliente (€, IVA 10% compresa)» — è
+  l'etichetta a dire cosa scrivere, non una nota a parte che nessuno legge;
+- sotto il campo compare lo scorporo calcolato, e la mail ad Andrea riporta imponibile e IVA già
+  fatti;
+- il tipo di documento non si chiede: dove il regime è noto si fatturano prestazioni, non si
+  emettono note di credito.
+
+Per i centri di costo **non ancora configurati** il modulo ripiega sulle domande esplicite: natura
+dell'importo (totale o imponibile), aliquota, e in caso di operazione fuori campo l'articolo di
+esclusione. Fra le risposte c'è **«non lo so — decidete voi»**, ammessa di proposito: meglio un caso
+segnalato in mail che un'aliquota indovinata. Ogni centro di costo che passa da lì più di una volta
+va aggiunto a `REGIMI_NOTI`.
+
+Oggi è configurata solo la **Locanda** (10%, importo lordo). La tabella finirà sulla lista SharePoint
+dei Centri di Costo come due colonne, appena la lista sarà approvata.
+
+Il conto sta in **un posto solo** (`calcoloIva()`): lo usano il modulo per l'anteprima, `data.ts` per
+le colonne Imponibile e Iva, la mail per quello che legge chi fattura. Se stesse in tre posti, un
+giorno darebbero tre numeri diversi.
+
+### I tempi: l'app conta i giorni da sé
+
+La fattura va emessa entro **10 giorni** dalla prestazione, e ad Andrea serve margine per vedere la
+mail e farla: la richiesta va mandata entro **5**. Non è solo una nota nel modulo (che c'è, sotto la
+data):
+
+| Giorni dalla prestazione | Nel modulo | Nella mail |
+|---|---|---|
+| fino a 5 | niente | niente |
+| 6–10 | avviso giallo | riquadro arancione |
+| oltre 10 | avviso rosso | riquadro rosso in cima **e `[IN RITARDO]` nell'oggetto** |
+| data futura | avviso azzurro «controlla che sia voluto» | riquadro azzurro |
+
+**Non blocca l'invio.** Una fattura tardiva va emessa ugualmente, e impedire l'invio sposterebbe il
+problema fuori dall'app (una telefonata ad Andrea) perdendo la tracciatura. Il ritardo in giorni
+finisce anche nella colonna `GiorniRitardo`, così dalla lista SharePoint si vede a colpo d'occhio
+quali servizi mandano le richieste tardi.
+
+### Pagamento
+
+Spunta «la prestazione è già stata pagata»; se sì, compaiono il mezzo (contanti, bancomat o carta,
+bonifico, assegno, altro) e la data dell'incasso, proposta uguale alla data della prestazione. Se non
+è stata pagata, la mail lo scrive in maiuscolo: `DA INCASSARE`.
+
+Attenzione a non confondere questo con il campo **Tipo Pagamento dell'anagrafica Clienti**: quello è
+la condizione abituale del cliente (com'è configurata nel gestionale), questo è cosa è successo per
+questa prestazione.
+
+### Un campo che scompare non si svuota da sé
+
+`pulisciCampiNascosti()` butta i valori dei campi che, per come è compilato il resto, non vengono più
+chiesti — la chiamano sia il modulo prima di inviare sia l'API prima di validare.
+
+Il caso che l'ha resa necessaria: si compila una richiesta per un servizio qualsiasi dichiarando IVA
+22%, poi si cambia il centro di costo in Locanda. Il campo dell'IVA scompare dallo schermo, ma il 22
+resterebbe nei dati inviati: non produrrebbe una fattura sbagliata (il conto lo rifà `calcoloIva`
+dal regime), ma lascerebbe nella lista una richiesta che dice 22 mentre la mail dice 10, e fra sei
+mesi nessuno saprebbe quale credere.
+
+Lo stesso vale per il passaggio da una tipologia di soggetto all'altra: chi passa da «persona fisica
+con partita IVA» a «privato» si porterebbe dietro una ragione sociale, e la fattura finirebbe
+intestata a quella. Lato server è la garanzia vera, perché un browser con la pagina aperta da ieri
+può mandare qualsiasi cosa.
+
 ## Il campo "Centro di costo"
 
 Oggi è un **campo di testo libero**: la lista ufficiale Aree/Centri di Costo è ancora in attesa di
@@ -165,7 +245,9 @@ leggibili anche se un centro di costo viene poi rinominato o eliminato.
 
 | Cosa | File |
 |---|---|
-| Campi per tipologia, etichette, validazione | `types/fatture.ts` — **fonte di verità unica**, la usano sia il form sia l'API |
+| Campi per tipologia, validazione, regime IVA, scorporo, giorni di ritardo | `types/fatture.ts` — **fonte di verità unica**, la usano sia il form sia l'API |
+| Importo, IVA, documento, incasso a schermo | `app/(app)/richiesta-fattura/_componenti/CosaFatturare.tsx` |
+| Ricerca cliente | `app/(app)/richiesta-fattura/_componenti/RicercaCliente.tsx` |
 | Lettura/scrittura SharePoint, numerazione `RF-0001` | `lib/fatture/data.ts` |
 | Testo della mail di riepilogo | `lib/fatture/notifiche.ts` |
 | Elenco centri di costo | `lib/fatture/centri-di-costo.ts` |

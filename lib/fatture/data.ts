@@ -10,11 +10,15 @@
 
 import { graphGet, graphPost } from '@/lib/core/graph'
 import {
+  calcoloIva,
   formattaNumeroFattura,
+  giorniDaPrestazione,
   progressivoDaNumeroFattura,
+  type NaturaImporto,
   type NuovaRichiestaFatturaInput,
   type Nazionalita,
   type RichiestaFattura,
+  type TipoDocumento,
   type TipoSoggetto,
 } from '@/types/fatture'
 
@@ -33,7 +37,9 @@ const CAMPI =
   'id,fields&$expand=fields($select=Title,CentroCosto,Richiedente,RichiedenteNome,TipoSoggetto,' +
   'Nazionalita,Condominio,Cognome,Nome,RagioneSociale,PartitaIVA,CodiceFiscale,Indirizzo,Cap,' +
   'Citta,Provincia,Nazione,Telefono,Email,Pec,CodiceSdi,ClienteId,Descrizione,Importo,' +
-  'DataPrestazione,Note,Created)'
+  'DataPrestazione,TipoDocumento,RiferimentoDocumento,NaturaImporto,Aliquota,' +
+  'ArticoloEsclusione,Imponibile,Iva,Incassato,MezzoPagamento,DataIncasso,GiorniRitardo,' +
+  'Note,Created)'
 
 function mapRichiesta(item: any): RichiestaFattura {
   const f = item.fields ?? {}
@@ -64,6 +70,14 @@ function mapRichiesta(item: any): RichiestaFattura {
     descrizione: f.Descrizione ?? '',
     importo: Number(f.Importo ?? 0),
     dataPrestazione: String(f.DataPrestazione ?? '').slice(0, 10),
+    tipoDocumento: (f.TipoDocumento ?? 'Fattura') as TipoDocumento,
+    riferimentoDocumento: f.RiferimentoDocumento ?? '',
+    naturaImporto: (f.NaturaImporto ?? '') as NaturaImporto | '',
+    aliquota: f.Aliquota ?? '',
+    articoloEsclusione: f.ArticoloEsclusione ?? '',
+    incassato: Boolean(f.Incassato),
+    mezzoPagamento: f.MezzoPagamento ?? '',
+    dataIncasso: String(f.DataIncasso ?? '').slice(0, 10),
     note: f.Note ?? '',
     creato: f.Created ?? undefined,
   }
@@ -161,10 +175,36 @@ export async function creaRichiestaFattura(
 
       Descrizione: t(input.descrizione),
       Importo: importo,
+
+      TipoDocumento: input.tipoDocumento || 'Fattura',
+      RiferimentoDocumento: t(input.riferimentoDocumento),
+
+      Incassato: Boolean(input.incassato),
+      MezzoPagamento: input.incassato ? t(input.mezzoPagamento) : '',
+
       Note: t(input.note),
     }
+
+    // IVA: il conto lo fa `calcoloIva`, non questo file. Qui si salvano il
+    // risultato e la descrizione a parole, così la lista è leggibile senza
+    // dover rifare il ragionamento su quale regime valesse quel giorno.
+    const iva = calcoloIva(input)
+    fields.NaturaImporto = iva.lordo ? 'Totale (IVA compresa)' : 'Imponibile (IVA esclusa)'
+    fields.Aliquota = iva.descrizione
+    fields.ArticoloEsclusione = t(input.articoloEsclusione)
+    if (iva.scorporo) {
+      fields.Imponibile = iva.scorporo.imponibile
+      fields.Iva = iva.scorporo.iva
+    }
+
     const data = dataSoloGiorno(input.dataPrestazione)
     if (data) fields.DataPrestazione = data
+    if (input.incassato) {
+      const incasso = dataSoloGiorno(input.dataIncasso)
+      if (incasso) fields.DataIncasso = incasso
+    }
+    const giorni = giorniDaPrestazione(input.dataPrestazione)
+    if (giorni != null) fields.GiorniRitardo = giorni
 
     const creato = await graphPost<{ id: string }>(listBase(), { fields })
     return { ...mapRichiesta({ id: creato.id, fields }), numero }

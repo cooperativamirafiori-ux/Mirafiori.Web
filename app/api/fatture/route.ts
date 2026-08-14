@@ -15,7 +15,12 @@ import { logAzione } from '@/lib/core/audit'
 import { creaRichiestaFattura, fattureConfigurato } from '@/lib/fatture/data'
 import { notificaRichiestaFattura } from '@/lib/fatture/notifiche'
 import { clientiConfigurato, salvaCliente } from '@/lib/clienti/data'
-import { intestatario, richiestaVuota, validaRichiesta } from '@/types/fatture'
+import {
+  intestatario,
+  pulisciCampiNascosti,
+  richiestaVuota,
+  validaRichiesta,
+} from '@/types/fatture'
 import type { NuovaRichiestaFatturaInput } from '@/types/fatture'
 
 export async function POST(req: NextRequest) {
@@ -38,12 +43,15 @@ export async function POST(req: NextRequest) {
   }
 
   // I campi mancanti diventano stringhe vuote: la validazione li tratta come
-  // "non compilati" invece di far esplodere il .trim().
-  const input: NuovaRichiestaFatturaInput = {
+  // "non compilati" invece di far esplodere il .trim(). Poi si buttano i valori
+  // dei campi che la compilazione non prevede: un browser con la pagina aperta
+  // da ieri può mandare qualsiasi cosa, e qui è l'unico punto che lo impedisce.
+  const input: NuovaRichiestaFatturaInput = pulisciCampiNascosti({
     ...richiestaVuota(),
     ...body,
     condominio: Boolean(body.condominio),
-  }
+    incassato: Boolean(body.incassato),
+  })
 
   const errori = validaRichiesta(input)
   if (Object.keys(errori).length) {

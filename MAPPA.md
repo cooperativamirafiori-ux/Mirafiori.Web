@@ -1,9 +1,9 @@
 # MAPPA — indice generato di Mirafiori Web
 
-> Generato da `npm run mappa` il 2026-08-12. **Non modificare a mano**: le decisioni e le
+> Generato da `npm run mappa` il 2026-08-13. **Non modificare a mano**: le decisioni e le
 > convenzioni stanno in `CLAUDE.md`, qui c'è solo la fotografia dei file.
 
-**265 file · 45.380 righe totali.**
+**266 file · 46.109 righe totali.**
 
 ## ⚠️ File oltre 500 righe — da spezzare
 
@@ -126,21 +126,22 @@ _17 file · 4248 righe_
 
 ### Richiesta fattura
 
-_13 file · 2522 righe_
+_14 file · 2926 righe_
 
+- `app/(app)/richiesta-fattura/_componenti/CosaFatturare.tsx` (224 righe)
 - `app/(app)/richiesta-fattura/_componenti/RicercaCliente.tsx` (167 righe)
 - `app/(app)/richiesta-fattura/page.tsx` (47 righe)
-- `app/(app)/richiesta-fattura/RichiestaFatturaForm.tsx` (478 righe)
+- `app/(app)/richiesta-fattura/RichiestaFatturaForm.tsx` (455 righe)
 - `app/api/clienti/[id]/route.ts` (32 righe)
-- `app/api/fatture/route.ts` (134 righe)
-- `docs/richiesta-fattura.md` (190 righe)
+- `app/api/fatture/route.ts` (142 righe)
+- `docs/richiesta-fattura.md` (272 righe)
 - `lib/clienti/data.ts` (296 righe) — esporta: clientiConfigurato, svuotaCacheClienti, caricaClienti, getIndiceClienti, getCliente, trovaClientePerCodici, differenze, salvaCliente
 - `lib/fatture/centri-di-costo.ts` (48 righe) — esporta: getCentriDiCosto
-- `lib/fatture/data.ts` (199 righe) — esporta: fattureConfigurato, creaRichiestaFattura, getRichiesteFattura, getRichiesteFatturaDi
-- `lib/fatture/notifiche.ts` (145 righe) — esporta: destinatariFatture, notificaRichiestaFattura
+- `lib/fatture/data.ts` (239 righe) — esporta: fattureConfigurato, creaRichiestaFattura, getRichiesteFattura, getRichiesteFatturaDi
+- `lib/fatture/notifiche.ts` (197 righe) — esporta: destinatariFatture, notificaRichiestaFattura
 - `scripts/import-clienti.mjs` (438 righe)
 - `scripts/provision-clienti.mjs` (171 righe)
-- `scripts/provision-fatture.mjs` (177 righe)
+- `scripts/provision-fatture.mjs` (198 righe)
 
 ### Prestazioni occasionali
 
@@ -309,7 +310,7 @@ _3 file · 67 righe_
 
 ### Infrastruttura condivisa (core)
 
-_40 file · 5435 righe_
+_40 file · 5760 righe_
 
 - `app/api/debug-fields/route.ts` (45 righe)
 - `components/ui/Allegato.tsx` (83 righe)
@@ -344,7 +345,7 @@ _40 file · 5435 righe_
 - `tailwind.config.ts` (48 righe)
 - `types/acquisti.ts` (359 righe)
 - `types/clienti.ts` (181 righe)
-- `types/fatture.ts` (263 righe)
+- `types/fatture.ts` (588 righe) ⚠️
 - `types/inventario.ts` (122 righe)
 - `types/manutenzioni.ts` (129 righe)
 - `types/prestazioni.ts` (68 righe)

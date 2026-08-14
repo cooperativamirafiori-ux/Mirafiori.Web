@@ -32,6 +32,8 @@ const TIPI_SOGGETTO = [
   'Soggetto diverso da persona fisica',
 ]
 const NAZIONALITA = ['Italiana', 'Estera']
+const TIPI_DOCUMENTO = ['Fattura', 'Nota di credito', 'Nota di debito']
+const MEZZI_PAGAMENTO = ['Contanti', 'Bancomat o carta', 'Bonifico', 'Assegno', 'Altro']
 
 // I `name` DEVONO coincidere con quelli usati in lib/fatture/data.ts.
 // Il Title della lista contiene il numero della richiesta (RF-0001).
@@ -66,6 +68,25 @@ const COLUMNS = [
   { name: 'Descrizione', text: { allowMultipleLines: true } },
   { name: 'Importo', currency: { locale: 'it-IT' } },
   { name: 'DataPrestazione', dateTime: { format: 'dateOnly', displayAs: 'standard' } },
+
+  { name: 'TipoDocumento', choice: { choices: TIPI_DOCUMENTO, displayAs: 'dropDownMenu' } },
+  { name: 'RiferimentoDocumento', text: {} },
+
+  // IVA. Restano testo e non numero/scelta: possono contenere "non determinata"
+  // o un articolo di esclusione, e l'app non deve rompersi su un valore nuovo.
+  { name: 'NaturaImporto', text: {} },
+  { name: 'Aliquota', text: {} },
+  { name: 'ArticoloEsclusione', text: {} },
+  { name: 'Imponibile', currency: { locale: 'it-IT' } },
+  { name: 'Iva', currency: { locale: 'it-IT' } },
+
+  { name: 'Incassato', boolean: {} },
+  { name: 'MezzoPagamento', choice: { choices: MEZZI_PAGAMENTO, displayAs: 'dropDownMenu' } },
+  { name: 'DataIncasso', dateTime: { format: 'dateOnly', displayAs: 'standard' } },
+  // Giorni fra prestazione e richiesta: serve a vedere a colpo d'occhio, dalla
+  // lista, quali servizi mandano le richieste in ritardo.
+  { name: 'GiorniRitardo', number: { decimalPlaces: 'none' } },
+
   { name: 'Note', text: { allowMultipleLines: true } },
 ]
 

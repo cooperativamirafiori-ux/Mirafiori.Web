@@ -26,12 +26,14 @@ import { useRouter } from 'next/navigation'
 import { Campo, inputCls, labelCls } from '@/components/ui/Campo'
 import { Banner } from '@/components/ui/Banner'
 import { RicercaCliente } from './_componenti/RicercaCliente'
+import { CosaFatturare } from './_componenti/CosaFatturare'
 import {
   CAMPI_PER_TIPO,
   ETICHETTE_SOGGETTO,
   NAZIONALITA,
   TIPI_SOGGETTO,
   chiedeCondominio,
+  pulisciCampiNascosti,
   richiestaVuota,
   validaRichiesta,
   type CampoSoggetto,
@@ -153,7 +155,11 @@ export function RichiestaFatturaForm({
     setErrore('')
     setFatto('')
 
-    const trovati = validaRichiesta(form)
+    // Prima si buttano i valori dei campi che non sono più chiesti (un campo che
+    // scompare dallo schermo non si svuota da sé), poi si valida quello che
+    // parte davvero. Vedi § pulisciCampiNascosti.
+    const dati = pulisciCampiNascosti(form)
+    const trovati = validaRichiesta(dati)
     if (Object.keys(trovati).length) {
       setErrori(trovati)
       setErrore('Controlla i campi segnati in rosso.')
@@ -165,7 +171,7 @@ export function RichiestaFatturaForm({
       const res = await fetch('/api/fatture', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(dati),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -236,36 +242,7 @@ export function RichiestaFatturaForm({
 
       {/* ---------- Cosa fatturare ---------- */}
       <Riquadro titolo="Cosa va fatturato">
-        <Campo
-          etichetta="Descrizione"
-          tipo="textarea"
-          righe={2}
-          valore={form.descrizione}
-          onChange={(v) => set('descrizione', v)}
-          obbligatorio
-          errore={errori.descrizione}
-          segnaposto="Es. Cena per 4 persone del 10/08"
-        />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Campo
-            etichetta="Importo (€)"
-            tipo="currency"
-            min={0}
-            valore={form.importo}
-            onChange={(v) => set('importo', v)}
-            obbligatorio
-            errore={errori.importo}
-            segnaposto="0,00"
-          />
-          <Campo
-            etichetta="Data della prestazione"
-            tipo="date"
-            valore={form.dataPrestazione}
-            onChange={(v) => set('dataPrestazione', v)}
-            obbligatorio
-            errore={errori.dataPrestazione}
-          />
-        </div>
+        <CosaFatturare valori={form} errori={errori} set={set} />
       </Riquadro>
 
       {/* ---------- Chi va intestata ---------- */}

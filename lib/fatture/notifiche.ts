@@ -14,7 +14,14 @@
  */
 
 import { sendEmail, BOX, RIGA, TABELLA } from '@/lib/core/mailer'
-import { chiedeCondominio, intestatario, type RichiestaFattura } from '@/types/fatture'
+import {
+  GIORNI_EMISSIONE,
+  calcoloIva,
+  chiedeCondominio,
+  intestatario,
+  puntualita,
+  type RichiestaFattura,
+} from '@/types/fatture'
 import { nomeNazione, type Cliente } from '@/types/clienti'
 
 const DESTINATARI = (
@@ -103,20 +110,65 @@ export async function notificaRichiestaFattura(
            </p>`
         : ''
 
+  const iva = calcoloIva(r)
+  const tempi = puntualita(r.dataPrestazione)
+
   const fattura =
+    (r.tipoDocumento !== 'Fattura' ? RIGA('Documento', r.tipoDocumento) : '') +
+    (r.riferimentoDocumento ? RIGA('Rettifica', r.riferimentoDocumento) : '') +
     RIGA('Descrizione', r.descrizione) +
-    RIGA('Importo', euro(r.importo)) +
-    RIGA('Data prestazione', giorno(r.dataPrestazione)) +
+    RIGA(
+      iva.lordo ? 'Totale pagato dal cliente' : 'Importo imponibile',
+      euro(r.importo),
+    ) +
+    RIGA('IVA', iva.descrizione) +
+    (iva.scorporo
+      ? RIGA(
+          'Scorporo',
+          `imponibile ${euro(iva.scorporo.imponibile)} + IVA ${euro(iva.scorporo.iva)} = ${euro(iva.scorporo.totale)}`,
+        )
+      : '') +
+    RIGA('Data prestazione', `${giorno(r.dataPrestazione)}${tempi.giorni > 0 ? ` — ${tempi.giorni} giorni fa` : ''}`) +
+    RIGA(
+      'Pagamento',
+      r.incassato
+        ? `già incassato — ${r.mezzoPagamento}${r.dataIncasso ? ` il ${giorno(r.dataIncasso)}` : ''}`
+        : 'DA INCASSARE',
+    ) +
     RIGA('Centro di costo', r.centroCosto) +
     RIGA('Richiesta da', `${r.richiedenteNome || r.richiedente} (${r.richiedente})`) +
     (r.note ? RIGA('Note', r.note) : '')
 
+  /**
+   * Il ritardo va in cima, non in fondo: se la fattura andava emessa dieci
+   * giorni dopo la prestazione, chi apre la mail deve saperlo prima di leggere
+   * qualsiasi altra cosa.
+   */
+  const ritardo =
+    tempi.stato === 'oltre il termine'
+      ? `<p style="margin:0 0 14px;padding:12px 14px;background:#FDECEA;border-left:4px solid #C00000;color:#8B0000;font-weight:700">
+           ⚠️ Richiesta in ritardo: la prestazione risale a ${tempi.giorni} giorni
+           (il termine di emissione è ${GIORNI_EMISSIONE} giorni).
+         </p>`
+      : tempi.stato === 'in ritardo'
+        ? `<p style="margin:0 0 14px;padding:10px 12px;background:#FFF6E5;border-left:3px solid #E36C09;color:#7a4a00">
+             Prestazione di ${tempi.giorni} giorni fa: sei ancora nei ${GIORNI_EMISSIONE} giorni, ma di poco.
+           </p>`
+        : tempi.stato === 'futura'
+          ? `<p style="margin:0 0 14px;padding:10px 12px;background:#EEF4FF;border-left:3px solid #2F5FBF;color:#274b8f">
+               La data della prestazione è nel futuro (${giorno(r.dataPrestazione)}): controlla che sia voluto.
+             </p>`
+          : ''
+
   await sendEmail({
     to: Array.from(new Set([...DESTINATARI, r.richiedente])),
-    subject: `[Fattura] ${r.numero} — ${cliente} · ${euro(r.importo)}`,
+    subject:
+      `${tempi.stato === 'oltre il termine' ? '[IN RITARDO] ' : ''}` +
+      `[${r.tipoDocumento}] ${r.numero} — ${cliente} · ${euro(r.importo)}`,
     html: BOX(`
+      ${ritardo}
       <p style="margin:0 0 4px;font-size:16px;font-weight:800;color:#005B7F">
-        🧾 Nuova richiesta di fattura — ${r.numero}
+        🧾 Nuova richiesta di ${r.tipoDocumento.toLowerCase()} — ${r.numero}
       </p>
       <p style="margin:0 0 14px;color:#666">
         ${r.centroCosto} · richiesta da ${r.richiedenteNome || r.richiedente}
