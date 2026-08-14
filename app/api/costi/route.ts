@@ -27,11 +27,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Body non valido' }, { status: 400 })
   }
 
-  const { strutturaId, categoria, importo, dataCosto, fornitore, causale } = body
+  const { centroCostoId, strutturaId, categoria, importo, dataCosto, fornitore, causale } = body
 
-  if (!strutturaId || !categoria?.trim() || !dataCosto) {
+  // La struttura è facoltativa: i servizi senza sede fisica non ne hanno una.
+  // Il centro di costo no — è la dimensione con cui si legge il bilancio.
+  if (!centroCostoId || !categoria?.trim() || !dataCosto) {
     return NextResponse.json(
-      { error: 'Campi obbligatori mancanti: struttura, categoria, data' },
+      { error: 'Campi obbligatori mancanti: centro di costo, categoria, data' },
       { status: 400 }
     )
   }
@@ -45,7 +47,8 @@ export async function POST(req: NextRequest) {
 
   try {
     await creaCostoDiretto({
-      StrutturaLookupId: Number(strutturaId),
+      CentroCostoLookupId: Number(centroCostoId),
+      StrutturaLookupId: strutturaId ? Number(strutturaId) : undefined,
       Categoria: categoria.trim(),
       Importo: importoNum,
       DataCosto: dataCosto,
@@ -57,8 +60,14 @@ export async function POST(req: NextRequest) {
       nome: session.user.name,
       azione: 'costo.crea',
       entita: 'CostoStruttura',
-      entitaId: strutturaId,
-      dettagli: { categoria, importo: importoNum, fornitore: fornitore || undefined },
+      entitaId: centroCostoId,
+      dettagli: {
+        categoria,
+        importo: importoNum,
+        centroCostoId,
+        strutturaId: strutturaId || undefined,
+        fornitore: fornitore || undefined,
+      },
     })
     return NextResponse.json({ ok: true }, { status: 201 })
   } catch (err: any) {

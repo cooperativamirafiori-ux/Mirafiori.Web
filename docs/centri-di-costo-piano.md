@@ -1,8 +1,18 @@
 # Centri di Costo — piano di attuazione
 
-> Stato: **proposta**, nessun codice scritto. Base: `Aree_e_Centri_di_Costo_Mirafiori_v3.xlsx`
-> (23 centri di costo, cc1…cc23, raggruppati in 10 aree).
-> Vedi anche `docs/richiesta-fattura.md`, `lib/fatture/centri-di-costo.ts`.
+> Stato al 14/08/2026: **punti 1 e 2 fatti**, punto 3 (timbrature) da fare.
+> Base: `Aree_e_Centri_di_Costo_Mirafiori_v3.xlsx` (23 centri di costo, cc1…cc23,
+> raggruppati in 10 aree). Vedi anche `docs/richiesta-fattura.md`.
+>
+> **Fatto**: lista SP creata e popolata (`provision-centri-costo.mjs`), colonna
+> lookup `CentroCosto` su Strutture/Costi/Acquisti e `Struttura` resa facoltativa
+> sui Costi (`provision-centri-costo-collegamenti.mjs`), 41 movimenti storici
+> assegnati (`backfill-centro-costo-costi.mjs`), anagrafica condivisa in
+> `lib/centri-costo/data.ts`, campo nei form di costo diretto e acquisti,
+> cruscotto costi con le due viste.
+>
+> **Prima**: A02 è stata unificata in A01 e A06 in A05 (`unifica-strutture.mjs`);
+> le righe `ZZ_` vanno eliminate dopo il collaudo.
 
 ---
 

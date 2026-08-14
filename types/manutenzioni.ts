@@ -11,6 +11,12 @@ export interface Struttura {
   strutturaLabel: string  // es. "MIR01 — Sede operativa"
   responsabileEmail: string
   responsabilePulizieEmail: string
+  /**
+   * Centro di costo di default della struttura. È un suggerimento: precompila
+   * il campo quando si registra un costo o un acquisto, ma il valore che conta
+   * è quello scritto sul documento (vedi CostoRecord.centroCosto).
+   */
+  centroCosto?: { id: number; value: string }
 }
 
 export interface Tecnico {
@@ -71,9 +77,23 @@ export interface CostoRecord {
   dataCosto: string     // ISO datetime
   categoria: string
   importo: number
+  /**
+   * Facoltativa: i servizi senza sede fisica (educativa nelle scuole, Care
+   * Leavers, CISA 12…) registrano costi che non stanno in nessun edificio.
+   * id = 0 quando non c'è.
+   */
   struttura: {
     id: number
     value: string       // nome/label struttura
+  }
+  /**
+   * Centro di costo del movimento. **Copiato qui alla creazione**, non
+   * ricavato risalendo alla struttura: se domani una struttura passa a un
+   * altro centro di costo, lo storico non si deve riscrivere da solo.
+   */
+  centroCosto?: {
+    id: number
+    value: string
   }
   fornitore?: string
   periodo?: string
@@ -81,14 +101,21 @@ export interface CostoRecord {
   note?: string
 }
 
-/** Costi aggregati per una singola struttura (cruscotto YTD) */
-export interface CostoPerStruttura {
-  strutturaId: number
-  strutturaLabel: string
+/**
+ * Costi aggregati su una chiave (cruscotto YTD).
+ * La chiave è la struttura o il centro di costo, a seconda della vista scelta:
+ * stessi movimenti, raggruppamento diverso.
+ */
+export interface CostoAggregato {
+  chiaveId: number
+  etichetta: string
   totale: number
   perCategoria: Record<string, number>
   movimenti: CostoRecord[]
 }
+
+/** Le due viste del cruscotto costi. */
+export type VistaCosti = 'struttura' | 'centro-di-costo'
 
 export interface ParametroConfigurazione {
   title: string   // chiave (es. "Costo orario pulizie")
@@ -108,7 +135,10 @@ export interface NuovaRichiestaPayload {
 }
 
 export interface NuovoCostoPayload {
-  strutturaId: number
+  /** Il centro di costo è la dimensione contabile obbligatoria. */
+  centroCostoId: number
+  /** Facoltativa: i servizi senza sede fisica non ne hanno una. */
+  strutturaId?: number
   categoria: string
   importo: number
   dataCosto: string      // ISO date (YYYY-MM-DD) o datetime

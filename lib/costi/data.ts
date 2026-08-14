@@ -7,23 +7,39 @@ import { graphGet, graphPost } from '@/lib/core/graph'
 import { listBase, lookupValue, PREFER_NON_INDEXED } from '@/lib/core/sp'
 import type { Struttura, CostoRecord } from '@/types/manutenzioni'
 
+/**
+ * Unico punto in cui nasce una riga di costo: ci passano il costo diretto, la
+ * chiusura di una manutenzione e la consegna di un acquisto.
+ *
+ * `CentroCostoLookupId` è il campo che conta ed è **copiato qui**, non
+ * ricavato risalendo alla struttura: se domani una struttura passa a un altro
+ * centro di costo, i movimenti già registrati non si devono spostare da soli.
+ * `StrutturaLookupId` è facoltativo — i servizi senza sede fisica registrano
+ * costi che non stanno in nessun edificio.
+ */
 export async function creaCosto(fields: {
   Title: string
   DataCosto: string
-  Categoria: string           // Choice → stringa semplice
+  Categoria: string             // Choice → stringa semplice
   Importo: number
-  StrutturaLookupId: number   // Lookup → {Campo}LookupId
+  CentroCostoLookupId?: number  // Lookup → {Campo}LookupId
+  StrutturaLookupId?: number    // Lookup → {Campo}LookupId
   Fornitore?: string
   Periodo?: string
-  Fonte?: string              // Choice → stringa semplice
+  Fonte?: string                // Choice → stringa semplice
 }): Promise<void> {
-  await graphPost(`${listBase('costi')}`, { fields })
+  // Graph rifiuta le proprietà undefined: vanno tolte prima di spedire.
+  const puliti = Object.fromEntries(
+    Object.entries(fields).filter(([, v]) => v !== undefined),
+  )
+  await graphPost(`${listBase('costi')}`, { fields: puliti })
 }
 
 // Campi da leggere dalla lista Costi Strutture.
-// Struttura è un lookup → { Value, LookupId } (oppure stringa semplice via fields-expansion)
+// Struttura e CentroCosto sono lookup → { Value, LookupId } (oppure stringa
+// semplice via fields-expansion)
 const COSTO_FIELDS =
-  'id,fields&$expand=fields($select=Title,DataCosto,Categoria,Importo,Struttura,StrutturaLookupId,Fornitore,Periodo,Fonte,Note)'
+  'id,fields&$expand=fields($select=Title,DataCosto,Categoria,Importo,Struttura,StrutturaLookupId,CentroCosto,CentroCostoLookupId,Fornitore,Periodo,Fonte,Note)'
 
 function mapCosto(item: any): CostoRecord {
   const f = item.fields
@@ -34,9 +50,15 @@ function mapCosto(item: any): CostoRecord {
     categoria: lookupValue(f.Categoria) || 'Non categorizzato',
     importo: typeof f.Importo === 'number' ? f.Importo : Number(f.Importo ?? 0),
     struttura: {
-      id: f.Struttura?.LookupId ?? f.StrutturaLookupId ?? 0,
+      id: Number(f.Struttura?.LookupId ?? f.StrutturaLookupId ?? 0),
       value: lookupValue(f.Struttura),
     },
+    centroCosto: Number(f.CentroCosto?.LookupId ?? f.CentroCostoLookupId ?? 0)
+      ? {
+          id: Number(f.CentroCosto?.LookupId ?? f.CentroCostoLookupId),
+          value: lookupValue(f.CentroCosto),
+        }
+      : undefined,
     fornitore: f.Fornitore ?? undefined,
     periodo: f.Periodo ?? undefined,
     fonte: lookupValue(f.Fonte) || undefined,
@@ -64,11 +86,15 @@ export async function getCosti(anno?: number): Promise<CostoRecord[]> {
 }
 
 /**
- * Inserisce un costo direttamente su una struttura, senza passare da una
- * richiesta di manutenzione. Fonte = "Diretto".
+ * Inserisce un costo senza passare da una richiesta di manutenzione.
+ * Fonte = "Diretto".
+ *
+ * Il centro di costo è obbligatorio, la struttura no: un corso di formazione
+ * dell'educativa nelle scuole è un costo vero che non sta in nessun edificio.
  */
 export async function creaCostoDiretto(fields: {
-  StrutturaLookupId: number
+  CentroCostoLookupId: number
+  StrutturaLookupId?: number
   Categoria: string
   Importo: number
   DataCosto: string
@@ -87,7 +113,8 @@ export async function creaCostoDiretto(fields: {
     DataCosto: dataObj.toISOString(),
     Categoria: fields.Categoria,
     Importo: fields.Importo,
-    StrutturaLookupId: fields.StrutturaLookupId,
+    CentroCostoLookupId: fields.CentroCostoLookupId,
+    StrutturaLookupId: fields.StrutturaLookupId || undefined,
     Fornitore: fields.Fornitore?.trim() || undefined,
     Periodo: periodo,
   }

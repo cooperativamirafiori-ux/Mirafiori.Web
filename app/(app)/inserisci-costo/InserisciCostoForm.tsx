@@ -3,14 +3,16 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Struttura } from '@/types/manutenzioni'
+import type { CentroDiCosto } from '@/lib/centri-costo/data'
 
 interface Props {
   strutture: Struttura[]
+  centri: CentroDiCosto[]
   categorie: string[]
   fornitori: string[]
 }
 
-export function InserisciCostoForm({ strutture, categorie, fornitori }: Props) {
+export function InserisciCostoForm({ strutture, centri, categorie, fornitori }: Props) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -19,6 +21,7 @@ export function InserisciCostoForm({ strutture, categorie, fornitori }: Props) {
   const oggi = new Date().toISOString().slice(0, 10)
   const [form, setForm] = useState({
     strutturaId: '',
+    centroCostoId: '',
     categoria: '',
     importo: '',
     dataCosto: oggi,
@@ -29,13 +32,27 @@ export function InserisciCostoForm({ strutture, categorie, fornitori }: Props) {
   const set = (key: string, value: string) =>
     setForm((f) => ({ ...f, [key]: value }))
 
+  /**
+   * Scegliere la struttura precompila il centro di costo, che resta
+   * modificabile: la struttura dice dove, il centro di costo dice a chi.
+   * Non si sovrascrive una scelta già fatta a mano.
+   */
+  function scegliStruttura(value: string) {
+    const s = strutture.find((x) => String(x.id) === value)
+    setForm((f) => ({
+      ...f,
+      strutturaId: value,
+      centroCostoId: s?.centroCosto?.id ? String(s.centroCosto.id) : f.centroCostoId,
+    }))
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     setSuccess(null)
 
-    if (!form.strutturaId || !form.categoria.trim() || !form.importo || !form.dataCosto) {
-      setError('⚠️ Compila struttura, categoria, importo e data.')
+    if (!form.centroCostoId || !form.categoria.trim() || !form.importo || !form.dataCosto) {
+      setError('⚠️ Compila centro di costo, categoria, importo e data.')
       return
     }
     const importoNum = parseFloat(form.importo)
@@ -44,8 +61,9 @@ export function InserisciCostoForm({ strutture, categorie, fornitori }: Props) {
       return
     }
 
+    const centroObj = centri.find((c) => String(c.id) === form.centroCostoId)
+    if (!centroObj) { setError('Centro di costo non trovato'); return }
     const strutturaObj = strutture.find((s) => String(s.id) === form.strutturaId)
-    if (!strutturaObj) { setError('Struttura non trovata'); return }
 
     setLoading(true)
     try {
@@ -53,7 +71,8 @@ export function InserisciCostoForm({ strutture, categorie, fornitori }: Props) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          strutturaId: strutturaObj.id,
+          centroCostoId: centroObj.id,
+          strutturaId: strutturaObj?.id,
           categoria: form.categoria,
           importo: importoNum,
           dataCosto: form.dataCosto,
@@ -65,9 +84,11 @@ export function InserisciCostoForm({ strutture, categorie, fornitori }: Props) {
       if (!res.ok) throw new Error(data.error ?? 'Errore inserimento')
 
       setSuccess(
-        `✅ Costo registrato su ${strutturaObj.strutturaLabel}: €${importoNum.toFixed(2)}`
+        `✅ Costo registrato su ${centroObj.nome}${
+          strutturaObj ? ` (${strutturaObj.strutturaLabel})` : ''
+        }: €${importoNum.toFixed(2)}`
       )
-      // Reset mantenendo struttura e data per inserimenti multipli
+      // Reset mantenendo struttura, centro di costo e data per inserimenti multipli
       setForm((f) => ({ ...f, categoria: '', importo: '', fornitore: '', causale: '' }))
     } catch (err: any) {
       setError(err.message)
@@ -83,7 +104,7 @@ export function InserisciCostoForm({ strutture, categorie, fornitori }: Props) {
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow p-6 space-y-5">
       <div>
-        <h2 className="text-lg font-semibold text-primary-dark">Costo diretto su struttura</h2>
+        <h2 className="text-lg font-semibold text-primary-dark">Costo diretto</h2>
         <p className="text-sm text-gray-500 mt-1">
           Registra un costo senza aprire una richiesta di manutenzione.
         </p>
@@ -105,19 +126,40 @@ export function InserisciCostoForm({ strutture, categorie, fornitori }: Props) {
         </div>
       )}
 
-      {/* Struttura */}
+      {/* Struttura — facoltativa: precompila il centro di costo */}
       <div>
-        <label className={labelClass}>Struttura *</label>
+        <label className={labelClass}>Struttura</label>
         <select
           value={form.strutturaId}
-          onChange={(e) => set('strutturaId', e.target.value)}
+          onChange={(e) => scegliStruttura(e.target.value)}
           className={inputClass}
-          required
         >
-          <option value="">— Seleziona struttura —</option>
+          <option value="">— Nessuna struttura —</option>
           {strutture.map((s) => (
             <option key={String(s.id)} value={s.id}>
               {s.strutturaLabel}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-gray-400 mt-1">
+          Lasciala vuota per i servizi senza sede fisica. Se la scegli, imposta da sé
+          il centro di costo.
+        </p>
+      </div>
+
+      {/* Centro di costo — la dimensione con cui si legge il bilancio */}
+      <div>
+        <label className={labelClass}>Centro di costo *</label>
+        <select
+          value={form.centroCostoId}
+          onChange={(e) => set('centroCostoId', e.target.value)}
+          className={inputClass}
+          required
+        >
+          <option value="">— Seleziona centro di costo —</option>
+          {centri.map((c) => (
+            <option key={String(c.id)} value={c.id}>
+              {c.area ? `${c.area} · ${c.nome}` : c.nome}
             </option>
           ))}
         </select>

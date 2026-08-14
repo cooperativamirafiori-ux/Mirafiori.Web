@@ -49,7 +49,8 @@ e non serve cercare altrove.
 |---|---|---|---|---|
 | **Timbrature · Foglio ore** | `app/(app)/timbrature/` (operatore + `validazione/`)<br>`app/(app)/risorse-umane/timbrature/` (cruscotto HR) | `app/api/timbrature/**`<br>`app/api/foglio-ore/[token]/`<br>`app/api/cron/{timbrature-alert,sollecito-timbrature,promemoria-ore}/` | `lib/timbrature/`: **`data.ts` è la porta** e riesporta `date.ts` `anagrafica.ts` `stati.ts` `righe.ts` `riepilogo.ts`<br>più `flusso.ts` `guard.ts` `sync.ts` `notifiche.ts` `foglio-ore-xlsx.ts` `festivita.ts` | pubblico tokenizzato: `app/foglio-ore/[token]/`<br>`docs/timbrature-*.md` — **le decisioni stanno in `docs/timbrature-revisione-agosto-2026.md`** |
 | **Manutenzioni** | `app/(app)/manutenzioni/` `nuova-richiesta/` `mie-richieste/` `dashboard/` `gestione/[id]/` | `app/api/manutenzioni/**` | `lib/manutenzioni/`: `data.ts` `notifiche.ts`<br>anagrafiche: `lib/strutture/data.ts` | — |
-| **Costi strutture** | `app/(app)/inserisci-costo/` `cruscotto-costi/` | `app/api/costi/` | `lib/costi/data.ts` | — |
+| **Costi strutture** | `app/(app)/inserisci-costo/` `cruscotto-costi/` | `app/api/costi/` | `lib/costi/data.ts` | il cruscotto ha due viste: per centro di costo (default) e per struttura |
+| **Centri di costo** | — (anagrafica) | — | `lib/centri-costo/data.ts` | lista SP `SP_LIST_CENTRI_COSTO`, 23 CC raggruppati in 10 aree<br>`scripts/provision-centri-costo.mjs` `provision-centri-costo-collegamenti.mjs` `backfill-centro-costo-costi.mjs`<br>`docs/centri-di-costo-piano.md` |
 | **Acquisti** | `app/(app)/acquisti/` (`nuova/` `mie/` `gestione/`) | `app/api/acquisti/**`<br>`app/api/consegna/[token]/`<br>`app/api/cron/acquisti/` | `lib/acquisti/`: `data.ts` `flusso.ts` `notifiche.ts` | pubblico tokenizzato: `app/consegna/[token]/`<br>`../Area Acquisti - Manuale operativo.docx`<br>`scripts/provision-acquisti.mjs` |
 | **Richiesta fattura** | `app/(app)/richiesta-fattura/` | `app/api/fatture/`<br>`app/api/clienti/[id]/` | `lib/fatture/`: `data.ts` `notifiche.ts` `centri-di-costo.ts`<br>anagrafica: `lib/clienti/data.ts`<br>campi e validazione in `types/fatture.ts` | aperta a **tutti** gli utenti, nessun permesso d'area<br>`scripts/provision-fatture.mjs` `provision-clienti.mjs` `import-clienti.mjs`<br>`docs/richiesta-fattura.md` |
 | **Prestazioni occasionali** | `app/(app)/prestazioni/` (`nuova/` `attive/`) | `app/api/prestazioni/**`<br>`app/api/prestatori/**`<br>`app/api/notula/[token]/**`<br>`app/api/docusign/callback/` | `lib/prestazioni/`: `data.ts` `documenti.ts` `firma.ts` `docusign.ts` `casistiche-gdpr.ts` `notifiche.ts` | modelli docx: `lib/templates/prestazione-occasionale/`<br>allegati: `lib/allegati-prestatore/`<br>pubblico: `app/notula/[token]/`<br>`docs/prestazioni-*.md` `docs/docusign-setup.md` |
@@ -89,10 +90,10 @@ lib/<area>/        una cartella per area di dominio
 types/<area>.ts    tipi, già una per area
 ```
 
-Aree presenti: `acquisti` `clienti` `costi` `fatture` `inventario` `manutenzioni` `prestazioni`
+Aree presenti: `acquisti` `centri-costo` `clienti` `costi` `fatture` `inventario` `manutenzioni` `prestazioni`
 `risorse-umane` `software` `strutture` `timbrature`.
 
-`clienti` e `strutture` sono **anagrafiche**: non hanno schermate proprie, le usa chi ne ha bisogno
+`centri-costo`, `clienti` e `strutture` sono **anagrafiche**: non hanno schermate proprie, le usa chi ne ha bisogno
 (oggi `fatture` la prima, `manutenzioni` e `acquisti` la seconda).
 
 **Le due regole che tengono separate le scatole:**

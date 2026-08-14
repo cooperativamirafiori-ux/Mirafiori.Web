@@ -24,6 +24,7 @@ import { auth } from '@/lib/core/auth'
 import { getRichiestaById, aggiornaRichiesta } from '@/lib/manutenzioni/data'
 import { getParametro, getSPUserEmailByLookupId } from '@/lib/core/sp'
 import { creaCosto } from '@/lib/costi/data'
+import { centroCostoDiStruttura } from '@/lib/strutture/data'
 import { notificaTecnicoAssegnato, notificaChiusuraTicket } from '@/lib/manutenzioni/notifiche'
 import { logAzione } from '@/lib/core/audit'
 import type { AggiornaRichiestaPayload } from '@/types/manutenzioni'
@@ -126,13 +127,17 @@ export async function PATCH(
         year: 'numeric',
       })
 
-      // Crea record in Costi Strutture
+      // Crea record in Costi Strutture.
+      // Il centro di costo lo eredita dalla struttura dell'intervento: qui non
+      // c'è nessuno a sceglierlo, e una manutenzione ha sempre un edificio.
+      const centroCostoId = await centroCostoDiStruttura(richiesta.struttura.id)
       await creaCosto({
         Title: richiesta.idRichiesta,
         DataCosto: new Date().toISOString(),
         Categoria: categoria,               // Choice → stringa semplice
         Importo: importoTotale,
-        StrutturaLookupId: richiesta.struttura.id,  // Lookup → {Campo}LookupId
+        CentroCostoLookupId: centroCostoId, // Lookup → {Campo}LookupId
+        StrutturaLookupId: richiesta.struttura.id,
         Fornitore: richiesta.tecnico?.value ?? undefined,
         Periodo: periodo,
         Fonte: 'Manuale',                   // Choice → stringa semplice

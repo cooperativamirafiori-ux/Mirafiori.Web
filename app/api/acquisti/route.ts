@@ -16,7 +16,7 @@ import { guardArea } from '@/lib/core/api-guard'
 import { creaAcquisto, getAcquisti, acquistiConfigurato, AREA_ACQUISTI } from '@/lib/acquisti/data'
 import { emailGestori, linkGestione } from '@/lib/acquisti/flusso'
 import { getSPUserLookupId } from '@/lib/core/sp'
-import { getStrutture } from '@/lib/strutture/data'
+import { getStrutture, centroCostoDiStruttura } from '@/lib/strutture/data'
 import { notificaAcquistoUrgente } from '@/lib/acquisti/notifiche'
 import { logAzione } from '@/lib/core/audit'
 import { CATEGORIE_SPESA, URGENZE, dataBreve } from '@/types/acquisti'
@@ -55,6 +55,7 @@ export async function POST(req: NextRequest) {
   }
 
   const strutturaId = Number(body.strutturaId)
+  const centroCostoId = Number(body.centroCostoId) || 0
   const descrizione = (body.descrizione ?? '').trim()
   const quantita = Number(body.quantita) || 1
   const urgenza = body.urgenza ?? ''
@@ -91,8 +92,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Se il richiedente non l'ha cambiato, il centro di costo è quello della
+    // struttura: la richiesta nasce comunque imputata a qualcuno.
+    const centroCostoFinale =
+      centroCostoId || (await centroCostoDiStruttura(strutturaId)) || undefined
+
     const { spItemId, codice } = await creaAcquisto({
       strutturaId,
+      centroCostoId: centroCostoFinale,
       richiedenteLookupId,
       descrizione,
       quantita,

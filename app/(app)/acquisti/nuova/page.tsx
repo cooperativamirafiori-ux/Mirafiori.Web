@@ -1,4 +1,5 @@
 import { getStrutture } from '@/lib/strutture/data'
+import { getCentriDiCosto } from '@/lib/centri-costo/data'
 import { Header } from '@/components/ui/Header'
 import { NuovaRichiestaAcquistoForm } from './NuovaRichiestaAcquistoForm'
 
@@ -20,7 +21,7 @@ export default async function NuovaRichiestaAcquistoPage({
     return Array.isArray(v) ? v[0] : v
   }
 
-  const strutture = await getStrutture()
+  const [strutture, centri] = await Promise.all([getStrutture(), getCentriDiCosto()])
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-orange-light/20 via-white to-white">
@@ -28,6 +29,7 @@ export default async function NuovaRichiestaAcquistoPage({
       <main className="flex-1 w-full max-w-lg mx-auto px-4 py-6">
         <NuovaRichiestaAcquistoForm
           strutture={strutture}
+          centri={centri}
           iniziali={{
             strutturaId: uno('struttura') ?? '',
             descrizione: uno('descrizione') ?? '',

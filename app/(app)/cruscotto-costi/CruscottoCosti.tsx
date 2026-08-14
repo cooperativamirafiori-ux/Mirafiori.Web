@@ -2,14 +2,17 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { CostoPerStruttura } from '@/types/manutenzioni'
+import type { CostoAggregato, VistaCosti } from '@/types/manutenzioni'
 
 interface Props {
-  righe: CostoPerStruttura[]
+  righe: CostoAggregato[]
   anni: number[]
   anno: number
+  vista: VistaCosti
   totaleComplessivo: number
   numMovimenti: number
+  /** Movimenti privi della dimensione in uso: da sistemare. */
+  senzaDimensione: number
 }
 
 const eur = (n: number) =>
@@ -28,24 +31,46 @@ export function CruscottoCosti({
   righe,
   anni,
   anno,
+  vista,
   totaleComplessivo,
   numMovimenti,
+  senzaDimensione,
 }: Props) {
   const router = useRouter()
   const [aperta, setAperta] = useState<number | null>(null)
 
   const conCosti = righe.filter((r) => r.totale > 0)
+  const perStruttura = vista === 'struttura'
+  const vai = (v: VistaCosti, a: number) => router.push(`/cruscotto-costi?anno=${a}&vista=${v}`)
 
   return (
     <div className="space-y-6">
+      {/* Interruttore fra le due viste */}
+      <div className="inline-flex bg-gray-100 rounded-xl p-1 w-full">
+        {(['centro-di-costo', 'struttura'] as VistaCosti[]).map((v) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => vai(v, anno)}
+            className={`flex-1 px-3 py-2 rounded-lg text-sm transition ${
+              vista === v
+                ? 'bg-white shadow-sm font-semibold text-primary-dark'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {v === 'centro-di-costo' ? 'Per centro di costo' : 'Per struttura'}
+          </button>
+        ))}
+      </div>
+
       {/* Header + selettore anno */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h2 className="font-semibold text-gray-700">
-          Costi per struttura — {anno}
+          {perStruttura ? 'Costi per struttura' : 'Costi per centro di costo'} — {anno}
         </h2>
         <select
           value={anno}
-          onChange={(e) => router.push(`/cruscotto-costi?anno=${e.target.value}`)}
+          onChange={(e) => vai(vista, Number(e.target.value))}
           className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
         >
           {anni.map((a) => (
@@ -62,7 +87,9 @@ export function CruscottoCosti({
         </div>
         <div className="bg-white rounded-2xl p-4 text-center shadow-sm border border-gray-100">
           <p className="text-2xl font-bold text-gray-700">{conCosti.length}</p>
-          <p className="text-xs text-gray-500 mt-1">Strutture con costi</p>
+          <p className="text-xs text-gray-500 mt-1">
+            {perStruttura ? 'Strutture con costi' : 'Centri con costi'}
+          </p>
         </div>
         <div className="bg-white rounded-2xl p-4 text-center shadow-sm border border-gray-100">
           <p className="text-2xl font-bold text-gray-700">{numMovimenti}</p>
@@ -70,7 +97,16 @@ export function CruscottoCosti({
         </div>
       </div>
 
-      {/* Elenco strutture */}
+      {senzaDimensione > 0 && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-xl p-3">
+          {senzaDimensione}{' '}
+          {senzaDimensione === 1 ? 'movimento non è attribuito' : 'movimenti non sono attribuiti'}{' '}
+          {perStruttura ? 'a nessuna struttura' : 'a nessun centro di costo'}: li trovi
+          raggruppati in fondo.
+        </div>
+      )}
+
+      {/* Elenco */}
       {numMovimenti === 0 ? (
         <div className="bg-white rounded-2xl shadow p-10 text-center text-gray-400">
           Nessun costo registrato per il {anno}
@@ -78,24 +114,24 @@ export function CruscottoCosti({
       ) : (
         <div className="space-y-3">
           {righe.map((r) => {
-            const isOpen = aperta === r.strutturaId
+            const isOpen = aperta === r.chiaveId
             const haCosti = r.totale > 0
             return (
               <div
-                key={r.strutturaId}
+                key={r.chiaveId}
                 className={`bg-white rounded-2xl shadow-sm border ${
                   haCosti ? 'border-gray-100' : 'border-gray-100 opacity-60'
                 }`}
               >
                 <button
                   type="button"
-                  onClick={() => haCosti && setAperta(isOpen ? null : r.strutturaId)}
+                  onClick={() => haCosti && setAperta(isOpen ? null : r.chiaveId)}
                   disabled={!haCosti}
                   className="w-full flex items-center justify-between gap-3 p-4 text-left disabled:cursor-default"
                 >
                   <div className="min-w-0">
                     <p className="font-semibold text-gray-800 truncate">
-                      {r.strutturaLabel}
+                      {r.etichetta}
                     </p>
                     {haCosti && (
                       <p className="text-xs text-gray-500 mt-0.5">

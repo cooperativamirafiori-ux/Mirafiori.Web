@@ -94,7 +94,14 @@ export interface RichiestaAcquisto {
   richiedenteNome: string
   richiedenteLookupId: number
   dataRichiesta: string
+  /** Dove va consegnata la merce. */
   struttura: { id: number; value: string }
+  /**
+   * Chi paga. Di solito coincide con il centro di costo della struttura, ma
+   * non per forza: l'educativa nelle scuole si fa consegnare in ufficio e
+   * imputa la spesa a sé.
+   */
+  centroCosto?: { id: number; value: string }
   descrizione: string
   quantita: number
   link?: string
@@ -149,6 +156,7 @@ export interface RichiestaAcquisto {
 
 export interface NuovaRichiestaAcquistoPayload {
   strutturaId: number
+  centroCostoId: number
   descrizione: string
   quantita: number
   link?: string

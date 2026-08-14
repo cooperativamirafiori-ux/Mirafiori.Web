@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Struttura } from '@/types/manutenzioni'
+import type { CentroDiCosto } from '@/lib/centri-costo/data'
 import { CATEGORIE_SPESA, URGENZE } from '@/types/acquisti'
 
 interface Iniziali {
@@ -15,6 +16,7 @@ interface Iniziali {
 
 interface Props {
   strutture: Struttura[]
+  centri: CentroDiCosto[]
   iniziali: Iniziali
 }
 
@@ -22,14 +24,18 @@ const campoCls =
   'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange'
 const labelCls = 'block text-sm font-medium text-gray-700 mb-1'
 
-export function NuovaRichiestaAcquistoForm({ strutture, iniziali }: Props) {
+export function NuovaRichiestaAcquistoForm({ strutture, centri, iniziali }: Props) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
   const [inviata, setInviata] = useState<string | null>(null)
 
+  const ccDiStruttura = (strutturaId: string) =>
+    strutture.find((s) => String(s.id) === strutturaId)?.centroCosto?.id
+
   const [form, setForm] = useState({
     strutturaId: iniziali.strutturaId,
+    centroCostoId: String(ccDiStruttura(iniziali.strutturaId) ?? ''),
     descrizione: iniziali.descrizione,
     quantita: iniziali.quantita || '1',
     link: iniziali.link,
@@ -40,12 +46,26 @@ export function NuovaRichiestaAcquistoForm({ strutture, iniziali }: Props) {
 
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }))
 
+  /**
+   * La struttura è il luogo di consegna e porta con sé il centro di costo di
+   * default, che resta modificabile: chi lavora nelle scuole si fa consegnare
+   * in ufficio ma la spesa la imputa a sé.
+   */
+  function scegliStruttura(value: string) {
+    const cc = ccDiStruttura(value)
+    setForm((f) => ({
+      ...f,
+      strutturaId: value,
+      centroCostoId: cc ? String(cc) : f.centroCostoId,
+    }))
+  }
+
   async function invia(e: React.FormEvent) {
     e.preventDefault()
     setErrore(null)
 
-    if (!form.strutturaId || !form.descrizione.trim() || !form.categoria) {
-      setErrore('Compila struttura, descrizione e categoria.')
+    if (!form.strutturaId || !form.centroCostoId || !form.descrizione.trim() || !form.categoria) {
+      setErrore('Compila struttura, centro di costo, descrizione e categoria.')
       return
     }
 
@@ -56,6 +76,7 @@ export function NuovaRichiestaAcquistoForm({ strutture, iniziali }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           strutturaId: Number(form.strutturaId),
+          centroCostoId: Number(form.centroCostoId),
           descrizione: form.descrizione.trim(),
           quantita: Number(form.quantita) || 1,
           link: form.link.trim() || undefined,
@@ -117,7 +138,7 @@ export function NuovaRichiestaAcquistoForm({ strutture, iniziali }: Props) {
         <label className={labelCls}>Struttura / servizio *</label>
         <select
           value={form.strutturaId}
-          onChange={(e) => set('strutturaId', e.target.value)}
+          onChange={(e) => scegliStruttura(e.target.value)}
           className={campoCls}
           required
         >
@@ -129,8 +150,27 @@ export function NuovaRichiestaAcquistoForm({ strutture, iniziali }: Props) {
           ))}
         </select>
         <p className="text-xs text-gray-400 mt-1">
-          È anche il luogo di consegna predefinito e determina a quale struttura viene
-          imputata la spesa.
+          È il luogo di consegna predefinito.
+        </p>
+      </div>
+
+      <div>
+        <label className={labelCls}>Centro di costo *</label>
+        <select
+          value={form.centroCostoId}
+          onChange={(e) => set('centroCostoId', e.target.value)}
+          className={campoCls}
+          required
+        >
+          <option value="">— Seleziona —</option>
+          {centri.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.area ? `${c.area} · ${c.nome}` : c.nome}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-gray-400 mt-1">
+          A chi viene imputata la spesa. Lo propone la struttura, ma puoi cambiarlo.
         </p>
       </div>
 

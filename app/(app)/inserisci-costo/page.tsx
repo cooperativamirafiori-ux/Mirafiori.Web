@@ -1,6 +1,7 @@
 import { auth } from '@/lib/core/auth'
 import { redirect } from 'next/navigation'
 import { getStrutture, getTecnici } from '@/lib/strutture/data'
+import { getCentriDiCosto } from '@/lib/centri-costo/data'
 import { getCosti } from '@/lib/costi/data'
 import { Header } from '@/components/ui/Header'
 import { InserisciCostoForm } from './InserisciCostoForm'
@@ -11,8 +12,9 @@ export default async function InserisciCostoPage() {
   const session = await auth()
   if (!session?.user?.isAdmin) redirect('/home')
 
-  const [strutture, costi, tecnici] = await Promise.all([
+  const [strutture, centri, costi, tecnici] = await Promise.all([
     getStrutture(),
+    getCentriDiCosto(),
     getCosti().catch(() => []),
     getTecnici().catch(() => []),
   ])
@@ -46,6 +48,7 @@ export default async function InserisciCostoPage() {
       <main className="flex-1 px-4 py-6 max-w-xl mx-auto w-full">
         <InserisciCostoForm
           strutture={strutture}
+          centri={centri}
           categorie={categorie}
           fornitori={fornitori}
         />

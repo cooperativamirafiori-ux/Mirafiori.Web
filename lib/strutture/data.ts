@@ -4,22 +4,49 @@
  */
 
 import { graphGet } from '@/lib/core/graph'
-import { listBase } from '@/lib/core/sp'
+import { listBase, lookupValue } from '@/lib/core/sp'
 import type { Struttura, Tecnico } from '@/types/manutenzioni'
 
 export async function getStrutture(): Promise<Struttura[]> {
   const res = await graphGet<{ value: any[] }>(
-    `${listBase('strutture')}?$select=id,fields&$expand=fields($select=Title,Codice,StrutturaLabel,Responsabile,ResponsabilePulizie)&$orderby=fields/Codice asc`,
+    `${listBase('strutture')}?$select=id,fields&$expand=fields($select=Title,Codice,StrutturaLabel,Responsabile,ResponsabilePulizie,CentroCosto,CentroCostoLookupId)&$orderby=fields/Codice asc`,
     { Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly' }
   )
-  return res.value.map((item) => ({
-    id: Number(item.id),  // item.id = Graph item ID = SP internal ID
-    title: item.fields.Title,
-    codice: item.fields.Codice,
-    strutturaLabel: item.fields.StrutturaLabel,
-    responsabileEmail: item.fields.Responsabile?.Email ?? '',
-    responsabilePulizieEmail: item.fields.ResponsabilePulizie?.Email ?? '',
-  }))
+  return res.value.map((item) => {
+    const ccId = Number(item.fields.CentroCosto?.LookupId ?? item.fields.CentroCostoLookupId ?? 0)
+    return {
+      id: Number(item.id),  // item.id = Graph item ID = SP internal ID
+      title: item.fields.Title,
+      codice: item.fields.Codice,
+      strutturaLabel: item.fields.StrutturaLabel,
+      responsabileEmail: item.fields.Responsabile?.Email ?? '',
+      responsabilePulizieEmail: item.fields.ResponsabilePulizie?.Email ?? '',
+      centroCosto: ccId
+        ? { id: ccId, value: lookupValue(item.fields.CentroCosto) }
+        : undefined,
+    }
+  })
+}
+
+/**
+ * Centro di costo di default di una struttura, per precompilare i documenti
+ * che nascono da un flusso automatico (chiusura manutenzione, consegna
+ * acquisto) dove nessuno lo sceglie a mano.
+ *
+ * Ritorna `undefined` se la struttura non esiste o non ha ancora un centro di
+ * costo assegnato: chi chiama decide se è un problema.
+ */
+export async function centroCostoDiStruttura(
+  strutturaId: number,
+): Promise<number | undefined> {
+  if (!strutturaId) return undefined
+  try {
+    const strutture = await getStrutture()
+    return strutture.find((s) => s.id === strutturaId)?.centroCosto?.id
+  } catch (err) {
+    console.error('[strutture] centroCostoDiStruttura fallita:', err)
+    return undefined
+  }
 }
 
 // ============================================================

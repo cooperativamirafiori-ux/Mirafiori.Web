@@ -11,6 +11,7 @@
 import { randomBytes } from 'node:crypto'
 import { graphGet, graphPost, graphPatch } from '@/lib/core/graph'
 import { creaCosto } from '@/lib/costi/data'
+import { centroCostoDiStruttura } from '@/lib/strutture/data'
 import { getSPUserLookupId } from '@/lib/core/sp'
 import {
   aggiungiMesi,
@@ -35,7 +36,8 @@ export function acquistiConfigurato(): boolean {
 
 const CAMPI =
   'id,fields&$expand=fields($select=Title,Richiedente,RichiedenteLookupId,DataRichiesta,' +
-  'Struttura,StrutturaLookupId,Descrizione,Quantita,LinkRiferimento,Urgenza,ServeEntro,Categoria,' +
+  'Struttura,StrutturaLookupId,CentroCosto,CentroCostoLookupId,' +
+  'Descrizione,Quantita,LinkRiferimento,Urgenza,ServeEntro,Categoria,' +
   'Stato,Assegnato,AssegnatoLookupId,MotivoRifiuto,NoteInterne,' +
   'Fornitore,Imponibile,Totale,DataOrdine,Pagamento,DataPagamento,DataConsegnaPrevista,' +
   'LuogoConsegna,LuogoConsegnaLookupId,DataConsegnaEffettiva,EsitoConsegna,NoteEsito,' +
@@ -69,6 +71,12 @@ function mapAcquisto(item: any): RichiestaAcquisto {
       id: Number(f.Struttura?.LookupId ?? f.StrutturaLookupId ?? 0),
       value: testoLookup(f.Struttura),
     },
+    centroCosto: Number(f.CentroCosto?.LookupId ?? f.CentroCostoLookupId ?? 0)
+      ? {
+          id: Number(f.CentroCosto?.LookupId ?? f.CentroCostoLookupId),
+          value: testoLookup(f.CentroCosto),
+        }
+      : undefined,
     descrizione: f.Descrizione ?? '',
     quantita: num(f.Quantita) ?? 1,
     link: f.LinkRiferimento || undefined,
@@ -212,6 +220,8 @@ export async function aggiornaAcquisto(
  */
 export async function creaAcquisto(input: {
   strutturaId: number
+  /** Chi paga. Precompilato dalla struttura, ma l'utente può cambiarlo. */
+  centroCostoId?: number
   richiedenteLookupId: number
   descrizione: string
   quantita: number
@@ -225,6 +235,7 @@ export async function creaAcquisto(input: {
   const creato = await graphPost<any>(listBase(), {
     fields: {
       StrutturaLookupId: input.strutturaId,
+      ...(input.centroCostoId ? { CentroCostoLookupId: input.centroCostoId } : {}),
       RichiedenteLookupId: input.richiedenteLookupId,
       Descrizione: input.descrizione,
       Quantita: input.quantita,
@@ -345,10 +356,16 @@ export async function generaCostoDaAcquisto(
     ? ''
     : dataObj.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })
 
+  // Il centro di costo lo porta la richiesta. Se è una richiesta vecchia,
+  // nata prima che il campo esistesse, si ripiega su quello della struttura.
+  const centroCostoId =
+    a.centroCosto?.id || (await centroCostoDiStruttura(a.struttura.id))
+
   const base = {
     Title: `${a.codice} — ${a.descrizione}`.slice(0, 255),
     DataCosto: (isNaN(dataObj.getTime()) ? new Date() : dataObj).toISOString(),
     Importo: importo,
+    CentroCostoLookupId: centroCostoId,
     StrutturaLookupId: a.struttura.id,
     Fornitore: a.fornitore || undefined,
     Periodo: periodo,
