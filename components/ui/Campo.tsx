@@ -65,6 +65,7 @@ export function Campo({
   max,
   maxLength,
   vuoto = '—',
+  senzaVuoto,
 }: {
   etichetta: string
   valore: string
@@ -87,6 +88,13 @@ export function Campo({
   maxLength?: number
   /** Testo della prima opzione di un `choice`, quella che vale "niente". */
   vuoto?: string
+  /**
+   * Toglie del tutto la voce "niente" da un `choice`. Da usare quando il campo
+   * ha già un valore di partenza e non sceglierlo non è una risposta possibile:
+   * lasciarla farebbe comparire due volte la stessa parola (era il caso di
+   * "Documento da emettere", che parte da «Fattura» e ha «Fattura» fra le scelte).
+   */
+  senzaVuoto?: boolean
 }) {
   const cambia = (v: string) => onChange(maiuscolo ? v.toUpperCase() : v)
 
@@ -122,6 +130,7 @@ export function Campo({
           onChange={cambia}
           scelte={scelte}
           vuoto={vuoto}
+          senzaVuoto={senzaVuoto}
           disabilitato={disabilitato}
           classi={classi}
         />
@@ -154,6 +163,7 @@ function Scelte({
   onChange,
   scelte,
   vuoto,
+  senzaVuoto,
   disabilitato,
   classi,
 }: {
@@ -161,6 +171,7 @@ function Scelte({
   onChange: (v: string) => void
   scelte?: readonly Scelta[]
   vuoto: string
+  senzaVuoto?: boolean
   disabilitato?: boolean
   classi: string
 }) {
@@ -176,7 +187,7 @@ function Scelte({
       disabled={disabilitato}
       className={classi}
     >
-      <option value="">{vuoto}</option>
+      {!senzaVuoto && <option value="">{vuoto}</option>}
       {fuoriLista && <option value={valore}>{valore} (valore attuale)</option>}
       {opzioni.map((o) => (
         <option key={o.valore} value={o.valore}>

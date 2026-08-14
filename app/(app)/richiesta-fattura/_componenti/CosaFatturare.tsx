@@ -60,7 +60,7 @@ export function CosaFatturare({
           scelte={TIPI_DOCUMENTO}
           valore={valori.tipoDocumento}
           onChange={(v) => set('tipoDocumento', v as NuovaRichiestaFatturaInput['tipoDocumento'])}
-          vuoto="Fattura"
+          senzaVuoto
         />
       )}
 

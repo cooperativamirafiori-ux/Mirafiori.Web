@@ -115,7 +115,7 @@ I mattoncini condivisi dell'interfaccia. **Prima di scrivere a mano un blocco
 
 | Componente | A cosa serve | Note |
 |---|---|---|
-| `Campo` | campo di form completo: etichetta, controllo, aiuto, errore | il controllo lo scegli con `tipo` (`text` `textarea` `choice` `date` `number` `currency` `email` `tel`), stesso vocabolario di `RUField`. Ha `maiuscolo`, `min`/`max`/`maxLength`, e `scelte` che accetta stringhe o coppie `{valore, etichetta}` per i select dove il valore salvato è diverso da quello mostrato. Esporta `inputCls` e `labelCls` per i casi grezzi |
+| `Campo` | campo di form completo: etichetta, controllo, aiuto, errore | il controllo lo scegli con `tipo` (`text` `textarea` `choice` `date` `number` `currency` `email` `tel`), stesso vocabolario di `RUField`. Ha `maiuscolo`, `min`/`max`/`maxLength`, e `scelte` che accetta stringhe o coppie `{valore, etichetta}` per i select dove il valore salvato è diverso da quello mostrato. `senzaVuoto` toglie la voce "niente" dai select che partono già con un valore. Esporta `inputCls` e `labelCls` per i casi grezzi |
 | `Allegato` | campo file: etichetta, nome e peso del file scelto, avviso se sfora | separato da `Campo` perché lega un `File | null`, non una stringa. Il tetto è quello di `core/upload-diretto`, controllato qui una volta per tutte |
 | `Kpi` | piastrella di riepilogo: numero grande + didascalia | `dimensione="lg"` per i conteggi brevi, `tenue` per la variante su fondo grigio |
 | `Voce` | voce di dettaglio etichetta/valore, dentro un `<dl>` | props `t` / `v` / `span` |
