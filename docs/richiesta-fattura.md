@@ -61,11 +61,27 @@ l'identità di chi ha compilato, e toglie un campo dal modulo.
 - centro di costo — senza, la fattura non si sa a chi imputarla;
 - indirizzo, città e nazione sempre; **CAP e provincia solo per l'Italia**, perché all'estero spesso
   non esistono nella stessa forma e un controllo rigido bloccherebbe una richiesta legittima;
-- email — è il recapito con cui si manda la fattura;
 - descrizione, importo e data della prestazione.
 
-**Telefono, PEC e note restano facoltativi.** Un privato la PEC quasi mai ce l'ha, e rendere
-obbligatorio un campo che metà delle volte non esiste insegna solo a scrivere `-` dentro.
+**Sono facoltativi telefono, PEC, note, email, codice destinatario, l'articolo di esclusione IVA e
+il riferimento alla fattura da rettificare.** Rendere obbligatorio un campo che metà delle volte non
+si conosce insegna solo a scrivere `-` dentro, o a inventare. Revisione del 16 agosto 2026 su
+richiesta di Andrea: email, articolo di esenzione e riferimento della nota erano obbligatori e sono
+stati liberati per questo motivo.
+
+**La partita IVA è il caso opposto, ed è deliberato.** Non è obbligatorio *scriverla*, ma è
+obbligatorio *rispondere*: o il numero, o la spunta «questo soggetto non ha partita IVA». Lasciare
+il campo vuoto significa «non l'ho scritta», spuntare significa «non esiste» — due cose diverse, e
+chi emette la fattura ha bisogno di sapere quale delle due. Spuntando, il campo si svuota e si
+disattiva; se poi il numero viene scritto, la spunta cade (vince il numero, `pulisciCampiNascosti`).
+La dichiarazione finisce nella colonna `SenzaPartitaIva` e nella mail come «dichiarata assente dal
+richiedente».
+
+**La partita IVA italiana viene verificata nella cifra di controllo** (`partitaIvaValida`, algoritmo
+di Luhn sulle prime dieci cifre), non solo nella lunghezza: intercetta le due cifre invertite, che è
+l'errore di battitura più comune e il più difficile da vedere a occhio. Il controllo è stato
+provato sulle **521 partite IVA dell'anagrafica importata: le superano tutte**, quindi bloccare è
+sicuro. Sui soggetti esteri non si applica.
 
 **I formati di codice fiscale e partita IVA si controllano solo per i soggetti italiani.** Sedici
 caratteri per le persone fisiche, undici cifre per gli enti (che spesso hanno il CF uguale alla

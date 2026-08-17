@@ -35,7 +35,8 @@ export function fattureConfigurato(): boolean {
 
 const CAMPI =
   'id,fields&$expand=fields($select=Title,CentroCosto,Richiedente,RichiedenteNome,TipoSoggetto,' +
-  'Nazionalita,Condominio,Cognome,Nome,RagioneSociale,PartitaIVA,CodiceFiscale,Indirizzo,Cap,' +
+  'Nazionalita,Condominio,Cognome,Nome,RagioneSociale,PartitaIVA,SenzaPartitaIva,' +
+  'CodiceFiscale,Indirizzo,Cap,' +
   'Citta,Provincia,Nazione,Telefono,Email,Pec,CodiceSdi,ClienteId,Descrizione,Importo,' +
   'DataPrestazione,TipoDocumento,RiferimentoDocumento,NaturaImporto,Aliquota,' +
   'ArticoloEsclusione,Imponibile,Iva,Incassato,MezzoPagamento,DataIncasso,GiorniRitardo,' +
@@ -56,6 +57,7 @@ function mapRichiesta(item: any): RichiestaFattura {
     nome: f.Nome ?? '',
     ragioneSociale: f.RagioneSociale ?? '',
     partitaIva: f.PartitaIVA ?? '',
+    senzaPartitaIva: Boolean(f.SenzaPartitaIva),
     codiceFiscale: f.CodiceFiscale ?? '',
     indirizzo: f.Indirizzo ?? '',
     cap: f.Cap ?? '',
@@ -157,6 +159,7 @@ export async function creaRichiestaFattura(
       Nome: t(input.nome),
       RagioneSociale: t(input.ragioneSociale),
       PartitaIVA: t(input.partitaIva).replace(/\s/g, ''),
+      SenzaPartitaIva: Boolean(input.senzaPartitaIva),
       CodiceFiscale: t(input.codiceFiscale).replace(/\s/g, '').toUpperCase(),
 
       Indirizzo: t(input.indirizzo),

@@ -50,6 +50,9 @@ const COLUMNS = [
   { name: 'Nome', text: {} },
   { name: 'RagioneSociale', text: {} },
   { name: 'PartitaIVA', text: {} },
+  // Dichiarazione esplicita: diversa da PartitaIVA vuota, che vuol dire solo
+  // "non l'ho scritta".
+  { name: 'SenzaPartitaIva', boolean: {} },
   { name: 'CodiceFiscale', text: {} },
 
   { name: 'Indirizzo', text: {} },

@@ -74,7 +74,11 @@ export async function notificaRichiestaFattura(
     (chiedeCondominio(r.tipoSoggetto) ? RIGA('Condominio', r.condominio ? 'Sì' : 'No') : '') +
     (r.ragioneSociale ? RIGA('Ragione sociale', r.ragioneSociale) : '') +
     (r.cognome || r.nome ? RIGA('Cognome e nome', `${r.cognome} ${r.nome}`.trim()) : '') +
-    (r.partitaIva ? RIGA('Partita IVA', r.partitaIva) : '') +
+    (r.partitaIva
+      ? RIGA('Partita IVA', r.partitaIva)
+      : r.senzaPartitaIva
+        ? RIGA('Partita IVA', 'dichiarata assente dal richiedente')
+        : '') +
     (r.codiceFiscale ? RIGA('Codice fiscale', r.codiceFiscale) : '')
 
   const c = anagrafica?.cliente

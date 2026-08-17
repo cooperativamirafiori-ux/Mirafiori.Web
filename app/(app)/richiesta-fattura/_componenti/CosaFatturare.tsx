@@ -69,9 +69,9 @@ export function CosaFatturare({
           etichetta="Fattura da rettificare"
           valore={valori.riferimentoDocumento}
           onChange={(v) => set('riferimentoDocumento', v)}
-          obbligatorio
           errore={errori.riferimentoDocumento}
-          segnaposto="Numero e data, es. 214 del 12/07/2026"
+          segnaposto="Da compilare solo se lo sai — es. 214 del 12/07/2026"
+          aiuto="Se non hai il numero sotto mano, lascia vuoto: lo ritrova chi emette il documento."
         />
       )}
 
@@ -168,9 +168,9 @@ export function CosaFatturare({
               etichetta="Articolo che esclude l'operazione dall'IVA"
               valore={valori.articoloEsclusione}
               onChange={(v) => set('articoloEsclusione', v)}
-              obbligatorio
               errore={errori.articoloEsclusione}
-              segnaposto="Es. art. 10 DPR 633/72"
+              segnaposto="Da compilare solo se lo sai — es. art. 10 DPR 633/72"
+              aiuto="Se non lo conosci lascia vuoto: lo determina chi emette la fattura."
             />
           )}
           {iva.scorporo && (

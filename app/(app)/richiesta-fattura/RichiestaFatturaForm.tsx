@@ -29,6 +29,7 @@ import { RicercaCliente } from './_componenti/RicercaCliente'
 import { CosaFatturare } from './_componenti/CosaFatturare'
 import {
   CAMPI_PER_TIPO,
+  CAMPI_SOGGETTO_FACOLTATIVI,
   ETICHETTE_SOGGETTO,
   NAZIONALITA,
   TIPI_SOGGETTO,
@@ -298,12 +299,30 @@ export function RichiestaFatturaForm({
                   etichetta={ETICHETTE_SOGGETTO[c]}
                   valore={form[c]}
                   onChange={(v) => set(c, v)}
-                  obbligatorio
+                  obbligatorio={!CAMPI_SOGGETTO_FACOLTATIVI.has(c)}
                   errore={errori[c]}
                   maiuscolo={MAIUSCOLI[c]}
+                  disabilitato={c === 'partitaIva' && form.senzaPartitaIva}
                 />
               ))}
             </div>
+
+            {campiSoggetto.includes('partitaIva') && (
+              /* Non è un campo in più per pignoleria: "l'ho lasciata vuota" e
+                 "non ce l'ha" sono due cose diverse, e chi fattura deve saperlo. */
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={form.senzaPartitaIva}
+                  onChange={(e) => {
+                    set('senzaPartitaIva', e.target.checked)
+                    if (e.target.checked) set('partitaIva', '')
+                  }}
+                  className="w-4 h-4 rounded border-gray-300 text-brand-cyan focus:ring-brand-cyan"
+                />
+                Questo soggetto non ha partita IVA
+              </label>
+            )}
 
             {chiedeCondominio(tipo) && (
               /* Il kit non ha un campo booleano: ce n'è uno solo in tutta
@@ -382,7 +401,6 @@ export function RichiestaFatturaForm({
             tipo="email"
             valore={form.email}
             onChange={(v) => set('email', v)}
-            obbligatorio
             errore={errori.email}
           />
           <Campo

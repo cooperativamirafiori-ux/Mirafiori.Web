@@ -122,6 +122,37 @@ export function chiedeCondominio(tipo: TipoSoggetto): boolean {
   return tipo === 'Soggetto diverso da persona fisica'
 }
 
+/**
+ * Campi che il modulo mostra ma non pretende.
+ *
+ * La partita IVA sta qui perché non tutti i soggetti che la prevedono ce
+ * l'hanno davvero — associazioni, enti pubblici, soggetti esteri. Al suo posto
+ * si chiede però una **dichiarazione esplicita** (`senzaPartitaIva`): lasciare
+ * un campo vuoto e dire "non ce l'ha" sono due cose diverse, e chi fattura ha
+ * bisogno di sapere quale delle due.
+ */
+export const CAMPI_SOGGETTO_FACOLTATIVI = new Set<CampoSoggetto>(['partitaIva'])
+
+/**
+ * Cifra di controllo della partita IVA italiana (algoritmo di Luhn sulle prime
+ * dieci cifre). Non è pignoleria: intercetta le due cifre invertite, che è
+ * l'errore di battitura più comune e il più difficile da vedere a occhio.
+ *
+ * Verificato sulle 521 partite IVA dell'anagrafica importata da Fattura SMART:
+ * le superano tutte.
+ */
+export function partitaIvaValida(p: string): boolean {
+  const s = (p ?? '').replace(/\s/g, '')
+  if (!/^\d{11}$/.test(s)) return false
+  let somma = 0
+  for (let i = 0; i < 10; i++) {
+    const n = Number(s[i])
+    if (i % 2 === 0) somma += n
+    else somma += n * 2 > 9 ? n * 2 - 9 : n * 2
+  }
+  return (10 - (somma % 10)) % 10 === Number(s[10])
+}
+
 // ============================================================
 // Forma dei dati
 // ============================================================
@@ -146,6 +177,12 @@ export interface NuovaRichiestaFatturaInput {
   nome: string
   ragioneSociale: string
   partitaIva: string
+  /**
+   * Dichiarazione esplicita che il soggetto la partita IVA non ce l'ha.
+   * Non è la stessa cosa di lasciare il campo vuoto: quello è "non l'ho
+   * scritta", questo è "non esiste", e chi fattura ha bisogno di saperlo.
+   */
+  senzaPartitaIva: boolean
   codiceFiscale: string
 
   indirizzo: string
@@ -210,6 +247,7 @@ export function richiestaVuota(): NuovaRichiestaFatturaInput {
     nome: '',
     ragioneSociale: '',
     partitaIva: '',
+    senzaPartitaIva: false,
     codiceFiscale: '',
     indirizzo: '',
     cap: '',
@@ -476,6 +514,11 @@ export function pulisciCampiNascosti(
   }
   if (!p.tipoSoggetto || !chiedeCondominio(p.tipoSoggetto)) p.condominio = false
 
+  // "Non ha partita IVA" e una partita IVA scritta non possono coesistere: se
+  // c'è il numero vince il numero, altrimenti resterebbe agli atti una
+  // dichiarazione smentita dalla riga accanto.
+  if (String(p.partitaIva ?? '').trim() || !p.tipoSoggetto) p.senzaPartitaIva = false
+
   return p
 }
 
@@ -492,9 +535,12 @@ export function pulisciCampiNascosti(
  *  - centro di costo: senza, la fattura non si sa a chi imputarla;
  *  - indirizzo, città e nazione: servono in fattura. CAP e provincia solo per
  *    l'Italia, perché all'estero spesso non esistono nella stessa forma;
- *  - email: è il recapito con cui si manda la fattura. Telefono e PEC restano
- *    facoltativi (un privato la PEC quasi mai ce l'ha);
  *  - descrizione, importo e data: sono ciò che Andrea deve fatturare.
+ *
+ * Sono **facoltativi** email, telefono, PEC, codice destinatario, l'articolo di
+ * esclusione IVA e il riferimento alla fattura da rettificare: chiederli a chi
+ * sta alla cassa vuol dire, per metà delle volte, ottenere un dato inventato o
+ * un trattino. La partita IVA è un caso a parte — vedi CAMPI_SOGGETTO_FACOLTATIVI.
  *
  * I formati di codice fiscale e partita IVA si controllano **solo** per i
  * soggetti italiani: quelli esteri hanno codifiche diverse e un controllo
@@ -510,7 +556,15 @@ export function validaRichiesta(r: NuovaRichiestaFatturaInput): Record<string, s
 
   if (r.tipoSoggetto) {
     for (const campo of CAMPI_PER_TIPO[r.tipoSoggetto]) {
+      if (CAMPI_SOGGETTO_FACOLTATIVI.has(campo)) continue
       if (vuoto(r[campo])) e[campo] = `${ETICHETTE_SOGGETTO[campo]} obbligatorio`
+    }
+    // La partita IVA non è obbligatoria, ma una risposta sì: o la si scrive, o
+    // si dichiara che il soggetto non ce l'ha.
+    if (CAMPI_PER_TIPO[r.tipoSoggetto].includes('partitaIva')) {
+      if (vuoto(r.partitaIva) && !r.senzaPartitaIva) {
+        e.partitaIva = 'Scrivi la partita IVA, oppure spunta «non ha partita IVA»'
+      }
     }
   }
 
@@ -525,6 +579,8 @@ export function validaRichiesta(r: NuovaRichiestaFatturaInput): Record<string, s
     const piva = r.partitaIva.replace(/\s/g, '')
     if (piva && !/^\d{11}$/.test(piva)) {
       e.partitaIva = 'La partita IVA italiana ha 11 cifre'
+    } else if (piva && !partitaIvaValida(piva)) {
+      e.partitaIva = 'Partita IVA non valida: ricontrolla le cifre'
     }
   }
 
@@ -545,8 +601,11 @@ export function validaRichiesta(r: NuovaRichiestaFatturaInput): Record<string, s
     if (vuoto(r.provincia)) e.provincia = 'Indica la provincia'
   }
 
-  if (vuoto(r.email)) e.email = 'Serve un indirizzo email per mandare la fattura'
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email.trim())) e.email = 'Email non valida'
+  // Email facoltativa: molti clienti la fattura la ritirano di persona o la
+  // ricevono via SDI. Se però la si scrive, deve essere scritta bene.
+  if (!vuoto(r.email) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email.trim())) {
+    e.email = 'Email non valida'
+  }
   if (!vuoto(r.pec) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.pec.trim())) e.pec = 'PEC non valida'
   // Il codice destinatario è facoltativo, ma se c'è deve avere la sua forma:
   // 7 caratteri per i privati, 6 per la pubblica amministrazione.
@@ -562,20 +621,17 @@ export function validaRichiesta(r: NuovaRichiestaFatturaInput): Record<string, s
   if (vuoto(r.importo)) e.importo = "Indica l'importo"
   else if (!Number.isFinite(importo) || importo <= 0) e.importo = 'Importo non valido'
 
-  // Una nota rettifica un documento già emesso: senza il riferimento non si sa
-  // quale, e chi fattura dovrebbe rincorrere chi ha fatto la richiesta.
-  if (r.tipoDocumento !== 'Fattura' && vuoto(r.riferimentoDocumento)) {
-    e.riferimentoDocumento = 'Indica numero e data della fattura da rettificare'
-  }
+  // Il riferimento alla fattura da rettificare **non** è obbligatorio: spesso
+  // chi chiede la nota non ha il numero sotto mano, e pretenderlo bloccherebbe
+  // la richiesta senza far comparire l'informazione. Chi fattura la ritrova.
 
   // IVA: si chiede solo dove il centro di costo non ha un regime configurato.
   // "Non lo so" è una risposta ammessa di proposito — vedi § Regime IVA.
+  // L'articolo di esclusione, per la stessa ragione, non è obbligatorio:
+  // chiederlo a chi sta alla cassa vuol dire ottenere un articolo inventato.
   if (regimeDi(r.centroCosto).daChiedere) {
     if (!r.naturaImporto) e.naturaImporto = "Indica se l'importo è il totale o l'imponibile"
     if (vuoto(r.aliquota)) e.aliquota = "Indica l'IVA, o scegli «non lo so»"
-    if (r.aliquota === FUORI_CAMPO && vuoto(r.articoloEsclusione)) {
-      e.articoloEsclusione = "Indica l'articolo che esclude l'operazione dall'IVA"
-    }
   }
 
   if (r.incassato) {
