@@ -219,8 +219,10 @@ export async function aggiornaAcquisto(
  * creato: serve quindi una seconda PATCH.
  */
 export async function creaAcquisto(input: {
-  strutturaId: number
-  /** Chi paga. Precompilato dalla struttura, ma l'utente può cambiarlo. */
+  /**
+   * Chi paga. È l'unica imputazione chiesta al richiedente: il servizio di
+   * consegna lo sceglie chi prende in carico la richiesta.
+   */
   centroCostoId?: number
   richiedenteLookupId: number
   descrizione: string
@@ -234,7 +236,6 @@ export async function creaAcquisto(input: {
 }): Promise<{ spItemId: string; codice: string; token: string }> {
   const creato = await graphPost<any>(listBase(), {
     fields: {
-      StrutturaLookupId: input.strutturaId,
       ...(input.centroCostoId ? { CentroCostoLookupId: input.centroCostoId } : {}),
       RichiedenteLookupId: input.richiedenteLookupId,
       Descrizione: input.descrizione,
@@ -281,6 +282,9 @@ export async function creaAcquisto(input: {
  * La scadenza della garanzia si calcola dalla **data dell'ordine** — scelta di
  * Dennis del 04/08/2026 — e viene salvata, non solo derivata, così è filtrabile
  * anche dalla vista SharePoint.
+ *
+ * Il luogo di consegna non sta più qui: il servizio è quello scelto alla presa
+ * in carico (campo `Struttura`), e ridigitarlo all'ordine creava due verità.
  */
 export function campiOrdine(input: {
   fornitore: string
@@ -289,7 +293,6 @@ export function campiOrdine(input: {
   dataOrdine?: string
   pagamento?: string
   dataConsegnaPrevista?: string
-  luogoConsegnaId?: number
   daInventariare?: boolean
   marcaModello?: string
   numeroSerie?: string
@@ -311,7 +314,6 @@ export function campiOrdine(input: {
     DataOrdine: dataOrdineIso,
     Pagamento: input.pagamento || undefined,
     DataConsegnaPrevista: dataSoloGiorno(input.dataConsegnaPrevista),
-    LuogoConsegnaLookupId: input.luogoConsegnaId || undefined,
     DaInventariare: Boolean(input.daInventariare),
     MarcaModello: input.marcaModello?.trim() || '',
     NumeroSerie: input.numeroSerie?.trim() || '',
@@ -346,7 +348,7 @@ export async function generaCostoDaAcquisto(
   a: RichiestaAcquisto,
 ): Promise<{ generato: boolean; motivo?: string }> {
   if (a.costoGenerato) return { generato: false, motivo: 'già generato' }
-  if (!a.struttura.id) return { generato: false, motivo: 'struttura mancante' }
+  if (!a.struttura.id) return { generato: false, motivo: 'servizio di consegna mancante' }
   const importo = a.totale ?? 0
   if (importo <= 0) return { generato: false, motivo: 'importo assente' }
 

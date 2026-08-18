@@ -2,12 +2,11 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Struttura } from '@/types/manutenzioni'
 import type { CentroDiCosto } from '@/lib/centri-costo/data'
 import { CATEGORIE_SPESA, URGENZE } from '@/types/acquisti'
 
 interface Iniziali {
-  strutturaId: string
+  centroCostoId: string
   descrizione: string
   quantita: string
   link: string
@@ -15,7 +14,6 @@ interface Iniziali {
 }
 
 interface Props {
-  strutture: Struttura[]
   centri: CentroDiCosto[]
   iniziali: Iniziali
 }
@@ -24,18 +22,14 @@ const campoCls =
   'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange'
 const labelCls = 'block text-sm font-medium text-gray-700 mb-1'
 
-export function NuovaRichiestaAcquistoForm({ strutture, centri, iniziali }: Props) {
+export function NuovaRichiestaAcquistoForm({ centri, iniziali }: Props) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
   const [errore, setErrore] = useState<string | null>(null)
   const [inviata, setInviata] = useState<string | null>(null)
 
-  const ccDiStruttura = (strutturaId: string) =>
-    strutture.find((s) => String(s.id) === strutturaId)?.centroCosto?.id
-
   const [form, setForm] = useState({
-    strutturaId: iniziali.strutturaId,
-    centroCostoId: String(ccDiStruttura(iniziali.strutturaId) ?? ''),
+    centroCostoId: iniziali.centroCostoId,
     descrizione: iniziali.descrizione,
     quantita: iniziali.quantita || '1',
     link: iniziali.link,
@@ -46,27 +40,12 @@ export function NuovaRichiestaAcquistoForm({ strutture, centri, iniziali }: Prop
 
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }))
 
-  /**
-   * Il centro di costo si sceglie per primo: chi lavora nelle scuole imputa la
-   * spesa a sé e si fa consegnare in ufficio. La struttura propone il proprio
-   * centro di costo solo se chi compila non ne ha ancora indicato uno, così non
-   * cancella una scelta già fatta.
-   */
-  function scegliStruttura(value: string) {
-    const cc = ccDiStruttura(value)
-    setForm((f) => ({
-      ...f,
-      strutturaId: value,
-      centroCostoId: f.centroCostoId || (cc ? String(cc) : ''),
-    }))
-  }
-
   async function invia(e: React.FormEvent) {
     e.preventDefault()
     setErrore(null)
 
-    if (!form.strutturaId || !form.centroCostoId || !form.descrizione.trim() || !form.categoria) {
-      setErrore('Compila centro di costo, struttura, descrizione e categoria.')
+    if (!form.centroCostoId || !form.descrizione.trim() || !form.categoria) {
+      setErrore('Compila centro di costo, descrizione e categoria.')
       return
     }
 
@@ -76,7 +55,6 @@ export function NuovaRichiestaAcquistoForm({ strutture, centri, iniziali }: Prop
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          strutturaId: Number(form.strutturaId),
           centroCostoId: Number(form.centroCostoId),
           descrizione: form.descrizione.trim(),
           quantita: Number(form.quantita) || 1,
@@ -96,7 +74,7 @@ export function NuovaRichiestaAcquistoForm({ strutture, centri, iniziali }: Prop
     }
   }
 
-  /** Mantiene struttura e categoria, azzera l'articolo: per chiedere più cose di fila. */
+  /** Mantiene centro di costo e categoria, azzera l'articolo: per chiedere più cose di fila. */
   function altroArticolo() {
     setInviata(null)
     setForm((f) => ({ ...f, descrizione: '', quantita: '1', link: '', serveEntro: '' }))
@@ -151,26 +129,6 @@ export function NuovaRichiestaAcquistoForm({ strutture, centri, iniziali }: Prop
           ))}
         </select>
         <p className="text-xs text-gray-400 mt-1">A chi viene imputata la spesa.</p>
-      </div>
-
-      <div>
-        <label className={labelCls}>Struttura / servizio *</label>
-        <select
-          value={form.strutturaId}
-          onChange={(e) => scegliStruttura(e.target.value)}
-          className={campoCls}
-          required
-        >
-          <option value="">— Seleziona —</option>
-          {strutture.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.strutturaLabel}
-            </option>
-          ))}
-        </select>
-        <p className="text-xs text-gray-400 mt-1">
-          In quale struttura deve essere fatta la consegna.
-        </p>
       </div>
 
       <div>
@@ -254,6 +212,11 @@ export function NuovaRichiestaAcquistoForm({ strutture, centri, iniziali }: Prop
           placeholder="https://..."
         />
       </div>
+
+      <p className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3">
+        Il servizio dove consegnare la merce lo decide chi prende in carico la richiesta. Se deve
+        arrivare in un posto preciso, scrivilo in <strong>Cosa serve</strong>.
+      </p>
 
       <div className="flex gap-3 pt-1">
         <button

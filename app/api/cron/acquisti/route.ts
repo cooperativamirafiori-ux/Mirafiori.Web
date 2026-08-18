@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
         righe: daDigest.map((a) => ({
           codice: a.codice,
           richiedente: a.richiedenteNome,
-          struttura: a.struttura.value,
+          centroCosto: a.centroCosto?.value ?? '—',
           descrizione: a.descrizione,
           quantita: a.quantita,
           urgenza: a.urgenza,

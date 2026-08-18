@@ -47,6 +47,7 @@ import {
   ESITI_CONSEGNA,
   MESI_GARANZIA_DEFAULT,
   MODALITA_PAGAMENTO,
+  SERVIZIO_DA_DEFINIRE,
   aggiungiMesi,
   dataBreve,
   type AggiornaAcquistoPayload,
@@ -83,8 +84,29 @@ function serialiRichiesti(body: AggiornaAcquistoPayload, quantita: number): stri
 
 /** Azioni riservate a chi ha l'area "Acquisti". */
 const AZIONI_GESTORE = new Set([
-  'prendi-in-carico', 'assegna', 'approva', 'rifiuta', 'ordina', 'pagamento', 'risolvi', 'note',
+  'prendi-in-carico', 'assegna', 'servizio', 'approva', 'rifiuta', 'ordina', 'pagamento', 'risolvi', 'note',
 ])
+
+/**
+ * Servizio di consegna da scrivere sulla richiesta.
+ *
+ * Chi chiede non lo indica: lo scegle chi prende in carico. Quindi la presa in
+ * carico (e l'assegnazione, che ne fa le veci) lo pretende, e l'id viene
+ * verificato contro l'anagrafica: un lookup a un id inesistente su SharePoint
+ * passa silenziosamente e lascia la richiesta senza destinazione.
+ */
+async function risolviServizio(
+  strutturaId: unknown,
+): Promise<{ id: number; label: string } | { errore: string }> {
+  const id = Number(strutturaId) || 0
+  if (!id) return { errore: 'Scegli il servizio di consegna.' }
+  const strutture = await getStrutture().catch(() => [])
+  const trovata = strutture.find((s) => s.id === id)
+  if (strutture.length && !trovata) {
+    return { errore: 'Il servizio indicato non esiste in anagrafica.' }
+  }
+  return { id, label: trovata?.strutturaLabel ?? '' }
+}
 
 export async function PATCH(
   req: NextRequest,
@@ -144,10 +166,29 @@ export async function PATCH(
         if (a.stato !== 'Inviata' && a.stato !== 'Presa in carico') {
           return err(`La richiesta è già in stato "${a.stato}".`, 409)
         }
+        // Prendere in carico significa decidere dove va consegnata: senza
+        // servizio la richiesta resterebbe senza destinazione fino all'ordine.
+        const servizio = await risolviServizio(body.strutturaId ?? a.struttura.id)
+        if ('errore' in servizio) return err(servizio.errore)
         await aggiornaAcquisto(id, {
           Stato: 'Presa in carico',
           AssegnatoLookupId: mioLookupId,
+          StrutturaLookupId: servizio.id,
         })
+        break
+      }
+
+      // ----------------------------------------------------------
+      // Correzione del servizio dopo la presa in carico: la merce si dirotta
+      // finché non è arrivata, e capita di scoprire solo dopo che conviene
+      // farla consegnare altrove.
+      case 'servizio': {
+        if (['Consegnata', 'Annullata', 'Non approvata'].includes(a.stato)) {
+          return err(`La richiesta è chiusa (stato "${a.stato}"): il servizio non si cambia.`, 409)
+        }
+        const servizio = await risolviServizio(body.strutturaId)
+        if ('errore' in servizio) return err(servizio.errore)
+        await aggiornaAcquisto(id, { StrutturaLookupId: servizio.id })
         break
       }
 
@@ -161,9 +202,14 @@ export async function PATCH(
         }
         const lookupId = await getSPUserLookupId(email)
         const statoDopoAssegnazione = a.stato === 'Inviata' ? 'Presa in carico' : a.stato
+        // L'assegnazione porta la richiesta in "Presa in carico" come il
+        // pulsante: vale la stessa regola, il servizio va deciso qui.
+        const servizio = await risolviServizio(body.strutturaId ?? a.struttura.id)
+        if ('errore' in servizio) return err(servizio.errore)
         await aggiornaAcquisto(id, {
           AssegnatoLookupId: lookupId,
           Stato: statoDopoAssegnazione,
+          StrutturaLookupId: servizio.id,
         })
         // Chi assegna una richiesta a sé stesso non ha bisogno di una mail.
         if (lookupId !== mioLookupId) {
@@ -174,7 +220,7 @@ export async function PATCH(
             codice: a.codice,
             descrizione: a.descrizione,
             quantita: a.quantita,
-            struttura: a.struttura.value,
+            servizio: servizio.label || a.struttura.value || SERVIZIO_DA_DEFINIRE,
             richiedente: a.richiedenteNome,
             categoria: a.categoria,
             urgenza: a.urgenza,
@@ -191,6 +237,12 @@ export async function PATCH(
       case 'approva': {
         if (!['Inviata', 'Presa in carico'].includes(a.stato)) {
           return err(`Non è possibile approvare una richiesta in stato "${a.stato}".`, 409)
+        }
+        // Con un solo gestore la richiesta nasce già "Presa in carico": il
+        // pulsante di presa in carico non passa, e l'approvazione è il primo
+        // momento in cui qualcuno la guarda. Il servizio va deciso lì.
+        if (!a.struttura.id) {
+          return err('Scegli prima il servizio di consegna.')
         }
         await aggiornaAcquisto(id, {
           Stato: 'Approvata',
@@ -269,7 +321,11 @@ export async function PATCH(
         const mesiGaranzia = Math.round(mesiRaw) || MESI_GARANZIA_DEFAULT
 
         const fornitore = await normalizzaNomeFornitore(fornitoreRaw)
-        const luogoConsegnaId = Number(body.luogoConsegnaId) || a.struttura.id
+        // Il servizio arriva dalla presa in carico: se manca, la richiesta è
+        // nata prima della revisione o è passata da una scorciatoia.
+        if (!a.struttura.id) {
+          return err('Scegli prima il servizio di consegna: senza destinazione l’ordine non parte.')
+        }
 
         await aggiornaAcquisto(
           id,
@@ -280,7 +336,6 @@ export async function PATCH(
             dataOrdine: body.dataOrdine,
             pagamento: body.pagamento,
             dataConsegnaPrevista: body.dataConsegnaPrevista,
-            luogoConsegnaId,
             daInventariare: body.daInventariare,
             marcaModello: body.marcaModello,
             numeroSerie: body.numeroSerie,
@@ -326,7 +381,7 @@ export async function PATCH(
                   descrizione: a.descrizione,
                   categoria: a.categoria,
                   marcaModello: body.marcaModello,
-                  strutturaId: luogoConsegnaId || a.struttura.id,
+                  strutturaId: a.struttura.id,
                   dataAcquisto,
                   fornitore,
                   valore: valoreUnitario,
@@ -360,8 +415,6 @@ export async function PATCH(
 
         const to = await emailRichiedente(a)
         if (to) {
-          const strutture = await getStrutture().catch(() => [])
-          const luogo = strutture.find((s) => s.id === luogoConsegnaId)
           notificaOrdineEffettuato({
             to,
             richiedenteNome: (a.richiedenteNome || '').split(' ')[0] || '',
@@ -371,7 +424,7 @@ export async function PATCH(
             dataConsegnaPrevista: body.dataConsegnaPrevista
               ? dataBreve(body.dataConsegnaPrevista)
               : 'da definire',
-            luogoConsegna: luogo?.strutturaLabel ?? a.struttura.value,
+            luogoConsegna: a.struttura.value,
           }).catch(console.error)
         }
         break

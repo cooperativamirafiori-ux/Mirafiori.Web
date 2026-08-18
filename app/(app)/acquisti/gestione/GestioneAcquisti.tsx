@@ -9,6 +9,7 @@ import {
   GARANZIA_STILE,
   MESI_GARANZIA_DEFAULT,
   MODALITA_PAGAMENTO,
+  SERVIZIO_DA_DEFINIRE,
   STATI_ACQUISTO,
   STATI_APERTI,
   STATO_STILE,
@@ -18,6 +19,7 @@ import {
   dataBreve,
   etichettaGaranzia,
   euro,
+  servizioDiConsegna,
   statoGaranzia,
   type RichiestaAcquisto,
 } from '@/types/acquisti'
@@ -77,7 +79,7 @@ export function GestioneAcquisti({
     const q = query.trim().toLowerCase()
     if (q) {
       l = l.filter((a) =>
-        [a.codice, a.descrizione, a.struttura.value, a.richiedenteNome, a.fornitore ?? '']
+        [a.codice, a.descrizione, servizioDiConsegna(a), a.richiedenteNome, a.fornitore ?? '']
           .join(' ')
           .toLowerCase()
           .includes(q),
@@ -195,10 +197,10 @@ export function GestioneAcquisti({
         <div className="space-y-2.5">
           {visibili.map((a) => (
             <Riga
-              // La chiave include lo stato e il totale: dopo un router.refresh()
-              // la riga viene rimontata e il modulo dell'ordine riparte dai dati
-              // freschi invece di mostrare quelli digitati prima del salvataggio.
-              key={`${a.spItemId}-${a.stato}-${a.totale ?? ''}`}
+              // La chiave include stato, servizio e totale: dopo un
+              // router.refresh() la riga viene rimontata e i moduli ripartono dai
+              // dati freschi invece di mostrare quelli digitati prima del salvataggio.
+              key={`${a.spItemId}-${a.stato}-${a.struttura.id}-${a.totale ?? ''}`}
               a={a}
               aperta={aperta === a.spItemId}
               onToggle={() => setAperta(aperta === a.spItemId ? null : a.spItemId)}
@@ -244,6 +246,15 @@ function Riga({
 
   const [motivo, setMotivo] = useState('')
   const [dataPagamento, setDataPagamento] = useState(a.dataPagamento?.slice(0, 10) ?? '')
+
+  /**
+   * Servizio di consegna: lo sceglie chi prende in carico, non il richiedente.
+   * Parte da quello già salvato — vuoto sulle richieste appena arrivate.
+   */
+  const [servizioId, setServizioId] = useState(String(a.struttura.id || ''))
+  const servizioSalvato = a.struttura.id || 0
+  const servizioCambiato = (Number(servizioId) || 0) !== servizioSalvato
+
   const [ordine, setOrdine] = useState({
     fornitore: a.fornitore ?? '',
     imponibile: a.imponibile != null ? String(a.imponibile) : '',
@@ -251,7 +262,6 @@ function Riga({
     dataOrdine: a.dataOrdine?.slice(0, 10) || oggiYmd(),
     pagamento: a.pagamento ?? 'Fattura posticipata',
     dataConsegnaPrevista: a.dataConsegnaPrevista?.slice(0, 10) ?? '',
-    luogoConsegnaId: String(a.luogoConsegna?.id ?? a.struttura.id),
     daInventariare: a.daInventariare,
     marcaModello: a.marcaModello ?? '',
     mesiGaranzia: String(a.mesiGaranzia ?? MESI_GARANZIA_DEFAULT),
@@ -308,7 +318,13 @@ function Riga({
             {a.quantita > 1 && <span className="text-gray-400"> ×{a.quantita}</span>}
           </p>
           <p className="text-xs text-gray-500 mt-0.5 truncate">
-            {a.richiedenteNome} · {a.struttura.value} · {a.categoria}
+            {a.richiedenteNome}
+            {' · '}
+            {servizioDiConsegna(a) || (
+              <span className="text-amber-600 font-medium">{SERVIZIO_DA_DEFINIRE}</span>
+            )}
+            {' · '}
+            {a.categoria}
             {a.totale ? ` · ${euro(a.totale)}` : ''}
           </p>
         </div>
@@ -323,6 +339,8 @@ function Riga({
             <Voce t="Serve entro" v={a.serveEntro ? dataBreve(a.serveEntro) : '—'} />
             <Voce t="Assegnata a" v={a.assegnatoNome ?? 'nessuno'} />
             <Voce t="Quantità" v={String(a.quantita)} />
+            <Voce t="Centro di costo" v={a.centroCosto?.value ?? '—'} />
+            <Voce t="Servizio" v={servizioDiConsegna(a) || SERVIZIO_DA_DEFINIRE} />
             {a.link && (
               <div className="col-span-2">
                 <dt className="text-gray-500">Link</dt>
@@ -354,15 +372,66 @@ function Riga({
             </span>
           )}
 
-          {/* Presa in carico */}
-          {a.stato === 'Inviata' && (
-            <button
-              disabled={busy}
-              onClick={() => onAzione(a.spItemId, { azione: 'prendi-in-carico' })}
-              className="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
-            >
-              Prendi in carico
-            </button>
+          {/* Servizio di consegna + presa in carico.
+              Chi chiede non indica dove va consegnata la merce: dipende da
+              fornitore, presidio e tempi, cose che sa solo chi gestisce. Prendere
+              in carico è quindi anche decidere la destinazione. */}
+          {!['Consegnata', 'Annullata', 'Non approvata'].includes(a.stato) && (
+            <div className="space-y-2 bg-white rounded-lg border border-gray-100 p-3">
+              <p className="text-xs font-semibold text-gray-700">Servizio di consegna</p>
+              <select
+                value={servizioId}
+                disabled={busy}
+                onChange={(e) => setServizioId(e.target.value)}
+                className={campoCls}
+              >
+                <option value="">— dove va consegnata —</option>
+                {strutture.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+
+              {a.stato === 'Inviata' ? (
+                <>
+                  <button
+                    disabled={busy || !servizioId}
+                    onClick={() =>
+                      onAzione(a.spItemId, {
+                        azione: 'prendi-in-carico',
+                        strutturaId: Number(servizioId),
+                      })
+                    }
+                    className="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-40"
+                    title={servizioId ? '' : 'Scegli prima il servizio di consegna'}
+                  >
+                    Prendi in carico
+                  </button>
+                </>
+              ) : (
+                servizioCambiato && (
+                  <button
+                    disabled={busy || !servizioId}
+                    onClick={() =>
+                      onAzione(a.spItemId, { azione: 'servizio', strutturaId: Number(servizioId) })
+                    }
+                    className="w-full bg-gray-800 text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-40"
+                  >
+                    {servizioSalvato ? 'Sposta la consegna qui' : 'Salva il servizio'}
+                  </button>
+                )
+              )}
+
+              {/* Con un solo gestore la richiesta nasce già "Presa in carico":
+                  il pulsante non c'è, ma la destinazione manca comunque. */}
+              {!servizioSalvato && (
+                <p className="text-[11px] text-amber-600">
+                  Senza servizio non si approva né si ordina: la destinazione la decide chi prende
+                  in carico.
+                </p>
+              )}
+            </div>
           )}
 
           {/* Riassegnazione */}
@@ -371,10 +440,16 @@ function Riga({
               <label className={labelCls}>Assegna a</label>
               <select
                 defaultValue=""
-                disabled={busy}
+                disabled={busy || !servizioId}
                 onChange={(e) => {
                   if (e.target.value) {
-                    onAzione(a.spItemId, { azione: 'assegna', assegnatoEmail: e.target.value })
+                    onAzione(a.spItemId, {
+                      azione: 'assegna',
+                      assegnatoEmail: e.target.value,
+                      // Assegnare porta la richiesta in "Presa in carico": vale
+                      // la stessa regola, il servizio deve essere deciso.
+                      strutturaId: Number(servizioId) || undefined,
+                    })
                   }
                 }}
                 className={campoCls}
@@ -386,6 +461,11 @@ function Riga({
                   </option>
                 ))}
               </select>
+              {!servizioId && (
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Scegli prima il servizio di consegna.
+                </p>
+              )}
             </div>
           )}
 
@@ -395,9 +475,10 @@ function Riga({
               <p className="text-xs font-semibold text-gray-700">Valutazione</p>
               <div className="flex gap-2">
                 <button
-                  disabled={busy}
+                  disabled={busy || !servizioSalvato}
                   onClick={() => onAzione(a.spItemId, { azione: 'approva' })}
-                  className="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+                  className="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-40"
+                  title={servizioSalvato ? '' : 'Salva prima il servizio di consegna'}
                 >
                   Approva
                 </button>
@@ -505,36 +586,27 @@ function Riga({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className={labelCls}>Pagamento</label>
-                  <select
-                    value={ordine.pagamento}
-                    onChange={(e) => set('pagamento', e.target.value)}
-                    className={campoCls}
-                  >
-                    {MODALITA_PAGAMENTO.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={labelCls}>Luogo di consegna</label>
-                  <select
-                    value={ordine.luogoConsegnaId}
-                    onChange={(e) => set('luogoConsegnaId', e.target.value)}
-                    className={campoCls}
-                  >
-                    {strutture.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div>
+                <label className={labelCls}>Pagamento</label>
+                <select
+                  value={ordine.pagamento}
+                  onChange={(e) => set('pagamento', e.target.value)}
+                  className={campoCls}
+                >
+                  {MODALITA_PAGAMENTO.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
               </div>
+
+              {/* Il luogo non si ridigita qui: è il servizio scelto sopra, e
+                  averlo in due punti significava vederne due diversi. */}
+              <p className="text-[11px] text-gray-500">
+                Consegna presso <strong>{servizioDiConsegna(a) || SERVIZIO_DA_DEFINIRE}</strong>
+                {servizioDiConsegna(a) ? ' — si cambia dal blocco "Servizio di consegna".' : '.'}
+              </p>
 
               <div className="flex flex-wrap gap-4 pt-1">
                 <label className="flex items-center gap-2 text-xs text-gray-700">
@@ -621,6 +693,7 @@ function Riga({
               <button
                 disabled={
                   busy ||
+                  !servizioSalvato ||
                   !ordine.fornitore.trim() ||
                   imponibileNum <= 0 ||
                   totaleNum <= 0 ||
@@ -635,7 +708,6 @@ function Riga({
                     dataOrdine: ordine.dataOrdine,
                     pagamento: ordine.pagamento,
                     dataConsegnaPrevista: ordine.dataConsegnaPrevista || undefined,
-                    luogoConsegnaId: Number(ordine.luogoConsegnaId),
                     daInventariare: ordine.daInventariare,
                     marcaModello: ordine.marcaModello,
                     mesiGaranzia: mesiNum,

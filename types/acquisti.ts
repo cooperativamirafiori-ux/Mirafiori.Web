@@ -94,12 +94,17 @@ export interface RichiestaAcquisto {
   richiedenteNome: string
   richiedenteLookupId: number
   dataRichiesta: string
-  /** Dove va consegnata la merce. */
+  /**
+   * **Servizio**: dove va consegnata la merce. Non lo indica chi chiede, lo
+   * scegle chi prende in carico la richiesta — quindi fino alla presa in carico
+   * è `{ id: 0, value: '' }`. Chi chiede spesso non sa dove conviene far
+   * arrivare il pacco: dipende da fornitore, presidio e tempi.
+   */
   struttura: { id: number; value: string }
   /**
-   * Chi paga. Di solito coincide con il centro di costo della struttura, ma
-   * non per forza: l'educativa nelle scuole si fa consegnare in ufficio e
-   * imputa la spesa a sé.
+   * Chi paga. Lo indica il richiedente: è l'unico dato di imputazione che
+   * conosce con certezza (l'educativa nelle scuole imputa la spesa a sé, anche
+   * se la merce arriva in ufficio).
    */
   centroCosto?: { id: number; value: string }
   descrizione: string
@@ -124,6 +129,11 @@ export interface RichiestaAcquisto {
   pagamento?: string
   dataPagamento?: string
   dataConsegnaPrevista?: string
+  /**
+   * Storico. Fino ad agosto 2026 il luogo di consegna si ridigitava alla
+   * registrazione dell'ordine, doppiando `struttura`: oggi il servizio è uno
+   * solo e si sceglie alla presa in carico. Resta letto per i record vecchi.
+   */
   luogoConsegna?: { id: number; value: string }
 
   // Consegna
@@ -155,7 +165,7 @@ export interface RichiestaAcquisto {
 // ============================================================
 
 export interface NuovaRichiestaAcquistoPayload {
-  strutturaId: number
+  /** Chi paga: l'unico dato di imputazione chiesto al richiedente. */
   centroCostoId: number
   descrizione: string
   quantita: number
@@ -168,6 +178,7 @@ export interface NuovaRichiestaAcquistoPayload {
 export type AzioneAcquisto =
   | 'prendi-in-carico'
   | 'assegna'
+  | 'servizio'
   | 'approva'
   | 'rifiuta'
   | 'ordina'
@@ -179,6 +190,11 @@ export type AzioneAcquisto =
 
 export interface AggiornaAcquistoPayload {
   azione: AzioneAcquisto
+  /**
+   * Servizio di consegna. Obbligatorio su `prendi-in-carico` e `assegna` se la
+   * richiesta non ne ha ancora uno; con `servizio` lo si cambia più tardi.
+   */
+  strutturaId?: number
   // assegna
   assegnatoEmail?: string
   // rifiuta / annulla
@@ -190,7 +206,6 @@ export interface AggiornaAcquistoPayload {
   dataOrdine?: string
   pagamento?: string
   dataConsegnaPrevista?: string
-  luogoConsegnaId?: number
   daInventariare?: boolean
   marcaModello?: string
   numeroSerie?: string
@@ -349,8 +364,22 @@ export function luogoCorrisponde(a: RichiestaAcquisto, token: string): boolean {
       .trim()
   const cercato = pulisci(token)
   if (!cercato) return false
-  const luogo = pulisci(a.luogoConsegna?.value || a.struttura.value || '')
+  const luogo = pulisci(servizioDiConsegna(a))
   return luogo.includes(cercato)
+}
+
+/** Segnaposto per una richiesta non ancora presa in carico. */
+export const SERVIZIO_DA_DEFINIRE = 'servizio da definire'
+
+/**
+ * Servizio di consegna della richiesta.
+ *
+ * Legge `struttura` e ripiega su `luogoConsegna` per i record nati prima di
+ * agosto 2026, quando il luogo si ridigitava alla registrazione dell'ordine.
+ * Stringa vuota se nessuno l'ha ancora scelto.
+ */
+export function servizioDiConsegna(a: RichiestaAcquisto): string {
+  return a.struttura.value || a.luogoConsegna?.value || ''
 }
 
 /**

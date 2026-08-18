@@ -11,6 +11,7 @@ import {
   dataBreve,
   euro,
   luogoCorrisponde,
+  servizioDiConsegna,
   type EsitoConsegna,
   type RichiestaAcquisto,
 } from '@/types/acquisti'
@@ -60,7 +61,7 @@ export function MieRichiesteAcquisto({
   /** Il riordino rapido: riparte da una richiesta già fatta. */
   const linkDuplica = (a: RichiestaAcquisto) =>
     `/acquisti/nuova?${new URLSearchParams({
-      struttura: String(a.struttura.id),
+      ...(a.centroCosto ? { centroCosto: String(a.centroCosto.id) } : {}),
       descrizione: a.descrizione,
       quantita: String(a.quantita),
       categoria: a.categoria,
@@ -122,9 +123,21 @@ export function MieRichiesteAcquisto({
               </p>
 
               <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                <span>{a.struttura.value}</span>
-                <span className="text-gray-300">·</span>
+                {a.centroCosto && (
+                  <>
+                    <span>{a.centroCosto.value}</span>
+                    <span className="text-gray-300">·</span>
+                  </>
+                )}
                 <span>{a.categoria}</span>
+                {/* Il servizio compare solo quando qualcuno l'ha deciso: chi
+                    chiede non lo indica più. */}
+                {servizioDiConsegna(a) && (
+                  <>
+                    <span className="text-gray-300">·</span>
+                    <span>consegna presso {servizioDiConsegna(a)}</span>
+                  </>
+                )}
                 {a.urgenza !== 'Normale' && (
                   <span className={`px-2 py-0.5 rounded-full ${URGENZA_STILE[a.urgenza] ?? ''}`}>
                     {a.urgenza}
@@ -154,7 +167,7 @@ export function MieRichiesteAcquisto({
                   {a.dataConsegnaPrevista && (
                     <p>
                       Consegna prevista: {dataBreve(a.dataConsegnaPrevista)}
-                      {a.luogoConsegna ? ` presso ${a.luogoConsegna.value}` : ''}
+                      {servizioDiConsegna(a) ? ` presso ${servizioDiConsegna(a)}` : ''}
                     </p>
                   )}
                   {a.totale != null && a.totale > 0 && <p>Totale: {euro(a.totale)}</p>}

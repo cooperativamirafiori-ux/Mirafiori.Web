@@ -16,7 +16,7 @@ import { guardArea } from '@/lib/core/api-guard'
 import { creaAcquisto, getAcquisti, acquistiConfigurato, AREA_ACQUISTI } from '@/lib/acquisti/data'
 import { emailGestori, linkGestione } from '@/lib/acquisti/flusso'
 import { getSPUserLookupId } from '@/lib/core/sp'
-import { getStrutture, centroCostoDiStruttura } from '@/lib/strutture/data'
+import { getCentriDiCosto } from '@/lib/centri-costo/data'
 import { notificaAcquistoUrgente } from '@/lib/acquisti/notifiche'
 import { logAzione } from '@/lib/core/audit'
 import { CATEGORIE_SPESA, URGENZE, dataBreve } from '@/types/acquisti'
@@ -54,16 +54,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Body non valido' }, { status: 400 })
   }
 
-  const strutturaId = Number(body.strutturaId)
   const centroCostoId = Number(body.centroCostoId) || 0
   const descrizione = (body.descrizione ?? '').trim()
   const quantita = Number(body.quantita) || 1
   const urgenza = body.urgenza ?? ''
   const categoria = body.categoria ?? ''
 
-  if (!strutturaId || !descrizione || !categoria || !urgenza) {
+  if (!centroCostoId || !descrizione || !categoria || !urgenza) {
     return NextResponse.json(
-      { error: 'Compila struttura, descrizione, categoria e urgenza.' },
+      { error: 'Compila centro di costo, descrizione, categoria e urgenza.' },
       { status: 400 },
     )
   }
@@ -92,14 +91,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Se il richiedente non l'ha cambiato, il centro di costo è quello della
-    // struttura: la richiesta nasce comunque imputata a qualcuno.
-    const centroCostoFinale =
-      centroCostoId || (await centroCostoDiStruttura(strutturaId)) || undefined
-
+    // Il servizio di consegna non c'è: lo sceglie chi prende in carico. La
+    // richiesta nasce quindi con il solo centro di costo, che dice chi paga.
     const { spItemId, codice } = await creaAcquisto({
-      strutturaId,
-      centroCostoId: centroCostoFinale,
+      centroCostoId,
       richiedenteLookupId,
       descrizione,
       quantita,
@@ -111,13 +106,13 @@ export async function POST(req: NextRequest) {
     })
 
     if (urgenza === 'Urgente') {
-      const strutture = await getStrutture().catch(() => [])
-      const struttura = strutture.find((s) => s.id === strutturaId)
+      const centri = await getCentriDiCosto().catch(() => [])
+      const cc = centri.find((c) => c.id === centroCostoId)
       notificaAcquistoUrgente({
         to: gestori.length ? gestori : [process.env.MAIL_SENDER_EMAIL!],
         codice,
         richiedente: session.user.name ?? session.user.email,
-        struttura: struttura?.strutturaLabel ?? '—',
+        centroCosto: cc ? (cc.area ? `${cc.area} · ${cc.nome}` : cc.nome) : '—',
         descrizione,
         quantita,
         categoria,
@@ -133,7 +128,7 @@ export async function POST(req: NextRequest) {
       azione: 'acquisto.crea',
       entita: 'RichiestaAcquisto',
       entitaId: codice,
-      dettagli: { strutturaId, categoria, urgenza, quantita, autoAssegnata: Boolean(assegnatoLookupId) },
+      dettagli: { centroCostoId, categoria, urgenza, quantita, autoAssegnata: Boolean(assegnatoLookupId) },
     })
 
     return NextResponse.json({ codice, spItemId }, { status: 201 })

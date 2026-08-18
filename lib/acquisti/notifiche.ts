@@ -25,7 +25,8 @@ export async function notificaAcquistoUrgente(opts: {
   to: string[]
   codice: string
   richiedente: string
-  struttura: string
+  /** Chi paga: il servizio di consegna alla nascita della richiesta non c'è ancora. */
+  centroCosto: string
   descrizione: string
   quantita: number
   categoria: string
@@ -43,7 +44,7 @@ export async function notificaAcquistoUrgente(opts: {
       ${TABELLA(
         RIGA('Codice', opts.codice) +
         RIGA('Richiedente', opts.richiedente) +
-        RIGA('Struttura', opts.struttura) +
+        RIGA('Centro di costo', opts.centroCosto) +
         RIGA('Cosa serve', `${opts.descrizione} — quantità ${opts.quantita}`) +
         RIGA('Categoria', opts.categoria) +
         (opts.serveEntro ? RIGA('Serve entro', opts.serveEntro) : '') +
@@ -71,7 +72,8 @@ export async function notificaAssegnazioneAcquisto(opts: {
   codice: string
   descrizione: string
   quantita: number
-  struttura: string
+  /** Servizio di consegna, o il segnaposto se non è ancora stato scelto. */
+  servizio: string
   richiedente: string
   categoria: string
   urgenza: string
@@ -96,7 +98,7 @@ export async function notificaAssegnazioneAcquisto(opts: {
       ${TABELLA(
         RIGA('Cosa serve', `${opts.descrizione} — quantità ${opts.quantita}`) +
         RIGA('Richiedente', opts.richiedente) +
-        RIGA('Struttura', opts.struttura) +
+        RIGA('Servizio', opts.servizio) +
         RIGA('Categoria', opts.categoria) +
         RIGA('Urgenza', `<span style="color:${colore}">${opts.urgenza}</span>`) +
         (opts.serveEntro ? RIGA('Serve entro', opts.serveEntro) : '') +
@@ -119,7 +121,8 @@ export async function notificaDigestAcquisti(opts: {
   righe: Array<{
     codice: string
     richiedente: string
-    struttura: string
+    /** Chi paga: nel digest le richieste sono ancora da prendere in carico. */
+    centroCosto: string
     descrizione: string
     quantita: number
     urgenza: string
@@ -135,7 +138,7 @@ export async function notificaDigestAcquisti(opts: {
       <tr>
         <td style="padding:7px 10px;border-bottom:1px solid #eee"><strong>${r.codice}</strong></td>
         <td style="padding:7px 10px;border-bottom:1px solid #eee">${r.descrizione} <span style="color:#888">×${r.quantita}</span></td>
-        <td style="padding:7px 10px;border-bottom:1px solid #eee">${r.struttura}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #eee">${r.centroCosto}</td>
         <td style="padding:7px 10px;border-bottom:1px solid #eee">${r.richiedente}</td>
         <td style="padding:7px 10px;border-bottom:1px solid #eee;${r.urgenza === 'Urgente' ? 'color:#C00000;font-weight:700' : r.urgenza === 'Alta' ? 'color:#E36C09' : 'color:#888'}">${r.urgenza}</td>
         <td style="padding:7px 10px;border-bottom:1px solid #eee;color:#666">${r.serveEntro ?? '—'}</td>
@@ -155,7 +158,7 @@ export async function notificaDigestAcquisti(opts: {
           <tr style="background:#1F4E79;color:#fff">
             <th style="padding:7px 10px;text-align:left">Codice</th>
             <th style="padding:7px 10px;text-align:left">Cosa</th>
-            <th style="padding:7px 10px;text-align:left">Struttura</th>
+            <th style="padding:7px 10px;text-align:left">Centro di costo</th>
             <th style="padding:7px 10px;text-align:left">Chi</th>
             <th style="padding:7px 10px;text-align:left">Urgenza</th>
             <th style="padding:7px 10px;text-align:left">Entro</th>
