@@ -50,6 +50,7 @@ export interface DatiEventoSoftware {
   referente?: string
   cartaPagamento?: string
   rinnovoAutomatico?: boolean
+  centroCosto?: string
 }
 
 /** Costruisce il payload Graph di un evento all-day di scadenza */
@@ -71,6 +72,7 @@ export function buildEventoScadenza(d: DatiEventoSoftware): Record<string, unkno
         <ul>
           <li>Costo: <strong>${euro(d.costo)}</strong>${d.periodicita ? ` · ${d.periodicita}` : ''}</li>
           <li>Rinnovo automatico: <strong>${rinnovo}</strong></li>
+          ${d.centroCosto ? `<li>Centro di costo: ${d.centroCosto}</li>` : ''}
           ${d.referente ? `<li>In uso a: ${d.referente}</li>` : ''}
           ${d.cartaPagamento ? `<li>Carta: ${d.cartaPagamento}</li>` : ''}
         </ul>

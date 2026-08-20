@@ -19,9 +19,11 @@ function parseInput(body: Record<string, any>) {
   const servizio = (body.servizio ?? '').trim()
   const costoNum =
     body.costo === '' || body.costo == null ? null : Number(body.costo)
+  const centroCostoId = Number(body.centroCostoId ?? 0)
   return {
     servizio,
     categoria: (body.categoria ?? '').trim(),
+    centroCostoId: Number.isFinite(centroCostoId) && centroCostoId > 0 ? centroCostoId : 0,
     account: (body.account ?? '').trim(),
     password: body.password ?? '',
     linkPortale: (body.linkPortale ?? '').trim(),
@@ -65,6 +67,9 @@ export async function POST(req: NextRequest) {
   const input = parseInput(body)
   if (!input.servizio) {
     return NextResponse.json({ error: 'Il nome del servizio è obbligatorio' }, { status: 400 })
+  }
+  if (!input.centroCostoId) {
+    return NextResponse.json({ error: 'Il centro di costo è obbligatorio' }, { status: 400 })
   }
 
   try {

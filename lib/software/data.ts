@@ -6,6 +6,8 @@
  *   - Title = nome del servizio
  *   - Choice columns (Categoria, Periodicita, Stato) si leggono/scrivono come stringhe
  *   - Boolean columns (RinnovoAutomatico) come true/false
+ *   - Lookup (CentroCosto → Centri di Costo) si legge come { LookupId, Value }
+ *     e si scrive come `CentroCostoLookupId`, come in Costi e Acquisti
  *   - Date "solo giorno" (Scadenza) scritte a mezzogiorno UTC per non scavallare
  *     la mezzanotte in nessun fuso (stesso accorgimento di lib/prestazioni.ts)
  *
@@ -21,6 +23,7 @@ import {
   graphPutBinary,
 } from '@/lib/core/graph'
 import type { Software } from '@/types/software'
+import { lookupValue } from '@/lib/core/sp'
 import {
   parseEmails,
   buildEventoScadenza,
@@ -39,7 +42,7 @@ const PREFER_NON_INDEXED = { Prefer: 'HonorNonIndexedQueriesWarningMayFailRandom
 const FATTURE_FOLDER = 'Gestione Software'
 
 const SOFTWARE_FIELDS =
-  'id,fields&$expand=fields($select=Title,Categoria,Account,Password,LinkPortale,Referente,Costo,Periodicita,RinnovoAutomatico,Scadenza,CartaPagamento,Stato,FatturaUrl,FatturaNome,Note,CalendarEmails,CalendarEventi)'
+  'id,fields&$expand=fields($select=Title,Categoria,CentroCosto,CentroCostoLookupId,Account,Password,LinkPortale,Referente,Costo,Periodicita,RinnovoAutomatico,Scadenza,CartaPagamento,Stato,FatturaUrl,FatturaNome,Note,CalendarEmails,CalendarEventi)'
 
 function parseEventiJson(raw: unknown): Record<string, string> {
   if (typeof raw !== 'string' || !raw.trim()) return {}
@@ -68,6 +71,14 @@ function mapSoftware(item: any): Software {
     spItemId: item.id,
     servizio: f.Title ?? '',
     categoria: f.Categoria ?? '',
+    // Lookup: Graph lo restituisce come { LookupId, Value } oppure come
+    // CentroCostoLookupId a parte, a seconda della query. Si accettano entrambi.
+    centroCosto: Number(f.CentroCosto?.LookupId ?? f.CentroCostoLookupId ?? 0)
+      ? {
+          id: Number(f.CentroCosto?.LookupId ?? f.CentroCostoLookupId),
+          value: lookupValue(f.CentroCosto),
+        }
+      : undefined,
     account: f.Account ?? '',
     password: f.Password ?? '',
     linkPortale: f.LinkPortale ?? '',
@@ -115,6 +126,7 @@ export async function getSoftwareById(spItemId: string): Promise<Software> {
 function buildFields(input: {
   servizio: string
   categoria: string
+  centroCostoId?: number | null
   account: string
   password: string
   linkPortale: string
@@ -131,6 +143,9 @@ function buildFields(input: {
   return {
     Title: input.servizio,
     Categoria: input.categoria || null,
+    // Lookup: si scrive l'ID, non il nome. Se manca non si azzera il valore
+    // esistente — l'obbligo lo fanno rispettare form e API.
+    ...(input.centroCostoId ? { CentroCostoLookupId: input.centroCostoId } : {}),
     Account: input.account || null,
     Password: input.password || null,
     LinkPortale: input.linkPortale || null,
@@ -194,6 +209,7 @@ export async function sincronizzaCalendario(spItemId: string): Promise<void> {
         referente: sw.referente,
         cartaPagamento: sw.cartaPagamento,
         rinnovoAutomatico: sw.rinnovoAutomatico,
+        centroCosto: sw.centroCosto?.value,
       })
     : null
 

@@ -8,14 +8,19 @@ import {
   type Software,
 } from '@/types/software'
 import { caricaDirettamente, maxUploadMb } from '@/lib/core/upload-diretto'
+import type { CentroDiCosto } from '@/lib/centri-costo/data'
 
 interface Props {
   iniziali: Software[]
+  /** Anagrafica dei centri di costo. Vuota = lista SP non configurata. */
+  centri: CentroDiCosto[]
 }
 
 type FormState = {
   servizio: string
   categoria: string
+  /** ID riga SP del centro di costo, come stringa perché viene da un <select> */
+  centroCostoId: string
   account: string
   password: string
   linkPortale: string
@@ -36,6 +41,7 @@ const CALENDARIO_DEFAULT = 'ufficio.rendicontazione@cooperativamirafiori.com'
 const FORM_VUOTO: FormState = {
   servizio: '',
   categoria: '',
+  centroCostoId: '',
   account: '',
   password: '',
   linkPortale: '',
@@ -54,6 +60,7 @@ function fromSoftware(s: Software): FormState {
   return {
     servizio: s.servizio,
     categoria: s.categoria,
+    centroCostoId: s.centroCosto?.id ? String(s.centroCosto.id) : '',
     account: s.account,
     password: s.password,
     linkPortale: s.linkPortale,
@@ -92,7 +99,7 @@ function scadenzaBadge(scadenza?: string): { testo: string; classe: string } | n
 const euro = (n?: number) =>
   n == null ? '' : `€ ${n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
-export function GestioneSoftware({ iniziali }: Props) {
+export function GestioneSoftware({ iniziali, centri }: Props) {
   const [lista, setLista] = useState<Software[]>(iniziali)
   const [formAperto, setFormAperto] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
@@ -145,10 +152,18 @@ export function GestioneSoftware({ iniziali }: Props) {
       setErrore('Il nome del servizio è obbligatorio.')
       return
     }
+    if (!form.centroCostoId) {
+      setErrore('Scegli il centro di costo su cui ricade l\'abbonamento.')
+      return
+    }
     setErrore(null)
     setBusy(true)
     try {
-      const payload = { ...form, costo: form.costo === '' ? null : Number(form.costo) }
+      const payload = {
+        ...form,
+        costo: form.costo === '' ? null : Number(form.costo),
+        centroCostoId: Number(form.centroCostoId),
+      }
       const url = editId ? `/api/software/${editId}` : '/api/software'
       const res = await fetch(url, {
         method: editId ? 'PATCH' : 'POST',
@@ -272,6 +287,29 @@ export function GestioneSoftware({ iniziali }: Props) {
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
+            </div>
+
+            {/* Centro di costo — la dimensione con cui si legge il bilancio */}
+            <div className="sm:col-span-2">
+              <label className={labelCls}>Centro di costo *</label>
+              <select
+                className={inputCls}
+                value={form.centroCostoId}
+                onChange={(e) => set('centroCostoId', e.target.value)}
+              >
+                <option value="">— Seleziona centro di costo —</option>
+                {centri.map((c) => (
+                  <option key={String(c.id)} value={c.id}>
+                    {c.area ? `${c.area} · ${c.nome}` : c.nome}
+                  </option>
+                ))}
+              </select>
+              {centri.length === 0 && (
+                <p className="text-xs text-amber-600 mt-1">
+                  Anagrafica centri di costo non disponibile: controlla{' '}
+                  <code className="font-mono">SP_LIST_CENTRI_COSTO</code>.
+                </p>
+              )}
             </div>
 
             <div>
@@ -420,6 +458,12 @@ export function GestioneSoftware({ iniziali }: Props) {
                 )}
 
                 <dl className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+                  <div className="flex gap-2">
+                    <dt className="text-gray-400 w-24 shrink-0">Centro costo</dt>
+                    <dd className={s.centroCosto ? 'text-gray-700' : 'text-amber-600'}>
+                      {s.centroCosto?.value || 'da assegnare'}
+                    </dd>
+                  </div>
                   {s.account && (
                     <div className="flex gap-2">
                       <dt className="text-gray-400 w-24 shrink-0">Account</dt>

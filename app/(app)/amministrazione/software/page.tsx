@@ -2,6 +2,7 @@ import { auth } from '@/lib/core/auth'
 import { redirect } from 'next/navigation'
 import { Header } from '@/components/ui/Header'
 import { getSoftware } from '@/lib/software/data'
+import { getCentriDiCosto, type CentroDiCosto } from '@/lib/centri-costo/data'
 import type { Software } from '@/types/software'
 import { GestioneSoftware } from './GestioneSoftware'
 
@@ -23,6 +24,9 @@ export default async function GestioneSoftwarePage() {
     erroreLista = true
   }
 
+  // Anagrafica condivisa: se non è configurata torna vuota, e il form lo dice.
+  const centri: CentroDiCosto[] = await getCentriDiCosto()
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Header title="Gestione Software" backHref="/amministrazione" backLabel="Torna all&apos;Amministrazione" />
@@ -43,7 +47,7 @@ export default async function GestioneSoftwarePage() {
           </div>
         )}
 
-        <GestioneSoftware iniziali={software} />
+        <GestioneSoftware iniziali={software} centri={centri} />
       </main>
     </div>
   )

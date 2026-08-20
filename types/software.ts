@@ -27,6 +27,12 @@ export interface Software {
   /** Nome del servizio (colonna Title in SP) */
   servizio: string
   categoria: string
+  /**
+   * Centro di costo su cui ricade l'abbonamento (lookup → Centri di Costo).
+   * `undefined` solo sulle righe inserite prima che il campo esistesse: da qui
+   * in avanti il form e le API lo pretendono.
+   */
+  centroCosto?: { id: number; value: string }
   /** Username / email dell'account */
   account: string
   /** Password — salvata in chiaro su SharePoint (scelta dell'utente) */
@@ -60,6 +66,8 @@ export interface Software {
 export interface SoftwareInput {
   servizio: string
   categoria: string
+  /** ID riga SharePoint del centro di costo — obbligatorio */
+  centroCostoId: number
   account: string
   password: string
   linkPortale: string
