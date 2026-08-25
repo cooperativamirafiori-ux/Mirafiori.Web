@@ -50,6 +50,25 @@ export const AREE_PERMESSI = ['Amministrazione', 'Prestazioni Occasionali', 'Tim
 
 export type AreaPermesso = (typeof AREE_PERMESSI)[number]
 
+/**
+ * Cosa apre davvero ogni permesso, in una riga.
+ *
+ * Sta qui accanto all'elenco perché un'area senza spiegazione, nel pannello,
+ * è solo un interruttore col nome tecnico: chi assegna gli accessi deve poter
+ * capire cosa sta concedendo senza andare a leggere il codice. Aggiungendo
+ * un'area nuova ad `AREE_PERMESSI`, aggiungere la riga anche qui.
+ */
+export const DESCRIZIONI_AREE: Record<string, string> = {
+  Amministrazione:
+    'Pannello Amministrazione: assegnazione dei permessi, gestione software e abbonamenti.',
+  'Prestazioni Occasionali':
+    'Ritenute d’acconto: nuove prestazioni, prestazioni attive, notule e documenti.',
+  'Timbrature HR':
+    'Cruscotto presenze di tutto il personale, validazione mensile dei fogli ore.',
+  Acquisti:
+    'Gestione delle richieste d’acquisto: approvazione, ordini, consegne e inventario beni.',
+}
+
 // Fallback usato se la lista SP non esiste ancora o Graph fallisce.
 // Mappa email -> aree concesse.
 const PERMESSI_FALLBACK: Record<string, string[]> = {

@@ -37,6 +37,8 @@ Cartella del progetto: `web/` (la radice del repo git è `web/`, non la cartella
    di cinque comandi da eseguire in fila: se il secondo fallisce, gli altri tre fanno danno.
    Ricorda anche che è **zsh**: nessun commento `#` sulla stessa riga del comando, finisce fra gli
    argomenti (vedi § Comandi).
+   **Unica eccezione: `git add` e `git commit` vanno nello stesso blocco** (25 ago 2026). Sono un
+   gesto solo, e se `add` fallisce `&&` ferma il commit da sé. Il `push` resta separato, dopo l'ok.
 
 ---
 
@@ -56,7 +58,7 @@ e non serve cercare altrove.
 | **Prestazioni occasionali** | `app/(app)/prestazioni/` (`nuova/` `attive/`) | `app/api/prestazioni/**`<br>`app/api/prestatori/**`<br>`app/api/notula/[token]/**`<br>`app/api/docusign/callback/` | `lib/prestazioni/`: `data.ts` `documenti.ts` `firma.ts` `docusign.ts` `casistiche-gdpr.ts` `notifiche.ts` | modelli docx: `lib/templates/prestazione-occasionale/`<br>allegati: `lib/allegati-prestatore/`<br>pubblico: `app/notula/[token]/`<br>`docs/prestazioni-*.md` `docs/docusign-setup.md` |
 | **Risorse Umane** | `app/(app)/risorse-umane/` (`GestioneRU.tsx`, `CartellaDipendente.tsx`, `dipendenti/` `collaboratori/` `tirocini/`) | `app/api/risorse-umane/**` | `lib/risorse-umane/`: `data.ts` `api.ts` `fetch.ts` `export-xlsx.ts` `gruppo.ts` | RU vive su **sito SharePoint dedicato** con auth **delegata** (`lib/core/graph-delegato.ts`)<br>`docs/risorse-umane-setup.md` `docs/piano-ru-*.md` `docs/runbook-ru-*.md`<br>`scripts/ru-assetto.mjs` + gli `import-*.mjs` |
 | **Inventario beni** | `app/(app)/inventario/` | `app/api/inventario/**` | `lib/inventario/data.ts` | `scripts/provision-inventario.mjs` |
-| **Amministrazione · Permessi** | `app/(app)/amministrazione/permessi/` | `app/api/permessi/**` | `lib/core/permessi.ts` (sta in core: la usa anche l'autenticazione) | `scripts/provision-autorizzazioni.mjs` `scripts/diagnosi-permessi.mjs` |
+| **Amministrazione · Permessi** | `app/(app)/amministrazione/permessi/` (`GestionePermessi.tsx` elenco+dettaglio, `SceltaPersona.tsx` autocompletamento, `VistaPerArea.tsx`) | `app/api/permessi/**`<br>`app/api/rubrica/` | `lib/core/permessi.ts` (sta in core: la usa anche l'autenticazione)<br>`lib/core/rubrica.ts` (account del tenant da Graph) | `scripts/provision-autorizzazioni.mjs` `scripts/diagnosi-permessi.mjs` `scripts/diagnosi-rubrica.mjs` |
 | **Amministrazione · Software** | `app/(app)/amministrazione/software/` | `app/api/software/**` | `lib/software/data.ts` (+ `lib/core/calendar.ts` per gli alert scadenza) | `scripts/provision-software.mjs` `provision-software-centro-costo.mjs`<br>centro di costo obbligatorio (lookup, come Costi e Acquisti) |
 | **Log attività** | — | — | `lib/core/audit.ts` | `docs/log-attivita-setup-sharepoint.md`<br>`scripts/provision-log-attivita.mjs` |
 | **Home / hub** | `app/(app)/home/page.tsx` (card + sezioni)<br>`app/(app)/amazing/` | — | — | il layout a card sta tutto in `home/page.tsx` (`Sezione`, `HeroCard`, `FunzioneCard`) |
@@ -73,6 +75,7 @@ lib/core/          infrastruttura: si tocca raramente, la usano tutte le aree
   ms-token.ts        token
   auth.ts            next-auth
   permessi.ts        isAdmin, aree autorizzate  ← in core perché la usa anche auth
+  rubrica.ts         account della cooperativa da Entra (nome + email), per scegliere le persone
   sp.ts              base delle SharePoint Lists: listBase, lookupValue, utenti SP, parametri
   mailer.ts          sendEmail + mattoncini HTML (BOX, RIGA, TABELLA, BTN)
   audit.ts           log applicativo

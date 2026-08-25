@@ -98,7 +98,8 @@ const AREE = [
     nome: 'Amministrazione · Permessi',
     prefissi: [
       'app/(app)/amministrazione/permessi', 'app/api/permessi', 'lib/permessi', 'lib/core/permessi',
-      'scripts/provision-autorizzazioni', 'scripts/diagnosi-permessi',
+      'app/api/rubrica', 'lib/core/rubrica',
+      'scripts/provision-autorizzazioni', 'scripts/diagnosi-permessi', 'scripts/diagnosi-rubrica',
     ],
   },
   {

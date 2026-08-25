@@ -10,6 +10,11 @@
  *
  * IMPORTANTE: il `key` di ogni campo DEVE coincidere col nome interno della
  * colonna SharePoint creata dallo script di provisioning.
+ *
+ * ⚠️ Se un campo sta qui ma la colonna sulla lista non c'è, NON si perde solo
+ * quel dato: SharePoint rifiuta l'intera PATCH ("Field 'X' is not recognized")
+ * e non si riesce più a salvare NESSUNA scheda. Dopo ogni aggiunta lancia
+ * `node scripts/colonne-ru-mancanti.mjs` (con `--crea` per crearle).
  */
 
 export type RUEntity = 'dipendenti' | 'tirocini'

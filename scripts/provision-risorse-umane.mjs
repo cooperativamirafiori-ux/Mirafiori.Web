@@ -147,6 +147,7 @@ const conComuneCols = (specifiche) => [...COMUNE_COLS, ...specifiche, NOTE_COL]
 const DIPENDENTI_SPEC = [
   { name: 'CategoriaRU', ...choice(CATEGORIA_RU) },
   { name: 'Matricola', ...text() },
+  { name: 'MatricolaPulse', ...text() },
   { name: 'Qualifica', ...text() },
   { name: 'Albo', ...choice(ALBO) },
   { name: 'StatoRapporto', ...choice(STATO_RAPPORTO) },
@@ -168,6 +169,7 @@ const DIPENDENTI_SPEC = [
   { name: 'QuotaSociale', ...currency() },
   { name: 'QuotaSocialeVersata', ...currency() },
   { name: 'QuotaSocialeRestituita', ...currency() },
+  { name: 'DataRestituzioneQuota', ...dateOnly() },
   { name: 'DataDimissioneLavoratore', ...dateOnly() },
   { name: 'DataDimissioneSocio', ...dateOnly() },
   { name: 'InvalidoSvantaggiato', ...choice(SINO) },
