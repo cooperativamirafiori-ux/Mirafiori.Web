@@ -13,7 +13,7 @@
  * Convenzioni Graph identiche al resto dell'app (vedi lib/acquisti.ts).
  */
 
-import { graphGet, graphGetOrNull, graphPost, graphPatch } from '@/lib/core/graph'
+import { graphGet, graphGetAll, graphGetOrNull, graphPost, graphPatch } from '@/lib/core/graph'
 import {
   formattaNumeroInventario,
   progressivoDaNumero,
@@ -54,7 +54,11 @@ const CAMPI =
   'id,fields&$expand=fields($select=Title,Descrizione,Categoria,MarcaModello,NumeroSerie,' +
   'Struttura,StrutturaLookupId,Ubicazione,StatoBene,DataAcquisto,Fornitore,Valore,' +
   'MesiGaranzia,ScadenzaGaranzia,CodiceRichiesta,RichiestaItemId,CartellaUrl,' +
-  'FatturaUrl,FatturaNome,GaranziaUrl,GaranziaNome,DataDismissione,Note)'
+  'FatturaUrl,FatturaNome,GaranziaUrl,GaranziaNome,DataDismissione,Note,' +
+  // Dispositivi IT: vedi types/it.ts. TipoIT valorizzato ⇒ il bene è IT.
+  'TipoIT,SottoTipo,Marca,Modello,Acquisizione,CanoneMensile,FineNoleggio,' +
+  'GaranzieAccessorie,FatturaRif,FirewallInstallato,IdListaIT,' +
+  'CentroDiCosto,CentroDiCostoLookupId,AssegnatarioMail,AssegnatarioNome)'
 
 function testoLookup(campo: any): string {
   if (campo == null) return ''
@@ -105,11 +109,34 @@ function mapBene(item: any): BeneInventario {
 
     dataDismissione: f.DataDismissione || undefined,
     note: f.Note || undefined,
+
+    // --- Dispositivi IT ---
+    tipoIT: f.TipoIT || undefined,
+    sottoTipo: f.SottoTipo || undefined,
+    marca: f.Marca || undefined,
+    modello: f.Modello || undefined,
+    acquisizione: f.Acquisizione || undefined,
+    canoneMensile: num(f.CanoneMensile),
+    fineNoleggio: f.FineNoleggio || undefined,
+    garanzieAccessorie: f.GaranzieAccessorie || undefined,
+    fatturaRif: f.FatturaRif || undefined,
+    // Su SharePoint la spunta non compilata è assente, non `false`: si distingue
+    // "no" da "nessuno l'ha ancora guardato", che sui firewall non è la stessa cosa.
+    firewallInstallato: typeof f.FirewallInstallato === 'boolean' ? f.FirewallInstallato : undefined,
+    centroDiCosto: f.CentroDiCostoLookupId
+      ? {
+          id: Number(f.CentroDiCosto?.LookupId ?? f.CentroDiCostoLookupId),
+          value: testoLookup(f.CentroDiCosto),
+        }
+      : undefined,
+    assegnatarioMail: f.AssegnatarioMail || undefined,
+    assegnatarioNome: f.AssegnatarioNome || undefined,
+    idListaIT: f.IdListaIT || undefined,
   }
 }
 
 /** Data "solo giorno" a mezzogiorno UTC: evita che diventi il giorno prima. */
-function dataSoloGiorno(ymd?: string | null): string | undefined {
+export function dataSoloGiorno(ymd?: string | null): string | undefined {
   if (!ymd) return undefined
   const solo = String(ymd).slice(0, 10)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(solo)) return undefined
@@ -121,11 +148,14 @@ function dataSoloGiorno(ymd?: string | null): string | undefined {
 // ============================================================
 
 export async function getInventario(): Promise<BeneInventario[]> {
-  const res = await graphGet<{ value: any[] }>(
-    `${listBase()}?$select=${CAMPI}&$orderby=fields/Created desc&$top=2000`,
+  // graphGetAll e non graphGet: Graph pagina gli item di lista a 200 anche con
+  // un `$top` più alto, quindi senza seguire `@odata.nextLink` il registro
+  // risulterebbe troncato senza dirlo.
+  const righe = await graphGetAll<any>(
+    `${listBase()}?$select=${CAMPI}&$orderby=fields/Created desc&$top=200`,
     PREFER_NON_INDEXED,
   )
-  return res.value.map(mapBene)
+  return righe.map(mapBene)
 }
 
 export async function getBeneById(spItemId: string): Promise<BeneInventario> {
@@ -154,12 +184,12 @@ export async function getBeniPerRichiesta(codice: string): Promise<BeneInventari
  * e non ripartono da capo se la lista viene ricreata.
  */
 async function ultimoProgressivo(): Promise<number> {
-  const res = await graphGet<{ value: any[] }>(
-    `${listBase()}?$select=id,fields&$expand=fields($select=Title)&$top=2000`,
+  const righe = await graphGetAll<any>(
+    `${listBase()}?$select=id,fields&$expand=fields($select=Title)&$top=200`,
     PREFER_NON_INDEXED,
   )
   let max = 0
-  for (const item of res.value ?? []) {
+  for (const item of righe) {
     const n = progressivoDaNumero(item.fields?.Title)
     if (n != null && n > max) max = n
   }
@@ -338,6 +368,47 @@ export async function creaBeniDaRichiesta(
 }
 
 /**
+ * Crea un bene che non nasce da una richiesta d'acquisto.
+ *
+ * È la porta per chi registra un bene già in casa: l'area IT quando aggiunge un
+ * dispositivo, e lo script di migrazione delle liste dell'IT. Fa le due cose che
+ * non si possono sbagliare — il numero di inventario preso dalla coda e la
+ * cartella del bene — e per il resto scrive i campi che le vengono passati con i
+ * nomi interni di SharePoint.
+ */
+export async function creaBene(
+  descrizione: string,
+  campi: Record<string, unknown> = {},
+): Promise<BeneInventario> {
+  const driveId = await getDriveId()
+
+  return inCoda(async () => {
+    const numero = formattaNumeroInventario((await ultimoProgressivo()) + 1)
+
+    let cartellaUrl = ''
+    try {
+      cartellaUrl = await assicuraCartella(driveId, percorsoBene(numero, descrizione))
+    } catch (err) {
+      console.error('[inventario] cartella non creata per', numero, err)
+    }
+
+    const puliti = Object.fromEntries(Object.entries(campi).filter(([, v]) => v !== undefined))
+    const creato = await graphPost<any>(listBase(), {
+      fields: {
+        Title: numero,
+        Descrizione: descrizione,
+        CartellaUrl: cartellaUrl,
+        ...puliti,
+        // Esplicito e non affidato all'ordine dello spread: chi chiama può
+        // scegliere lo stato iniziale, ma se non lo fa il bene nasce in uso.
+        StatoBene: puliti.StatoBene ?? 'In uso',
+      },
+    })
+    return getBeneById(String(creato.id))
+  })
+}
+
+/**
  * Aggiorna i campi che riguardano la vita del bene dopo l'acquisto.
  *
  * La data di dismissione si comporta da sé: passando a uno stato di uscita
@@ -355,7 +426,9 @@ export async function aggiornaVitaBene(
   if (payload.dataDismissione !== undefined) {
     dataDismissione = payload.dataDismissione ? dataSoloGiorno(payload.dataDismissione) ?? null : null
   } else if (esce && !bene.dataDismissione) {
-    dataDismissione = new Date().toISOString()
+    // Solo il giorno, non l'istante: la colonna è dateOnly e un timestamp pieno
+    // dopo le 22:00 italiane finirebbe registrato al giorno dopo.
+    dataDismissione = dataSoloGiorno(new Date().toISOString().slice(0, 10))
   } else if (!esce && bene.dataDismissione) {
     dataDismissione = null
   }

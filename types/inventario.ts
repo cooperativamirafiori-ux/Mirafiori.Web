@@ -11,6 +11,8 @@
 // richiesta. Il legame resta nel campo CodiceRichiesta.
 // ============================================================
 
+import type { ModoAcquisizione, TipoIT } from '@/types/it'
+
 export const STATI_BENE = [
   'In uso',
   'In riparazione',
@@ -41,6 +43,28 @@ export interface BeneInventario {
   categoria?: string
   marcaModello?: string
   numeroSerie?: string
+
+  // --- Dispositivi IT (vedi types/it.ts e docs/it-dispositivi-piano.md) ---
+  /** Valorizzato ⇒ il bene è un dispositivo IT. È il discriminante dell'area. */
+  tipoIT?: TipoIT
+  sottoTipo?: string
+  /** Marca e modello separati: `marcaModello` resta per compatibilità con Acquisti. */
+  marca?: string
+  modello?: string
+  acquisizione?: ModoAcquisizione
+  canoneMensile?: number
+  fineNoleggio?: string
+  garanzieAccessorie?: string
+  /** Riferimento libero alla fattura, dove non c'è una richiesta d'acquisto. */
+  fatturaRif?: string
+  /** Spunta: ha senso solo sui PC. */
+  firewallInstallato?: boolean
+  /** Copia dall'assegnazione attiva: la scrive solo l'app. */
+  centroDiCosto?: { id: number; value: string }
+  assegnatarioMail?: string
+  assegnatarioNome?: string
+  /** Riferimento alla riga di origine su gruppo_it, es. "DISP-43". */
+  idListaIT?: string
 
   struttura?: { id: number; value: string }
   ubicazione?: string
@@ -95,6 +119,49 @@ export interface AggiornaBenePayload {
   strutturaId?: number
   dataDismissione?: string | null
   note?: string
+}
+
+/**
+ * Campi dei dispositivi IT, modificabili dall'area IT.
+ *
+ * Qui dentro finiscono anche numero di serie, valore e garanzia — che per i beni
+ * nati da una richiesta d'acquisto sono di sola lettura. La regola è una sola e
+ * la fa rispettare `aggiornaBeneIT`: **se il bene ha un `codiceRichiesta`, i
+ * campi dell'acquisto restano della richiesta**; i 52 dispositivi arrivati dalle
+ * liste dell'IT non ne hanno, e i loro dati mancanti si completano da qui.
+ */
+export interface AggiornaBeneITPayload {
+  tipoIT?: TipoIT | null
+  sottoTipo?: string
+  marca?: string
+  modello?: string
+  descrizione?: string
+  numeroSerie?: string
+  acquisizione?: ModoAcquisizione
+  canoneMensile?: number | null
+  fineNoleggio?: string | null
+  garanzieAccessorie?: string
+  fatturaRif?: string
+  firewallInstallato?: boolean
+  dataAcquisto?: string | null
+  fornitore?: string
+  valore?: number | null
+  mesiGaranzia?: number | null
+  scadenzaGaranzia?: string | null
+}
+
+/** Campi che restano della richiesta d'acquisto quando il bene ne ha una. */
+export const CAMPI_DALL_ACQUISTO = [
+  'dataAcquisto',
+  'fornitore',
+  'valore',
+  'mesiGaranzia',
+  'scadenzaGaranzia',
+] as const satisfies ReadonlyArray<keyof AggiornaBeneITPayload>
+
+/** true se il bene è un dispositivo IT. */
+export function eBeneIT(b: Pick<BeneInventario, 'tipoIT'>): boolean {
+  return Boolean(b.tipoIT)
 }
 
 export const STATO_BENE_STILE: Record<string, string> = {

@@ -59,6 +59,12 @@ const CATEGORIE = [
   'Materiale di consumo', 'Attrezzatura', 'Arredi', 'Informatica', 'Cancelleria',
   'Pulizia e igiene', 'Alimentari', 'DPI e sicurezza', 'Manutenzione', 'Servizi', 'Altro',
 ]
+// Devono coincidere con types/it.ts
+const TIPI_IT = ['PC', 'Smartphone', 'Tablet', 'Stampante', 'Periferiche', 'Rete', 'Altro']
+const MODI_ACQUISIZIONE = ['Acquisto', 'Noleggio', 'Donazione']
+
+/** Cartelle fisse dei verbali, alla radice della libreria dell'inventario. */
+const CARTELLE_VERBALI = ['Verbali Consegna', 'Verbali Restituzione']
 
 // I `name` DEVONO coincidere con quelli usati in lib/inventario.ts.
 // Il Title della lista è il numero di inventario (INV-0001).
@@ -83,9 +89,37 @@ const COLUMNS = [
   { name: 'GaranziaNome', text: {} },
   { name: 'DataDismissione', dateTime: { format: 'dateOnly', displayAs: 'standard' } },
   { name: 'Note', text: { allowMultipleLines: true } },
+
+  // ---- Dispositivi IT (docs/it-dispositivi-piano.md) --------------------
+  // `TipoIT` valorizzato è il discriminante: se c'è, il bene è un dispositivo.
+  // Non si usa Categoria=Informatica, che è la categoria contabile e la decide
+  // chi compra.
+  { name: 'TipoIT', displayName: 'Tipo IT', choice: { choices: TIPI_IT, displayAs: 'dropDownMenu' } },
+  { name: 'SottoTipo', displayName: 'Sottotipo', text: {} },
+  { name: 'Marca', text: {} },
+  { name: 'Modello', text: {} },
+  { name: 'Acquisizione', choice: { choices: MODI_ACQUISIZIONE, displayAs: 'dropDownMenu' } },
+  { name: 'CanoneMensile', displayName: 'Canone mensile', currency: { locale: 'it-IT' } },
+  { name: 'FineNoleggio', displayName: 'Fine noleggio', dateTime: { format: 'dateOnly', displayAs: 'standard' } },
+  { name: 'GaranzieAccessorie', displayName: 'Garanzie accessorie', text: { allowMultipleLines: true } },
+  { name: 'FatturaRif', displayName: 'Fattura rif.', text: {} },
+  { name: 'FirewallInstallato', displayName: 'Firewall installato', boolean: {} },
+  // Copie dall'assegnazione attiva: le scrive solo l'app (lib/it/flusso.ts).
+  { name: 'AssegnatarioMail', displayName: 'Assegnatario (mail)', text: {} },
+  { name: 'AssegnatarioNome', displayName: 'Assegnatario (nome)', text: {} },
+  // Ponte col registro vecchio dell'IT, es. "DISP-43".
+  { name: 'IdListaIT', displayName: 'ID lista IT', text: {} },
 ]
 
-const LOOKUP_COLUMNS = [{ name: 'Struttura', displayName: 'Struttura / servizio' }]
+/**
+ * Lookup: Graph non li accetta creando la lista, servono chiamate separate.
+ * `env` è la variabile che contiene l'id della lista puntata; se manca, il
+ * lookup si salta con un avviso invece di far fallire tutto.
+ */
+const LOOKUP_COLUMNS = [
+  { name: 'Struttura', displayName: 'Struttura / servizio', env: 'SP_LIST_STRUTTURE', preferita: 'StrutturaLabel' },
+  { name: 'CentroDiCosto', displayName: 'Centro di costo', env: 'SP_LIST_CENTRI_COSTO' },
+]
 
 function loadEnvLocal() {
   try {
@@ -142,7 +176,6 @@ async function main() {
     if (!process.env[k]) throw new Error(`Variabile mancante: ${k}`)
   }
   const site = process.env.SHAREPOINT_SITE_ID
-  const listaStrutture = process.env.SP_LIST_STRUTTURE
 
   console.log('→ Autenticazione Graph...')
   const token = await getToken()
@@ -168,12 +201,15 @@ async function main() {
     console.log(`✓ Lista creata. ID = ${listId}`)
   }
 
-  await ensureLookups(token, site, listId, listaStrutture)
+  await ensureLookups(token, site, listId)
   await estendiChoice(token, site, listId, LIST_NAME, 'StatoBene', STATI_BENE)
   await estendiChoice(token, site, listId, LIST_NAME, 'Categoria', CATEGORIE)
+  await estendiChoice(token, site, listId, LIST_NAME, 'TipoIT', TIPI_IT)
+  await estendiChoice(token, site, listId, LIST_NAME, 'Acquisizione', MODI_ACQUISIZIONE)
 
-  // ---- 2. Libreria e cartella radice -------------------------------------
+  // ---- 2. Libreria, cartella radice e cartelle dei verbali ---------------
   const { driveId, cartella } = await trovaCartella(token, site)
+  await ensureCartelleVerbali(token, driveId)
 
   // ---- 3. .env.local e Vercel -------------------------------------------
   const valori = {
@@ -212,41 +248,70 @@ async function ensureColumns(token, site, listId) {
   }
 }
 
-/** Lookup verso Strutture: come per le richieste di acquisto. */
-async function ensureLookups(token, site, listId, listaStrutture) {
+/** Lookup verso Strutture e Centri di Costo. Idempotente. */
+async function ensureLookups(token, site, listId) {
   const cols = await graph(token, 'GET', `/sites/${site}/lists/${listId}/columns?$select=name&$top=200`)
   const presenti = new Set((cols.value || []).map((c) => c.name))
-
-  const colsStrutture = await graph(
-    token, 'GET', `/sites/${site}/lists/${listaStrutture}/columns?$select=name&$top=200`,
-  )
-  const nomi = new Set((colsStrutture.value || []).map((c) => c.name))
-  const colonnaMostrata = nomi.has('StrutturaLabel') ? 'StrutturaLabel' : 'Title'
 
   for (const l of LOOKUP_COLUMNS) {
     if (presenti.has(l.name)) {
       console.log(`✓ Lookup già presente: ${l.name}`)
       continue
     }
+    const listaPuntata = process.env[l.env]
+    if (!listaPuntata) {
+      console.log(`⚠ Lookup "${l.name}" saltato: manca ${l.env} in .env.local.`)
+      continue
+    }
+
+    // La colonna da mostrare: quella preferita se esiste, altrimenti il Title.
+    let colonnaMostrata = 'Title'
+    if (l.preferita) {
+      const suPuntata = await graph(
+        token, 'GET', `/sites/${site}/lists/${listaPuntata}/columns?$select=name&$top=200`,
+      )
+      const nomi = new Set((suPuntata.value || []).map((c) => c.name))
+      if (nomi.has(l.preferita)) colonnaMostrata = l.preferita
+    }
+
     try {
       await graph(token, 'POST', `/sites/${site}/lists/${listId}/columns`, {
         name: l.name,
         displayName: l.displayName,
         lookup: {
-          listId: listaStrutture,
+          listId: listaPuntata,
           columnName: colonnaMostrata,
           allowMultipleValues: false,
           allowUnlimitedLength: false,
         },
       })
-      console.log(`  + lookup aggiunto: ${l.name} → Strutture.${colonnaMostrata}`)
+      console.log(`  + lookup aggiunto: ${l.name} → ${l.env}.${colonnaMostrata}`)
     } catch (e) {
       console.log(`\n⚠ Lookup "${l.name}" non creato via Graph: ${e.message}`)
       console.log(`  Crealo a mano nella lista "${LIST_NAME}" su SharePoint:`)
       console.log(`    Aggiungi colonna → Ricerca (Lookup)`)
-      console.log(`    Nome interno: ${l.name}  ·  Da: Strutture  ·  Colonna: ${colonnaMostrata}`)
+      console.log(`    Nome interno: ${l.name}  ·  Colonna mostrata: ${colonnaMostrata}`)
       console.log(`  Il nome interno deve essere esattamente "${l.name}".\n`)
     }
+  }
+}
+
+/** Le due cartelle fisse dei verbali, alla radice della libreria dei beni. */
+async function ensureCartelleVerbali(token, driveId) {
+  for (const nome of CARTELLE_VERBALI) {
+    const esiste = await graph(
+      token, 'GET', `/drives/${driveId}/root:/${encodePath(nome)}?$select=id,webUrl`,
+    ).catch(() => null)
+    if (esiste) {
+      console.log(`✓ Cartella verbali pronta: ${nome}`)
+      continue
+    }
+    const creata = await graph(token, 'POST', `/drives/${driveId}/root/children`, {
+      name: nome,
+      folder: {},
+      '@microsoft.graph.conflictBehavior': 'fail',
+    })
+    console.log(`  + cartella creata: ${nome} — ${creata.webUrl ?? ''}`)
   }
 }
 

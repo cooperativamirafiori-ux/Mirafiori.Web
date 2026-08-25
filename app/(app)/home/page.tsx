@@ -13,7 +13,9 @@ export default async function HomePage() {
   const puoTimbratureHr = session?.user?.permessi?.includes('Timbrature HR') ?? false
   const puoRisorseUmane = (session?.user?.membroRU ?? false) || puoTimbratureHr
 
-  const mostraRiservata = puoRisorseUmane || puoAmministrare
+  const puoIT = session?.user?.permessi?.includes('IT e Dispositivi') ?? false
+
+  const mostraRiservata = puoRisorseUmane || puoAmministrare || puoIT
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-cyan-light/40 via-white to-white">
@@ -70,6 +72,13 @@ export default async function HomePage() {
             titolo="Richiesta Fattura"
             sottotitolo="Chiedi la fattura per un cliente"
           />
+          <FunzioneCard
+            href="/miei-strumenti"
+            emoji="💻"
+            accent="cyan"
+            titolo="I miei strumenti"
+            sottotitolo="Quali dispositivi e SIM risultano tuoi"
+          />
           {puoPrestazioni && (
             <FunzioneCard
               href="/prestazioni"
@@ -102,6 +111,15 @@ export default async function HomePage() {
                 accent="emerald"
                 titolo="Risorse Umane"
                 sottotitolo="Gestione del personale"
+              />
+            )}
+            {puoIT && (
+              <FunzioneCard
+                href="/it"
+                emoji="🖥️"
+                accent="purple"
+                titolo="IT e Dispositivi"
+                sottotitolo="Dispositivi, SIM e assegnazioni"
               />
             )}
             {puoAmministrare && (

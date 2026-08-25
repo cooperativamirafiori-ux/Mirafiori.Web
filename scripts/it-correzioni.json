@@ -1,0 +1,70 @@
+{
+  "_": [
+    "Le incoerenze delle liste IT su gruppo_it, risolte da Dennis il 25/08/2026.",
+    "Le legge scripts/migra-dispositivi-it.mjs e le applica in scrittura sull'Inventario.",
+    "Le liste originali NON vengono modificate: qui c'è la verità, là resta l'archivio.",
+    "I dati mancanti (canone di noleggio, campi delle SIM, centri di costo) non stanno qui:",
+    "si completano dall'app, non in migrazione."
+  ],
+
+  "regole": {
+    "dataImpianto": "2025-11-01",
+    "dataImpiantoPerche": "data delle assegnazioni di partenza caricate dall'IT: si usa dove la data vera non c'è",
+    "assegnatarioFacoltativo": true,
+    "assegnatarioFacoltativoPerche": "gli apparecchi condivisi (NAS, stampanti, fax) stanno in un centro di costo, non in mano a una persona",
+    "verbaleSoloConPersona": true
+  },
+
+  "dispositivi": {
+    "DISP-11": {
+      "stato": "In magazzino",
+      "perche": "unica assegnazione (Anna Russo) chiusa il 10/11/2025 e mai sostituita: lo stato del bene era rimasto 'In uso'"
+    },
+    "DISP-43": {
+      "stato": "In uso",
+      "perche": "il passaggio Buzzi (chiusa 11/02/2026) → Finetti (attiva dal 17/02/2026) è corretto: 'Dismesso' era un errore",
+      "svuotaNote": "In ufficio da consegnare"
+    },
+    "DISP-52": {
+      "stato": "In uso",
+      "perche": "assegnazione attiva dal 15/04/2026: 'In magazzino' era un errore. Persona e centro di costo si completano dall'app"
+    }
+  },
+
+  "assegnazioni": {
+    "ASG-5": {
+      "senzaPersona": true,
+      "perche": "NAS Backup, apparecchio condiviso di Ufficio Drosso"
+    },
+    "ASG-6": {
+      "senzaPersona": true,
+      "perche": "PC condiviso di Vallarsa: 'PC-SimonaFinetti' è un residuo del nome utenza, non un'assegnazione a lei",
+      "svuotaNote": "VERIFICARE VED. FINETTI"
+    },
+    "ASG-59": {
+      "senzaPersona": true,
+      "perche": "stampante d-Color MF3000, apparecchio condiviso di Vallarsa"
+    },
+    "ASG-61": {
+      "senzaPersona": true,
+      "perche": "fax Brother 2840, apparecchio condiviso di Vallarsa"
+    },
+    "ASG-14": {
+      "dataAssegnazione": "2025-11-01",
+      "perche": "data di inizio mancante su una riga già chiusa: si usa la data di impianto"
+    },
+    "ASG-49": {
+      "dataAssegnazione": "2025-11-01",
+      "perche": "data di inizio mancante su una riga attiva: si usa la data di impianto"
+    }
+  },
+
+  "daCompletareDallApp": [
+    "DISP-52: chi è l'assegnatario e su quale centro di costo",
+    "39 dispositivi a noleggio senza canone mensile (o 'Acquisizione' è a Noleggio per difetto: da chiarire)",
+    "DISP-50 (fax Brother 2840): serial number mancante",
+    "SIM: operatore, tipo e nome piano, costo mensile; 41 SIM su 46 mai assegnate",
+    "centri di costo di tutte le assegnazioni",
+    "ASG-8 (DISP-6) nota 'DA VERIFICARE'; ASG-50 e ASG-51 nota 'Dubbio assegnazione edu/condo'"
+  ]
+}

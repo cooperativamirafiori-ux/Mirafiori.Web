@@ -64,6 +64,33 @@ export async function graphGet<T>(
   return res.json()
 }
 
+/**
+ * Come graphGet, ma segue `@odata.nextLink` e ritorna tutti gli elementi.
+ *
+ * Serve perché **Graph pagina gli item di lista a 200 a prescindere dal `$top`**:
+ * chiedere `$top=2000` e leggere solo `value` significa perdere in silenzio tutto
+ * quello che sta oltre la duecentesima riga. Su una lista che cresce a ogni
+ * movimento — le assegnazioni — è un guaio che arriva da sé col tempo.
+ *
+ * `limite` è una cintura di sicurezza contro un ciclo che non finisce: se si
+ * raggiunge, la lista è più grande di quanto questa funzione debba leggere.
+ */
+export async function graphGetAll<T>(
+  path: string,
+  extraHeaders?: Record<string, string>,
+  limite = 20_000,
+): Promise<T[]> {
+  const out: T[] = []
+  let url: string | null = path
+  while (url && out.length < limite) {
+    const p: { value?: T[]; '@odata.nextLink'?: string } = await graphGet(url, extraHeaders)
+    out.push(...(p.value ?? []))
+    const next = p['@odata.nextLink']
+    url = next ? next.replace(GRAPH_BASE, '') : null
+  }
+  return out
+}
+
 /** Come graphGet ma ritorna null sui 404 (utile per verificare l'esistenza di una cartella) */
 export async function graphGetOrNull<T>(
   path: string,

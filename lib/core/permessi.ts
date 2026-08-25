@@ -8,6 +8,7 @@
 
 import { graphGet, graphPost, graphDelete } from '@/lib/core/graph'
 import { listBase, PREFER_NON_INDEXED } from '@/lib/core/sp'
+import { AREA_IT } from '@/types/it'
 
 export async function isAdmin(email: string): Promise<boolean> {
   try {
@@ -46,7 +47,15 @@ export async function isAdmin(email: string): Promise<boolean> {
 // Il cruscotto HR delle timbrature, che legge da Supabase e con SharePoint non
 // c'entra, ha invece il suo permesso: "Timbrature HR". Vedi il punto 14 di
 // docs/piano-ru-sito-dedicato-accesso-delegato.md.
-export const AREE_PERMESSI = ['Amministrazione', 'Prestazioni Occasionali', 'Timbrature HR', 'Acquisti'] as const
+export const AREE_PERMESSI = [
+  'Amministrazione',
+  'Prestazioni Occasionali',
+  'Timbrature HR',
+  'Acquisti',
+  // Importata e non riscritta: il nome dell'area serve anche alle route e alle
+  // pagine, e due copie della stessa stringa prima o poi divergono di uno spazio.
+  AREA_IT,
+] as const
 
 export type AreaPermesso = (typeof AREE_PERMESSI)[number]
 
@@ -67,6 +76,9 @@ export const DESCRIZIONI_AREE: Record<string, string> = {
     'Cruscotto presenze di tutto il personale, validazione mensile dei fogli ore.',
   Acquisti:
     'Gestione delle richieste d’acquisto: approvazione, ordini, consegne e inventario beni.',
+  'IT e Dispositivi':
+    'Dispositivi e SIM: anagrafica, assegnazione e restituzione, verbali di consegna. ' +
+    'Chi non ha questo permesso vede comunque i propri strumenti in “I miei strumenti”.',
 }
 
 // Fallback usato se la lista SP non esiste ancora o Graph fallisce.

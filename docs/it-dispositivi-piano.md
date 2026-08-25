@@ -1,7 +1,20 @@
 # Area IT e Dispositivi — piano
 
-> Stato: **piano approvato nelle scelte di fondo, nessuna riga di codice scritta.**
-> Data: 20 agosto 2026.
+> Stato: **area scritta e compilante, da provisionare e migrare su SharePoint.**
+> Ultimo aggiornamento: 25 agosto 2026.
+>
+> Cos'è già in codice, e dove:
+>
+> | Pezzo | File |
+> |---|---|
+> | Tipi dell'area | `types/it.ts`, `types/inventario.ts` (esteso) |
+> | Dati e regole | `lib/it/`: `data.ts` (la porta) · `assegnazioni.ts` · `flusso.ts` (le invarianti) · `dispositivi.ts` · `sim.ts` · `verbali.ts` |
+> | API | `app/api/it/`: `assegnazioni/**` · `dispositivi/**` · `sim/**` |
+> | Schermate | `app/(app)/it/` (area) · `app/(app)/miei-strumenti/` (aperta a tutti) |
+> | Permesso | `IT e Dispositivi` in `lib/core/permessi.ts` |
+> | Provisioning | `scripts/provision-inventario.mjs` (esteso) · `scripts/provision-it.mjs` |
+> | Migrazione | `scripts/migra-dispositivi-it.mjs` + `scripts/it-correzioni.json` |
+> | Diagnosi dati | `scripts/it-anomalie.mjs` |
 
 ## Da dove si parte
 
@@ -36,7 +49,8 @@ modello, è chi fa rispettare le regole.
 ### Anomalie nei dati (fotografia del 20/08/2026)
 
 - **Dispositivi**: 48 assegnazioni attive, 5 chiuse (tutte con data restituzione).
-  Il dispositivo `43` ha **due assegnazioni attive**. Tre volte lo stato del bene contraddice
+  Il dispositivo `43` ha due assegnazioni, di cui una chiusa — non due attive, come si era
+  letto in un primo momento. Tre volte lo stato del bene contraddice
   quello dell'assegnazione. 4 assegnazioni senza utente.
 - **Nome utenza**: 19 valori con spazio iniziale, 4 valgono `?`.
 - **Sottotipo**: `" PC Desktop"` e `"PC Desktop"` convivono.
@@ -78,7 +92,11 @@ modello, è chi fa rispettare le regole.
     A tutti resta "I miei strumenti", in sola lettura sul proprio.
 11. **Il canone di noleggio resta un dato dell'anagrafica** finché non arriva il controllo di
     gestione: non genera righe di costo.
-12. **Registro Assistenza IT: fase successiva.** Non si mescola ticketing e anagrafica.
+12. **L'assegnatario è facoltativo, il centro di costo obbligatorio**: i beni condivisi si
+    assegnano a un centro di costo e non producono verbale.
+13. **I dati mancanti si completano dall'app**, non con una bonifica preventiva. In migrazione
+    si risolvono solo le incoerenze, che sono già decise in `scripts/it-correzioni.json`.
+14. **Registro Assistenza IT: fase successiva.** Non si mescola ticketing e anagrafica.
 
 ---
 
@@ -115,7 +133,8 @@ Il buco prevedibile è il contrario: un bene informatico creato da Acquisti **se
 che sparirebbe dall'area IT. Per questo l'area IT ha un secchio **"da classificare"** —
 `Categoria = Informatica` e `TipoIT` vuoto — con lo stesso spirito della vista "senza centro
 di costo": l'anomalia si vede invece di nascondersi. E quando Acquisti crea un bene di
-categoria Informatica, l'app chiede il tipo.
+categoria Informatica dovrà chiedere il tipo — **questo pezzo è dentro Acquisti e non è
+ancora fatto**, per ora c'è solo il secchio.
 
 `FirewallInstallato` è una proprietà **del PC**, non dell'assegnazione: oggi invece
 l'informazione sta in tre note di assegnazione ("No Watchguard", "PC Medici - NO WATCHGUARD",
@@ -128,7 +147,9 @@ da confermare riga per riga. L'app tiene un contatore "PC senza firewall" bene i
 `Title` leggibile in SharePoint (`INV-0012 · 2026-08-20`), più:
 `Bene` (lookup → Inventario Beni), `AssegnatarioMail`, `AssegnatarioNome`,
 `CentroDiCosto` (lookup), `ServizioLegacy` (testo), `NomeUtenza` (testo),
-`DataAssegnazione` (obbligatoria), `DataRestituzione`, `Stato` (Attiva/Chiusa), `Note`,
+`DataAssegnazione` (obbligatoria), `DataFine` (etichettata "Data restituzione" sui beni e
+"Data cessazione" sulle SIM: stesso nome interno nelle due liste, così il codice che le legge
+è uno solo), `Stato` (Attiva/Chiusa), `Note`,
 `VerbaleConsegnaUrl`/`VerbaleConsegnaNome`,
 `VerbaleRestituzioneUrl`/`VerbaleRestituzioneNome`, `IdListaIT`.
 
@@ -136,6 +157,11 @@ Il **nome utenza sta sull'assegnazione**, non sul bene: cambia quando la macchin
 
 Niente `Struttura`: il centro di costo è la dimensione che serve, la sede fisica di un
 portatile è quella di chi lo usa.
+
+**L'assegnatario è facoltativo, il centro di costo no.** NAS, stampanti e fax non stanno in
+mano a nessuno: stanno in un servizio. Un'assegnazione senza persona è legittima, quella senza
+centro di costo no — è il centro di costo che rende l'assegnazione utile a qualcosa. Per le
+righe senza persona non si genera nessun verbale: non c'è nessuno che firma.
 
 ### Verbali
 
@@ -180,7 +206,12 @@ Lo storico è la ragione per cui le assegnazioni sono righe. Si vede in tre punt
   ne compila la data di restituzione e aggiorna il bene: una sola operazione, non tre.
 - **Lo stato del bene è derivato**: assegnazione attiva → `In uso`; nessuna → `In magazzino`.
   Gli stati chiusi (`Dismesso`, `Alienato`, `Smarrito`) impediscono nuove assegnazioni e
-  chiudono quella attiva.
+  **chiudono quella attiva** — anche quando la dismissione arriva dalla pagina Inventario,
+  che è la via da cui la contraddizione si ricreerebbe in un clic. Stessa cosa per una SIM
+  che passa a "Cessata".
+- **Lo stato dell'assegnazione non si scrive a mano**: `correggi` lo rifiuta, e rifiuta anche
+  una data di fine su una riga ancora attiva. Per chiudere c'è "Restituito", che sa anche
+  cosa fare all'anagrafica.
 - **Centro di costo e assegnatario sul bene li scrive solo l'app**, mai una persona a mano.
 - Le date sono solo-giorno, normalizzate con gli helper già in uso (`lib/timbrature/date.ts`).
 
@@ -188,26 +219,28 @@ Lo storico è la ragione per cui le assegnazioni sono righe. Si vede in tre punt
 
 ## Fasi
 
-**0 — Bonifica.** `scripts/it-anomalie.mjs` (fatto) estrae le quattro liste in un xlsx,
-normalizza il normalizzabile, risolve gli `UtenteLookupId` in mail aziendali e segnala il resto.
+**0 — Incoerenze: fatto.** Le sei incoerenze sono state decise una per una e stanno in
+`scripts/it-correzioni.json`, che la migrazione legge e applica. Le liste su `gruppo_it` non
+si toccano: lì resta l'archivio, la verità sta nel file.
 
-**Il foglio è l'input della migrazione**, non un giro di correzioni su `gruppo_it`: si corregge
-lì e la migrazione legge da lì. Le liste dell'IT non vengono toccate — restano l'archivio e
-nel frattempo l'ufficio continua a usarle. La colonna `Modificato il` permette al passo 2 di
-accorgersi se una riga è cambiata su SharePoint dopo l'estrazione.
+| Cosa | Decisione |
+|---|---|
+| DISP-11 HP 430 G3, "In uso" ma con l'unica assegnazione chiusa | → **In magazzino**; l'assegnazione ad Anna Russo resta nello storico |
+| DISP-43 HP 250 G10, "Dismesso" ma assegnato a Finetti | → **In uso**; il passaggio Buzzi → Finetti è corretto, cade la nota "In ufficio da consegnare" |
+| DISP-52 Samsung A56, "In magazzino" ma con assegnazione attiva | → **In uso**; persona e centro di costo si completano dall'app |
+| NAS, stampante e fax: assegnazioni senza persona | → **l'assegnatario è facoltativo**: basta il centro di costo (vedi sotto) |
+| ASG-6 Olivetti "PC-SimonaFinetti" senza utente | → **PC condiviso di Vallarsa**, il nome utenza resta come traccia |
+| ASG-14 e ASG-49 senza data di inizio | → **01/11/2025**, la data di impianto delle altre righe storiche |
 
-Due colonne distinte in fondo a ogni foglio, perché sennò l'importante affoga:
-`PROBLEMI` (incoerenze da decidere, riga in rosso) e `Da completare` (dati che mancano).
-La chiave di riconciliazione è `IdIT` (`DISP-1`, `ASG-3`, `SIM-2`), che non si tocca;
-per escludere una riga dalla migrazione si scrive `ESCLUDI` in `PROBLEMI`.
+I **dati mancanti non si bonificano prima**: si completano dall'app, che li mostra nelle viste
+"da completare". Sono il canone su 39 dispositivi a noleggio (o `Acquisizione` è a Noleggio per
+difetto: da chiarire), i campi delle SIM, e i centri di costo di tutte le assegnazioni.
 
-Sul giro di prova con i dati veri: **3 dispositivi con problemi** (i tre stati incoerenti) e
-40 da completare — di cui 39 sono lo stesso buco, il canone di noleggio; **12 assegnazioni con
-problemi** (mail non risolte, 4 senza assegnatario, 2 senza data) e 10 da completare;
-**46 SIM da completare**, 41 delle quali mai assegnate.
+`scripts/it-anomalie.mjs` resta come **strumento di diagnosi**: rifotografa le quattro liste in
+un xlsx quando serve rivedere lo stato di salute dei dati. Non è più un passaggio obbligato.
 
 **1 — Provisioning.** `scripts/provision-inventario.mjs` esteso con le colonne nuove (è già
-idempotente), più `scripts/provision-assegnazioni.mjs` e `scripts/provision-sim.mjs`.
+idempotente), più `scripts/provision-it.mjs` per le tre liste nuove.
 Le due cartelle dei verbali le crea lo stesso script dell'inventario, come già fa per
 `Inventario Beni`.
 
@@ -238,6 +271,28 @@ righe di costo. Diventeranno costi ricorrenti per centro di costo quando arriver
 di gestione (vedi `docs/controllo-di-gestione-piano.md`), e il modello è già pronto per
 reggerlo — periodo, centro di costo e importo mensile ci sono tutti.
 
+## Come si mette in piedi
+
+Un comando per volta, dalla cartella `web/`:
+
+```
+node scripts/provision-inventario.mjs        # colonne nuove sui beni + cartelle dei verbali
+node scripts/provision-it.mjs                # le tre liste nuove
+node scripts/migra-dispositivi-it.mjs        # prova a vuoto: non scrive niente
+node scripts/migra-dispositivi-it.mjs --applica
+```
+
+Poi si concede l'area **IT e Dispositivi** da Amministrazione › Permessi, e si fa un deploy
+perché Vercel legga le variabili nuove (`SP_LIST_ASSEGNAZIONI`, `SP_LIST_SIM`,
+`SP_LIST_ASSEGNAZIONI_SIM`).
+
+La migrazione è rieseguibile: la chiave è `IdListaIT`, quindi una riga già dentro viene
+saltata. Provata in sandbox sui dati veri — 52 dispositivi, 53 assegnazioni, 46 SIM,
+5 assegnazioni SIM; rilanciata a destinazione piena crea zero righe e ne salta 156.
+
 ## Da decidere
 
 - Quando mettere in sola lettura le liste su `gruppo_it`.
+- `lib/inventario/data.ts` ha superato le 500 righe con le colonne dei dispositivi:
+  è nell'elenco di `npm run mappa`. Da spezzare (le cartelle e i documenti da una parte,
+  le letture e le scritture della lista dall'altra), ma non insieme a questo lavoro.

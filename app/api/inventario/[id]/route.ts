@@ -15,7 +15,8 @@ import { guardArea } from '@/lib/core/api-guard'
 import { AREA_ACQUISTI } from '@/lib/acquisti/data'
 import { aggiornaVitaBene, getBeneById, inventarioConfigurato } from '@/lib/inventario/data'
 import { logAzione } from '@/lib/core/audit'
-import { STATI_BENE, type AggiornaBenePayload } from '@/types/inventario'
+import { chiudiPerUscita } from '@/lib/it/flusso'
+import { STATI_BENE, STATI_BENE_CHIUSI, type AggiornaBenePayload } from '@/types/inventario'
 
 export const dynamic = 'force-dynamic'
 
@@ -70,6 +71,14 @@ export async function PATCH(
     const prima = await getBeneById(id)
     const bene = await aggiornaVitaBene(prima, body)
 
+    // Un bene che esce dal patrimonio non può restare in carico a qualcuno:
+    // senza questo, da qui in un clic si ricrea la contraddizione che l'area IT
+    // esiste per togliere (dismesso e insieme in mano a una persona).
+    let assegnazioniChiuse = 0
+    if (STATI_BENE_CHIUSI.includes(bene.statoBene) && !STATI_BENE_CHIUSI.includes(prima.statoBene)) {
+      assegnazioniChiuse = await chiudiPerUscita('bene', Number(bene.spItemId), bene.dataDismissione)
+    }
+
     await logAzione({
       utente: g.session.user.email,
       nome: g.session.user.name,
@@ -82,10 +91,11 @@ export async function PATCH(
         ubicazione: bene.ubicazione,
         strutturaId: bene.struttura?.id,
         dataDismissione: bene.dataDismissione,
+        assegnazioniChiuse: assegnazioniChiuse || undefined,
       },
     })
 
-    return NextResponse.json({ bene })
+    return NextResponse.json({ bene, assegnazioniChiuse })
   } catch (e: any) {
     console.error(`[PATCH /api/inventario/${id}]`, e)
     return err(e?.message ?? 'Errore interno', 500)

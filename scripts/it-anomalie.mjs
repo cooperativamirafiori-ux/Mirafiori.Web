@@ -3,11 +3,12 @@
  * Fase 0 dell'area IT e Dispositivi (docs/it-dispositivi-piano.md).
  *
  * Legge le quattro liste fatte a mano sul sito `gruppo_it`, normalizza quello che
- * si può normalizzare da solo, segnala il resto, e scrive un xlsx di bonifica.
+ * si può normalizzare da solo, segnala il resto, e scrive un xlsx.
  *
- * Quel foglio **è l'input della migrazione**: si corregge lì, non sulle liste
- * originali, che restano intatte come archivio e continuano a essere usate
- * dall'IT finché non si passa all'app.
+ * **Strumento di diagnosi, non un passaggio della migrazione.** Le incoerenze sono
+ * state decise una per una e stanno in `it-correzioni.json`; i dati mancanti si
+ * completano dall'app. Questo script serve quando si vuole rifotografare lo stato
+ * di salute delle liste: non scrive niente su SharePoint.
  *
  * Cosa fa il foglio:
  *   - un foglio per lista, con le colonne come arriveranno nell'Inventario;
