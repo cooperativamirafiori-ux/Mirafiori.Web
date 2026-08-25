@@ -39,6 +39,7 @@ const AREE = [
       'lib/timbrature', 'lib/foglio-ore-xlsx', 'lib/festivita', 'lib/supabase',
       'docs/timbrature', 'docs/Progettazione_Sezione_Timbrature',
       'scripts/sync-timbrature', 'scripts/diagnosi-mail-timbrature',
+      'scripts/progetti-timbrature',
     ],
   },
   {

@@ -11,6 +11,7 @@ import { supabase } from '@/lib/core/supabase'
 import { weekdayIso } from '@/lib/timbrature/date'
 import type {
   Servizio,
+  Progetto,
   Dipendente,
   ProfiloOrario,
   MonteOreSettimana,
@@ -31,6 +32,7 @@ export function mapServizio(r: any): Servizio {
     attivo: r.attivo,
     ordine: r.ordine,
     adOre: !!r.ad_ore,
+    chiedeProgetto: !!r.chiede_progetto,
   }
 }
 
@@ -57,6 +59,27 @@ export async function servizioPerNome(nome: string): Promise<Servizio | null> {
     .maybeSingle()
   if (error) throw new Error(error.message)
   return data ? mapServizio(data) : null
+}
+
+// ----------------------------------------------------------------- progetti
+
+export function mapProgetto(r: any): Progetto {
+  return { id: r.id, nome: r.nome, attivo: !!r.attivo, ordine: r.ordine }
+}
+
+/**
+ * I progetti su cui si possono imputare le ore.
+ *
+ * Di default solo gli attivi: un progetto chiuso non deve piu' comparire nella
+ * tendina, ma le righe che lo citano restano — per questo non si cancella mai,
+ * si disattiva (`scripts/progetti-timbrature.mjs`).
+ */
+export async function getProgetti(soloAttivi = true): Promise<Progetto[]> {
+  let q = supabase().from('progetto').select('*').order('ordine', { ascending: true })
+  if (soloAttivi) q = q.eq('attivo', true)
+  const { data, error } = await q
+  if (error) throw new Error(error.message)
+  return (data ?? []).map(mapProgetto)
 }
 
 // --------------------------------------------------------------- dipendenti

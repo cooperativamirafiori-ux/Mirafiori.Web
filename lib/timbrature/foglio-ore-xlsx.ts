@@ -188,7 +188,11 @@ export async function generaFoglioOreBuffer(
       const marchi = [t.notte && 'Notte', t.reperibilita && 'Reperibilità', t.mutua && 'Mutua']
         .filter(Boolean)
         .join(', ')
-      row.getCell(5).value = marchi ? `${t.servizioNome} (${marchi})` : t.servizioNome
+      // Il progetto viaggia accanto al servizio: il foglio ore e' il documento
+      // che il responsabile valida, e senza progetto due righe di Progettazione
+      // sono indistinguibili anche per lui.
+      const voce = t.progettoNome ? `${t.servizioNome} — ${t.progettoNome}` : t.servizioNome
+      row.getCell(5).value = marchi ? `${voce} (${marchi})` : voce
       row.getCell(6).value = t.centroCostoNome ?? '—'
       row.getCell(7).value = t.oraInizio ?? ''
       row.getCell(8).value = t.oraFine ?? ''

@@ -11,11 +11,16 @@
  *   righe.ts       le righe di ore: chi puo' scrivere cosa, e la scrittura
  *   assenze.ts     ferie e permessi su un periodo di giorni consecutivi
  *   riepilogo.ts   dai dati ai numeri: giorni, settimane, flessibilita', cruscotti
+ *   progetti.ts    consuntivo ore per progetto (rendicontazione)
  *
  * Regole chiave della sezione, per chi arriva adesso:
  *   - ore SENZA arrotondamento (valore esatto), mai digitate: sempre derivate
  *     dagli orari di ingresso e uscita;
  *   - il servizio determina il centro di costo;
+ *   - il PROGETTO e' una seconda dimensione, facoltativa e indipendente: vive
+ *     solo sui servizi con la spunta `chiedeProgetto` (oggi Progettazione) e
+ *     serve a rendicontare le ore bando per bando senza spezzare il centro di
+ *     costo in ventitre voci;
  *   - finestra dell'operatore: oggi e i due giorni precedenti. Le ore piu'
  *     vecchie non si toccano piu': la correzione passa dal responsabile. I
  *     giustificativi fanno eccezione, perche' si programmano in anticipo e il
@@ -33,3 +38,4 @@ export * from '@/lib/timbrature/stati'
 export * from '@/lib/timbrature/righe'
 export * from '@/lib/timbrature/assenze'
 export * from '@/lib/timbrature/riepilogo'
+export * from '@/lib/timbrature/progetti'

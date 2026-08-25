@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Header } from '@/components/ui/Header'
-import type { Servizio, Timbratura, RiepilogoPeriodo, FinestraMese } from '@/types/timbrature'
+import type { Servizio, Progetto, Timbratura, RiepilogoPeriodo, FinestraMese } from '@/types/timbrature'
 import { RiepilogoMese } from './_componenti/RiepilogoMese'
 import { GiorniMese, RigaVoce } from './_componenti/GiorniMese'
 import {
@@ -47,6 +47,8 @@ interface FormRiga {
   id?: string
   data: string
   servizioId: number | ''
+  /** Progetto: solo sui servizi che lo chiedono, e sempre facoltativo. */
+  progettoId: number | ''
   oraInizio: string
   oraFine: string
   /**
@@ -78,6 +80,7 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
   const [anno, setAnno] = useState(now.getFullYear())
   const [mese, setMese] = useState(now.getMonth() + 1)
   const [servizi, setServizi] = useState<Servizio[]>([])
+  const [progetti, setProgetti] = useState<Progetto[]>([])
   const [timbrature, setTimbrature] = useState<Timbratura[]>([])
   const [riepilogo, setRiepilogo] = useState<RiepilogoPeriodo | null>(null)
   const [finestra, setFinestra] = useState<FinestraMese | null>(null)
@@ -123,7 +126,10 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
   useEffect(() => {
     fetch('/api/timbrature/servizi')
       .then((r) => r.json())
-      .then((d) => setServizi(d.servizi ?? []))
+      .then((d) => {
+        setServizi(d.servizi ?? [])
+        setProgetti(d.progetti ?? [])
+      })
       .catch(() => {})
   }, [])
 
@@ -244,6 +250,7 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
     setForm({
       data,
       servizioId: '',
+      progettoId: '',
       oraInizio: minToHhmm(inizioMin),
       oraFine: minToHhmm(inizioMin + Math.round(durata * 60)),
       notte: false,
@@ -256,6 +263,7 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
   function modificaRiga(t: Timbratura) {
     setForm({
       id: t.id, data: t.data, servizioId: t.servizioId,
+      progettoId: t.progettoId ?? '',
       oraInizio: t.oraInizio ?? '', oraFine: t.oraFine ?? '',
       notte: t.notte, reperibilita: t.reperibilita,
       mutua: t.mutua, note: t.note ?? '',
@@ -278,6 +286,9 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
   // Permessi retribuiti) si possono prendere anche per una fascia oraria,
   // non solo a giornata intera.
   const puoAdOre = isGiust && !!servSelezionato?.adOre
+  // Il progetto compare solo se il servizio scelto lo chiede (oggi Progettazione)
+  // e se c'e' almeno un progetto attivo: una tendina vuota confonde.
+  const chiedeProgetto = !!servSelezionato?.chiedeProgetto && progetti.length > 0
   const adOreAttivo = puoAdOre && !!form?.adOre
   const contaOrario = !isGiust || adOreAttivo
   // Ore della riga in compilazione: sempre derivate dagli orari, mai digitate.
@@ -295,6 +306,9 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
     try {
       const payload = {
         data: form.data, servizioId: Number(form.servizioId),
+        // Facoltativo, e solo dove ha senso: il server lo scarta comunque se il
+        // servizio non chiede il progetto.
+        progettoId: chiedeProgetto && form.progettoId ? Number(form.progettoId) : null,
         oraInizio: contaOrario ? form.oraInizio : null,
         oraFine: contaOrario ? form.oraFine : null,
         // Le spunte valgono solo sulle ore di lavoro: su un giustificativo il
@@ -636,6 +650,27 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
                 ))}
               </optgroup>
             </select>
+
+            {/* Progetto: seconda dimensione della riga, solo dove il servizio la chiede.
+                Facoltativa di proposito — esiste progettazione non imputabile a un
+                singolo bando, e obbligare a scegliere produrrebbe attribuzioni finte. */}
+            {chiedeProgetto && (
+              <>
+                <label className="block text-sm font-semibold text-gray-600 mb-2">
+                  Progetto <span className="font-normal text-gray-400">(facoltativo)</span>
+                </label>
+                <select
+                  value={form.progettoId}
+                  onChange={(e) => setForm({ ...form, progettoId: e.target.value ? Number(e.target.value) : '' })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4 text-sm"
+                >
+                  <option value="">— nessun progetto —</option>
+                  {progetti.map((p) => (
+                    <option key={p.id} value={p.id}>{p.nome}</option>
+                  ))}
+                </select>
+              </>
+            )}
 
             {/* Giornata intera / ad ore (solo per i giustificativi che lo ammettono) */}
             {puoAdOre && (

@@ -46,6 +46,29 @@ export interface Servizio {
   /** Solo per i giustificativi: puo' essere preso anche per una fascia oraria
    *  (dalle-alle), non solo a giornata intera. Es. Ferie, Permessi retribuiti. */
   adOre: boolean
+  /**
+   * Su questo servizio si puo' indicare anche il progetto (vedi `Progetto`).
+   * Oggi solo Progettazione, ma e' una spunta sul servizio e non un elenco nel
+   * codice: domani ne bastera' una UPDATE per aggiungerne un altro.
+   */
+  chiedeProgetto: boolean
+}
+
+/**
+ * Il progetto su cui sono state fatte le ore: seconda dimensione della riga,
+ * indipendente dal servizio.
+ *
+ * Il servizio dice che lavoro e' (e porta il centro di costo, uno solo per
+ * tutta la progettazione); il progetto dice per quale bando o commessa, ed e'
+ * l'unico modo per rendicontare le ore progetto per progetto. Sempre
+ * FACOLTATIVO: la progettazione non imputabile a un singolo progetto esiste, e
+ * una riga senza progetto e' un dato legittimo.
+ */
+export interface Progetto {
+  id: number
+  nome: string
+  attivo: boolean
+  ordine: number
 }
 
 export interface Dipendente {
@@ -121,10 +144,13 @@ export interface Timbratura {
   modificataIl: string | null
   /** Riga scritta da qualcun altro (responsabile o HR) per conto del dipendente. */
   perConto: boolean
-  // arricchimenti (join con servizio)
+  /** Progetto a cui vanno le ore. Solo sui servizi con `chiedeProgetto`, e mai obbligatorio. */
+  progettoId: number | null
+  // arricchimenti (join con servizio e progetto)
   servizioNome?: string
   centroCostoCodice?: string | null
   centroCostoNome?: string | null
+  progettoNome?: string | null
 }
 
 export interface TimbraturaInput {
@@ -137,6 +163,8 @@ export interface TimbraturaInput {
    *  spezzato in due righe, una per giornata. */
   oraInizio?: string | null
   oraFine?: string | null
+  /** Facoltativo, e tenuto solo se il servizio scelto chiede il progetto. */
+  progettoId?: number | null
   notte?: boolean
   reperibilita?: boolean
   mutua?: boolean
@@ -288,6 +316,18 @@ export interface RiepilogoPeriodo {
   notti: number
   /** Turni dichiarati in reperibilita' nel periodo. */
   turniReperibilita: number
+}
+
+/**
+ * Consuntivo ore di un progetto su un periodo, con lo spaccato per persona.
+ * `progettoId: null` e' la riga "senza progetto": le ore di progettazione non
+ * imputate, che restano visibili invece di sparire in un totale.
+ */
+export interface OrePerProgetto {
+  progettoId: number | null
+  nome: string
+  ore: number
+  persone: { dipendenteId: number; cognomeNome: string; ore: number }[]
 }
 
 /** Riga del cruscotto HR: stato del mese per dipendente */

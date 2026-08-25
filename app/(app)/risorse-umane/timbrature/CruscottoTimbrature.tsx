@@ -25,6 +25,7 @@ import {
   type ProfiloOrario,
   type ChiusuraMese,
   type Servizio,
+  type Progetto,
 } from '@/types/timbrature'
 
 import { RiepilogoMese } from '@/app/(app)/timbrature/_componenti/RiepilogoMese'
@@ -47,12 +48,15 @@ interface Dettaglio {
   profili: ProfiloOrario[]
   chiusura: ChiusuraMese | null
   servizi: Servizio[]
+  progetti: Progetto[]
 }
 
 interface FormRiga {
   id?: string
   data: string
   servizioId: number | ''
+  /** Progetto: solo sui servizi che lo chiedono, e sempre facoltativo. */
+  progettoId: number | ''
   oraInizio: string
   oraFine: string
   /** Dichiarazioni, non calcoli: vedi la nota in TimbratureOperatore. */
@@ -234,7 +238,7 @@ export default function CruscottoTimbrature() {
     if (!dettaglio) return
     setRigaForm({
       data,
-      servizioId: '', oraInizio: '09:00', oraFine: '13:00',
+      servizioId: '', progettoId: '', oraInizio: '09:00', oraFine: '13:00',
       notte: false, reperibilita: false, mutua: false, note: '',
       adOre: false,
     })
@@ -242,6 +246,7 @@ export default function CruscottoTimbrature() {
   function modificaRiga(t: Timbratura) {
     setRigaForm({
       id: t.id, data: t.data, servizioId: t.servizioId,
+      progettoId: t.progettoId ?? '',
       oraInizio: t.oraInizio ?? '', oraFine: t.oraFine ?? '',
       notte: t.notte, reperibilita: t.reperibilita,
       mutua: t.mutua, note: t.note ?? '',
@@ -255,6 +260,9 @@ export default function CruscottoTimbrature() {
     return dettaglio.servizi.find((s) => s.id === Number(rigaForm.servizioId))
   }, [dettaglio, rigaForm])
   const rigaGiustificativo = servizioSelezionato?.tipoVoce === 'giustificativo'
+  /** Il progetto si chiede solo dove il servizio lo prevede (oggi Progettazione). */
+  const rigaChiedeProgetto =
+    !!servizioSelezionato?.chiedeProgetto && (dettaglio?.progetti?.length ?? 0) > 0
   const rigaPuoAdOre = rigaGiustificativo && !!servizioSelezionato?.adOre
   const rigaAdOreAttivo = rigaPuoAdOre && !!rigaForm?.adOre
   const rigaContaOrario = !rigaGiustificativo || rigaAdOreAttivo
@@ -268,6 +276,7 @@ export default function CruscottoTimbrature() {
         dipendenteId: dettaglio.dipendente.id,
         data: rigaForm.data,
         servizioId: Number(rigaForm.servizioId),
+        progettoId: rigaChiedeProgetto && rigaForm.progettoId ? Number(rigaForm.progettoId) : null,
         oraInizio: rigaContaOrario ? rigaForm.oraInizio : null,
         oraFine: rigaContaOrario ? rigaForm.oraFine : null,
         notte: rigaGiustificativo ? false : rigaForm.notte,
@@ -328,10 +337,22 @@ export default function CruscottoTimbrature() {
         <Link href={isHr ? '/risorse-umane' : '/home'} className="text-white/70 text-sm hover:text-white">
           ← {isHr ? 'Torna a Risorse Umane' : 'Torna alla Home'}
         </Link>
-        <h1 className="text-lg font-bold">Fogli ore da validare</h1>
-        <p className="text-white/70 text-xs mt-0.5">
-          {isHr ? 'Vista Risorse Umane: tutti i dipendenti' : 'I tuoi collaboratori'}
-        </p>
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <h1 className="text-lg font-bold">Fogli ore da validare</h1>
+            <p className="text-white/70 text-xs mt-0.5">
+              {isHr ? 'Vista Risorse Umane: tutti i dipendenti' : 'I tuoi collaboratori'}
+            </p>
+          </div>
+          {/* Le ore per progetto sono un'altra domanda ("quanto e' costato il
+              bando"), non una colonna di questo elenco: pagina a parte. */}
+          <Link
+            href="/risorse-umane/timbrature/progetti"
+            className="shrink-0 rounded-lg bg-white/15 px-3 py-1.5 text-xs font-semibold hover:bg-white/25"
+          >
+            Ore per progetto →
+          </Link>
+        </div>
       </div>
 
       <div className="max-w-5xl mx-auto px-4 py-5">
@@ -629,6 +650,21 @@ export default function CruscottoTimbrature() {
                     </select>
                   </label>
                 </div>
+                {rigaChiedeProgetto && (
+                  <label className="block text-xs text-gray-600 mb-2">
+                    Progetto <span className="text-gray-400">(facoltativo)</span>
+                    <select
+                      value={rigaForm.progettoId}
+                      onChange={(e) => setRigaForm({ ...rigaForm, progettoId: e.target.value ? Number(e.target.value) : '' })}
+                      className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm mt-0.5"
+                    >
+                      <option value="">— nessun progetto —</option>
+                      {dettaglio.progetti.map((p) => (
+                        <option key={p.id} value={p.id}>{p.nome}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 {rigaPuoAdOre && (
                   <div className="flex gap-2">
                     <button

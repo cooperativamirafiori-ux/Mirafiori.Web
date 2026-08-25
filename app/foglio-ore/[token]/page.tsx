@@ -84,7 +84,9 @@ export default async function FoglioOrePage({
         giustificativi={riepilogo.giustificativi}
         righe={timbrature.map((t) => ({
           data: t.data,
-          servizio: t.servizioNome ?? '',
+          // Il progetto accanto al servizio: e' la copia che il dipendente
+          // conferma, deve dire esattamente cosa sta confermando.
+          servizio: t.progettoNome ? `${t.servizioNome} — ${t.progettoNome}` : (t.servizioNome ?? ''),
           orario: t.oraInizio && t.oraFine ? `${t.oraInizio}–${t.oraFine}` : '',
           ore: t.ore,
           perConto: t.perConto,

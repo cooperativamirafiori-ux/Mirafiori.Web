@@ -172,6 +172,11 @@ export function RigaVoce({
         <span className={`font-medium ${t.tipoVoce === 'giustificativo' ? 'text-accent-purple' : 'text-gray-800'}`}>
           {t.servizioNome}
         </span>
+        {/* Il progetto sta accanto al servizio: senza, due righe di Progettazione
+            sono identiche e non si capisce quale si sta correggendo. */}
+        {t.progettoNome && (
+          <span className="text-gray-500 ml-1.5">· {t.progettoNome}</span>
+        )}
         <span className="text-gray-400 ml-2 font-semibold">{oreLabel(t.ore)} h</span>
         <span className="inline-flex gap-1 ml-1.5 align-middle">
           {t.notte && <Pill text="notte" tono="azzurro" />}

@@ -49,14 +49,17 @@ function mapTimbratura(r: any): Timbratura {
     modificataDa: r.modificata_da ?? null,
     modificataIl: r.modificata_il ?? null,
     perConto: !!r.per_conto,
+    progettoId: r.progetto_id ?? null,
     servizioNome: s?.nome,
     centroCostoCodice: s?.centro_costo_codice ?? null,
     centroCostoNome: s?.centro_costo_nome ?? null,
+    progettoNome: r.progetto?.nome ?? null,
   }
 }
 
 const SELECT_TIMB =
-  '*, servizio:servizio_id ( nome, tipo_voce, centro_costo_codice, centro_costo_nome )'
+  '*, servizio:servizio_id ( nome, tipo_voce, centro_costo_codice, centro_costo_nome ),' +
+  ' progetto:progetto_id ( nome )'
 
 export async function listTimbrature(
   dipendenteId: number,
@@ -209,6 +212,7 @@ export function leggiRiga(body: any): TimbraturaInput {
   return {
     data: String(body?.data ?? '').slice(0, 10),
     servizioId: Number(body?.servizioId),
+    progettoId: body?.progettoId ? Number(body.progettoId) : null,
     oraInizio: body?.oraInizio ?? null,
     oraFine: body?.oraFine ?? null,
     notte: !!body?.notte,
@@ -230,6 +234,10 @@ function campiVoce(input: TimbraturaInput, serv: Servizio) {
   return {
     servizio_id: serv.id,
     tipo_voce: serv.tipoVoce,
+    // Il progetto vive solo sui servizi che lo chiedono: se si cambia servizio
+    // in modifica, il progetto rimasto nel form non si porta dietro. Resta
+    // facoltativo anche dove e' ammesso.
+    progetto_id: serv.chiedeProgetto ? (input.progettoId ?? null) : null,
     // Le tre spunte valgono solo per le ore di lavoro: un permesso retribuito
     // notturno non esiste. Il vincolo c'e' anche sul database.
     notte: lavoro && !!input.notte,
