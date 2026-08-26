@@ -101,9 +101,10 @@ async function graph(method, path, body) {
   return text ? JSON.parse(text) : {}
 }
 
-async function items(siteId, listId) {
+/** Tutti gli elementi di un indirizzo Graph, seguendo la paginazione a 200. */
+async function tutte(path) {
   const out = []
-  let url = `/sites/${siteId}/lists/${listId}/items?$expand=fields&$top=200`
+  let url = path
   while (url) {
     const p = await graph('GET', url)
     out.push(...(p.value || []))
@@ -111,6 +112,9 @@ async function items(siteId, listId) {
   }
   return out
 }
+
+const items = (siteId, listId) =>
+  tutte(`/sites/${siteId}/lists/${listId}/items?$expand=fields&$top=200`)
 
 // ============================================================
 // Normalizzazioni (le stesse di it-anomalie.mjs)
@@ -203,19 +207,28 @@ async function main() {
   ])
   console.log(`Origine: ${dispositivi.length} dispositivi · ${asgDisp.length} assegnazioni · ${simOrig.length} SIM · ${asgSimOrig.length} assegnazioni SIM`)
 
-  // --- utenti: LookupId → mail ------------------------------------------
-  const uil = listeIT.find((l) => l.list?.template === 'userInformationList')
-    || listeIT.find((l) => /informazioni utente|user information/i.test(l.displayName))
-  const utenti = new Map()
-  if (uil) {
-    for (const u of await items(sitoIT.id, uil.id)) {
-      utenti.set(String(u.id), {
-        mail: txt(u.fields?.EMail || u.fields?.UserName || '').toLowerCase(),
-        nome: txt(u.fields?.Title || ''),
-      })
+  // --- chi è l'assegnatario ---------------------------------------------
+  //
+  // `Utente` è un campo persona. Con `$expand=fields` secco arriva solo
+  // `UtenteLookupId`, e l'elenco informazioni utente del sito è nascosto —
+  // `GET /sites/{id}/lists` non lo elenca e non è raggiungibile né per titolo né
+  // per GUID (provato con `it-sonda-utenti.mjs`). Chiedendo invece il campo **per
+  // nome** si ottiene il nome visualizzato: quello lo prendiamo qui.
+  //
+  // L'indirizzo email no: si ricava dalla rubrica di Entra accoppiando per nome,
+  // e lo fa `it-assegnatari.mjs` — un lavoro solo, in un posto solo.
+  const nomiUtente = new Map()
+  for (const [listaNome, pre] of [['Assegnazioni_DISPOSITIVI', 'ASG'], ['Assegnazioni_SIM', 'ASGSIM']]) {
+    const righe = await tutte(
+      `/sites/${sitoIT.id}/lists/${trovaIT(listaNome)}/items?$expand=fields($select=Utente)&$top=200`,
+    )
+    for (const r of righe) {
+      const nome = txt(r.fields?.Utente)
+      if (nome) nomiUtente.set(`${pre}-${r.id}`, nome)
     }
   }
-  const utente = (id) => utenti.get(String(id ?? '')) ?? { mail: '', nome: '' }
+  console.log(`Assegnatari con un nome: ${nomiUtente.size}`)
+  const utente = (idIT) => ({ mail: '', nome: nomiUtente.get(idIT) ?? '' })
 
   // --- destinazione: cosa è già dentro ----------------------------------
   const [beniEsistenti, asgEsistenti, simEsistenti, asgSimEsistenti] = await Promise.all([
@@ -361,9 +374,9 @@ async function main() {
       }
 
       const corr = CORREZIONI.assegnazioni?.[idIT] ?? {}
-      const u = corr.senzaPersona ? { mail: '', nome: '' } : utente(f.UtenteLookupId)
-      if (!corr.senzaPersona && f.UtenteLookupId && !u.mail) {
-        avvisi.push(`${idIT}: utente ${f.UtenteLookupId} senza email in SharePoint, assegnatario vuoto`)
+      const u = corr.senzaPersona ? { mail: '', nome: '' } : utente(idIT)
+      if (!corr.senzaPersona && f.UtenteLookupId && !u.nome) {
+        avvisi.push(`${idIT}: utente ${f.UtenteLookupId} senza nome leggibile, assegnatario vuoto`)
       }
 
       let nomeUtenza = txt(f.Nomeutenza)
@@ -389,7 +402,7 @@ async function main() {
       }
 
       console.log(
-        `  ${idIT} → ${bene.numero}  ${(u.mail || 'in condivisione').padEnd(38)} ` +
+        `  ${idIT} → ${bene.numero}  ${(u.nome || 'in condivisione').padEnd(30)} ` +
         `${stato.padEnd(7)} dal ${dal}${al ? ` al ${al}` : ''}${corr.dataAssegnazione ? ' ←data di impianto' : ''}`,
       )
       if (APPLICA) {
@@ -453,7 +466,7 @@ async function main() {
         continue
       }
       const corr = CORREZIONI.assegnazioni?.[idIT] ?? {}
-      const u = corr.senzaPersona ? { mail: '', nome: '' } : utente(f.UtenteLookupId)
+      const u = corr.senzaPersona ? { mail: '', nome: '' } : utente(idIT)
       const dal = corr.dataAssegnazione ?? giorno(f.Dataassegnazione) ?? DATA_IMPIANTO
       const al = giorno(f.Datacessazione)
       const campi = {
@@ -468,7 +481,7 @@ async function main() {
         Note: txt(f.Note),
         IdListaIT: idIT,
       }
-      console.log(`  ${idIT} → ${sim.numero.padEnd(15)} ${(u.mail || 'in condivisione').padEnd(38)} dal ${dal}`)
+      console.log(`  ${idIT} → ${sim.numero.padEnd(15)} ${(u.nome || 'in condivisione').padEnd(30)} dal ${dal}`)
       if (APPLICA) {
         await graph('POST', `/sites/${site}/lists/${L.asgSim}/items`, { fields: puliti(campi) })
       }
@@ -487,7 +500,7 @@ async function main() {
       const bene = idBene.get(`DISP-${a.fields?.DispositivoLookupId}`)
       if (!bene?.itemId) continue
       const corr = CORREZIONI.assegnazioni?.[`ASG-${a.id}`] ?? {}
-      const u = corr.senzaPersona ? { mail: '', nome: '' } : utente(a.fields?.UtenteLookupId)
+      const u = corr.senzaPersona ? { mail: '', nome: '' } : utente(`ASG-${a.id}`)
       await graph('PATCH', `/sites/${site}/lists/${L.beni}/items/${bene.itemId}/fields`, {
         AssegnatarioMail: u.mail, AssegnatarioNome: u.nome,
       })
@@ -497,7 +510,7 @@ async function main() {
       if (txt(a.fields?.Stato) !== 'Attiva') continue
       const sim = idSim.get(`SIM-${a.fields?.NumeroLookupId}`)
       if (!sim?.itemId) continue
-      const u = utente(a.fields?.UtenteLookupId)
+      const u = utente(`ASGSIM-${a.id}`)
       await graph('PATCH', `/sites/${site}/lists/${L.sim}/items/${sim.itemId}/fields`, {
         AssegnatarioMail: u.mail, AssegnatarioNome: u.nome,
       })
