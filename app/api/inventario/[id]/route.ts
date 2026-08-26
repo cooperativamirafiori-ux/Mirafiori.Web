@@ -74,9 +74,9 @@ export async function PATCH(
     // Un bene che esce dal patrimonio non può restare in carico a qualcuno:
     // senza questo, da qui in un clic si ricrea la contraddizione che l'area IT
     // esiste per togliere (dismesso e insieme in mano a una persona).
-    let assegnazioniChiuse = 0
+    let uscita = { assegnazioniChiuse: 0, simStaccate: 0 }
     if (STATI_BENE_CHIUSI.includes(bene.statoBene) && !STATI_BENE_CHIUSI.includes(prima.statoBene)) {
-      assegnazioniChiuse = await chiudiPerUscita('bene', Number(bene.spItemId), bene.dataDismissione)
+      uscita = await chiudiPerUscita('bene', Number(bene.spItemId), bene.dataDismissione)
     }
 
     await logAzione({
@@ -91,11 +91,12 @@ export async function PATCH(
         ubicazione: bene.ubicazione,
         strutturaId: bene.struttura?.id,
         dataDismissione: bene.dataDismissione,
-        assegnazioniChiuse: assegnazioniChiuse || undefined,
+        assegnazioniChiuse: uscita.assegnazioniChiuse || undefined,
+        simStaccate: uscita.simStaccate || undefined,
       },
     })
 
-    return NextResponse.json({ bene, assegnazioniChiuse })
+    return NextResponse.json({ bene, ...uscita })
   } catch (e: any) {
     console.error(`[PATCH /api/inventario/${id}]`, e)
     return err(e?.message ?? 'Errore interno', 500)

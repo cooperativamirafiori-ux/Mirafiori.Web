@@ -91,7 +91,7 @@ export async function PATCH(
     // che escono dal patrimonio.
     let assegnazioniChiuse = 0
     if (STATI_SIM_CHIUSI.includes(sim.stato) && !STATI_SIM_CHIUSI.includes(prima.stato)) {
-      assegnazioniChiuse = await chiudiPerUscita('sim', Number(sim.spItemId), sim.dataCessazione)
+      ;({ assegnazioniChiuse } = await chiudiPerUscita('sim', Number(sim.spItemId), sim.dataCessazione))
     }
 
     await logAzione({

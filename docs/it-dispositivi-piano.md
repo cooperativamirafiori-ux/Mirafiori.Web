@@ -212,6 +212,23 @@ Lo storico è la ragione per cui le assegnazioni sono righe. Si vede in tre punt
 - **Lo stato dell'assegnazione non si scrive a mano**: `correggi` lo rifiuta, e rifiuta anche
   una data di fine su una riga ancora attiva. Per chiudere c'è "Restituito", che sa anche
   cosa fare all'anagrafica.
+- **Dismettere un telefono stacca la SIM, non la cessa.** La scheda sopravvive
+  all'apparecchio: resta assegnata alla persona e finisce nel telefono nuovo. L'unica cosa
+  che smette di essere vera è dove sta infilata, e quella si azzera.
+
+### Cosa vede chi guarda, quando un bene esce dal patrimonio
+
+I dismessi **non compaiono nell'area IT**: quell'elenco è quello che c'è adesso, e un bene
+uscito in mezzo agli altri è rumore per sempre. In fondo alla lista una riga dice quanti sono
+e dove guardare.
+
+La loro storia però non si perde: **la scheda del bene in Inventario mostra tutte le
+assegnazioni**, chi l'ha avuto e per quanto, in sola lettura — assegnare e restituire si fa
+dall'area IT, che sa anche cosa cambiare sull'anagrafica. Inventario è il registro, e un
+registro non dimentica.
+
+Chi dismette resta chi ha il permesso **Acquisti**, dalla pagina Inventario: l'IT segnala e
+amministrazione registra l'uscita dal patrimonio (scelta di Dennis del 26/08/2026).
 - **Centro di costo e assegnatario sul bene li scrive solo l'app**, mai una persona a mano.
 - Le date sono solo-giorno, normalizzate con gli helper già in uso (`lib/timbrature/date.ts`).
 

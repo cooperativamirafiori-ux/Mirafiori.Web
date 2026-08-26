@@ -3,6 +3,7 @@ import { auth } from '@/lib/core/auth'
 import { Header } from '@/components/ui/Header'
 import { AREA_ACQUISTI } from '@/lib/acquisti/data'
 import { getInventario, inventarioConfigurato } from '@/lib/inventario/data'
+import { getAssegnazioni } from '@/lib/it/assegnazioni'
 import { getStrutture } from '@/lib/strutture/data'
 import { InventarioBeni } from './InventarioBeni'
 
@@ -28,7 +29,14 @@ export default async function InventarioPage() {
     )
   }
 
-  const [beni, strutture] = await Promise.all([getInventario(), getStrutture()])
+  // Le assegnazioni servono per lo storico nella scheda del bene: è qui che si
+  // legge chi ha avuto un dispositivo, anche dopo che è stato dismesso e non
+  // compare più nell'area IT. Una lettura per tutta la pagina, non una per riga.
+  const [beni, strutture, assegnazioni] = await Promise.all([
+    getInventario(),
+    getStrutture(),
+    getAssegnazioni('bene'),
+  ])
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -37,6 +45,7 @@ export default async function InventarioPage() {
         <InventarioBeni
           iniziali={beni}
           strutture={strutture.map((s) => ({ id: s.id, label: s.strutturaLabel }))}
+          assegnazioni={assegnazioni}
         />
       </main>
     </div>

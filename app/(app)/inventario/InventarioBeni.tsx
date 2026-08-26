@@ -26,10 +26,18 @@ import {
   type BeneInventario,
   type StatoBene,
 } from '@/types/inventario'
+import type { Assegnazione } from '@/types/it'
 
 interface Props {
   iniziali: BeneInventario[]
   strutture: Array<{ id: number; label: string }>
+  /**
+   * Tutte le assegnazioni dei beni, per lo storico nella scheda. Qui è in sola
+   * lettura: si assegna e si restituisce dall'area IT e Dispositivi. Ma questo
+   * resta il posto dove la cronologia si legge anche per un bene dismesso, che
+   * dall'area IT è sparito.
+   */
+  assegnazioni?: Assegnazione[]
 }
 
 const campoCls =
@@ -38,7 +46,7 @@ const labelCls = 'block text-xs font-medium text-gray-600 mb-1'
 
 type FiltroGaranzia = 'tutte' | 'attiva' | 'in-scadenza' | 'scaduta'
 
-export function InventarioBeni({ iniziali, strutture }: Props) {
+export function InventarioBeni({ iniziali, strutture, assegnazioni = [] }: Props) {
   const [beni, setBeni] = useState(iniziali)
   const [filtroStato, setFiltroStato] = useState<'in-uso' | 'tutti' | string>('in-uso')
   const [filtroStruttura, setFiltroStruttura] = useState('')
@@ -180,10 +188,43 @@ export function InventarioBeni({ iniziali, strutture }: Props) {
               onToggle={() => setApertoId(apertoId === b.spItemId ? null : b.spItemId)}
               strutture={strutture}
               onAggiornato={aggiorna}
+              storico={assegnazioni.filter((a) => a.oggettoId === Number(b.spItemId))}
             />
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Chi ha avuto il bene, dalla volta più recente. In sola lettura: assegnare e
+ * restituire si fa dall'area IT e Dispositivi, che sa anche cosa cambiare
+ * sull'anagrafica. Qui la cronologia c'è perché questo è il registro, e un bene
+ * dismesso — che dall'area IT è sparito — la sua storia la conserva qui.
+ */
+function Storico({ righe }: { righe: Assegnazione[] }) {
+  return (
+    <div className="bg-white rounded-lg border border-gray-100 p-3">
+      <p className="text-xs font-semibold text-gray-700 mb-2">Chi l’ha avuto</p>
+      <ul className="space-y-1.5 text-xs">
+        {righe.map((a) => (
+          <li key={a.spItemId} className="flex flex-wrap items-baseline gap-x-2">
+            <span className={a.stato === 'Attiva' ? 'font-semibold text-gray-800' : 'text-gray-700'}>
+              {a.assegnatarioNome || a.assegnatarioMail || 'in condivisione'}
+            </span>
+            <span className="text-gray-500">
+              dal {dataBreve(a.dataAssegnazione)}
+              {a.dataFine ? ` al ${dataBreve(a.dataFine)}` : a.stato === 'Attiva' ? ' · in corso' : ''}
+            </span>
+            {a.centroDiCosto?.value && <span className="text-gray-400">{a.centroDiCosto.value}</span>}
+            {a.nomeUtenza && <span className="text-gray-400">{a.nomeUtenza}</span>}
+          </li>
+        ))}
+      </ul>
+      <p className="text-[11px] text-gray-400 mt-2">
+        Le assegnazioni si gestiscono in IT e Dispositivi.
+      </p>
     </div>
   )
 }
@@ -194,12 +235,14 @@ function Scheda({
   onToggle,
   strutture,
   onAggiornato,
+  storico = [],
 }: {
   b: BeneInventario
   aperta: boolean
   onToggle: () => void
   strutture: Array<{ id: number; label: string }>
   onAggiornato: (b: BeneInventario) => void
+  storico?: Assegnazione[]
 }) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
@@ -365,6 +408,8 @@ function Scheda({
           <p className="text-[11px] text-gray-400 -mt-2">
             I documenti si caricano dalla richiesta di acquisto, in Gestione acquisti.
           </p>
+
+          {storico.length > 0 && <Storico righe={storico} />}
 
           {/* Vita del bene: modificabile */}
           <div className="space-y-2.5 bg-white rounded-lg border border-gray-100 p-3">

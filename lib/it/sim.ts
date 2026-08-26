@@ -150,6 +150,26 @@ export async function aggiornaSim(sim: Sim, mod: ModificaSim): Promise<Sim> {
 }
 
 /**
+ * Stacca dal bene le SIM che risultavano infilate dentro, lasciandole assegnate
+ * a chi le usa.
+ *
+ * Serve quando un telefono esce dal patrimonio: la scheda non muore col
+ * telefono, passa nell'apparecchio nuovo. L'unica cosa che smette di essere vera
+ * è *dove* sta — e quella si azzera, così nessuno legge "sta nell'INV-0042" di
+ * un telefono dismesso.
+ *
+ * Ritorna quante SIM ha staccato.
+ */
+export async function staccaSimDaBene(beneId: number): Promise<number> {
+  if (!simConfigurate()) return 0
+  const legate = (await getSim()).filter((s) => s.beneAssociato?.id === beneId)
+  for (const s of legate) {
+    await graphPatch(`${base()}/${s.spItemId}/fields`, { BeneAssociatoLookupId: null })
+  }
+  return legate.length
+}
+
+/**
  * Riscrive sulla SIM chi ce l'ha e su quale centro di costo pesa.
  *
  * La chiama solo `flusso.ts` dopo aver toccato le assegnazioni: sono campi di

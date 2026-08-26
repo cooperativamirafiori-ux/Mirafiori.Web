@@ -24,7 +24,7 @@
  */
 
 import { aggiornaBene, getBeneById } from '@/lib/inventario/data'
-import { aggiornaSpecchioSim, getSimById } from '@/lib/it/sim'
+import { aggiornaSpecchioSim, getSimById, staccaSimDaBene } from '@/lib/it/sim'
 import {
   aggiornaAssegnazione,
   creaAssegnazione,
@@ -227,12 +227,16 @@ export async function restituisci(
  * La chiamano la dismissione di un bene (dalla pagina Inventario) e la cessazione
  * di una SIM. Senza questo, in un clic si ricreerebbe la contraddizione che
  * l'area esiste per togliere: dismesso e contemporaneamente in mano a qualcuno.
+ *
+ * Per un bene stacca anche le SIM che risultavano dentro. Non le cessa e non le
+ * toglie a nessuno: **la scheda sopravvive all'apparecchio** e passa nel telefono
+ * nuovo, quindi l'unica cosa da azzerare è dove sta infilata.
  */
 export async function chiudiPerUscita(
   g: GenereAssegnazione,
   oggettoId: number,
   data?: string,
-): Promise<number> {
+): Promise<{ assegnazioniChiuse: number; simStaccate: number }> {
   const quando = soloData(data) || oggi()
   const attive = await attiveDi(g, oggettoId)
   for (const a of attive) {
@@ -242,7 +246,17 @@ export async function chiudiPerUscita(
     await aggiornaAssegnazione(g, a.spItemId, { stato: 'Chiusa', dataFine: fine })
   }
   if (attive.length) await rispecchia(g, oggettoId, null)
-  return attive.length
+
+  let simStaccate = 0
+  if (g === 'bene') {
+    try {
+      simStaccate = await staccaSimDaBene(oggettoId)
+    } catch (err) {
+      // Come lo specchio: è un dato di comodo, non deve far fallire la dismissione.
+      console.error('[it/flusso] SIM non staccate dal bene', oggettoId, err)
+    }
+  }
+  return { assegnazioniChiuse: attive.length, simStaccate }
 }
 
 // ------------------------------------------------------------

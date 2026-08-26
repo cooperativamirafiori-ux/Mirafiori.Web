@@ -9,6 +9,7 @@
  */
 
 import { useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Kpi } from '@/components/ui/Kpi'
 import { Pill } from '@/components/ui/Pill'
@@ -16,7 +17,7 @@ import { Vuoto } from '@/components/ui/Vuoto'
 import type { VoceRubrica } from '@/lib/core/rubrica'
 import type { AreaIT } from '@/lib/it/data'
 import { euro } from '@/types/acquisti'
-import { STATI_BENE_CHIUSI, eBeneIT, type BeneInventario } from '@/types/inventario'
+import { eBeneIT, type BeneInventario } from '@/types/inventario'
 import { TIPI_CON_FIREWALL, TIPI_IT, type Assegnazione, type Sim } from '@/types/it'
 import { SchedaDispositivo } from './SchedaDispositivo'
 import { SchedaSim } from './SchedaSim'
@@ -153,7 +154,9 @@ export function AreaITSchermo({ area, rubrica }: { area: AreaIT; rubrica: VoceRu
     return l
   }, [dati.sim, stato, query])
 
-  const inPatrimonio = dati.dispositivi.filter((r) => !STATI_BENE_CHIUSI.includes(r.bene.statoBene))
+  // `dati.dispositivi` contiene già solo i beni in patrimonio: i dismessi li
+  // lascia fuori lib/it/data.ts, e la loro storia si legge in Inventario.
+  const inPatrimonio = dati.dispositivi
   const senzaFirewall = inPatrimonio.filter(
     (r) => r.bene.tipoIT && TIPI_CON_FIREWALL.includes(r.bene.tipoIT) && r.bene.firewallInstallato !== true,
   )
@@ -269,6 +272,17 @@ export function AreaITSchermo({ area, rubrica }: { area: AreaIT; rubrica: VoceRu
             ))}
           </div>
         ))}
+
+      {vista === 'dispositivi' && dati.dismessi > 0 && (
+        <p className="text-xs text-gray-400 text-center">
+          {dati.dismessi} dispositiv{dati.dismessi === 1 ? 'o' : 'i'} uscit
+          {dati.dismessi === 1 ? 'o' : 'i'} dal patrimonio non compaiono qui.{' '}
+          <Link href="/inventario" className="underline hover:text-gray-600">
+            La loro storia è in Inventario
+          </Link>
+          .
+        </p>
+      )}
 
       {vista === 'sim' &&
         (sim.length === 0 ? (

@@ -1,0 +1,71 @@
+{
+  "_": [
+    "Accoppiamento fra la colonna \"servizio\" dell'export TIM e i centri di costo.",
+    "Lo legge scripts/import-sim-tim.mjs. Il valore è il NOME del centro di costo,",
+    "come sta nella lista SharePoint: lo script lo risolve in lookup e si ferma se",
+    "un nome non esiste (meglio fermarsi che scrivere un riferimento sbagliato).",
+    "",
+    "null = da decidere: la SIM viene importata e assegnata comunque, ma senza",
+    "centro di costo, e compare in IT e Dispositivi › Da sistemare."
+  ],
+
+  "certi": {
+    "1": "Progettazione - Amministrazione",
+    "ufficio": "Progettazione - Amministrazione",
+    "formazione": "Progettazione - Amministrazione",
+    "comunicazione": "Progettazione - Amministrazione",
+    "RU": "Progettazione - Amministrazione",
+    "musei": "MirArte",
+    "cdsr casa oz (sanitaria)": "Interventi CDSR Fondazione OZ",
+    "COSMICA": "CRP CO.S.MI.C.A",
+    "crp cosmica 2": "CRP CO.S.MI.C.A",
+    "educativa sanitaria": "Educativa Sanitaria ASL TO5",
+    "psichiatria adulti": "Salute Mentale ASL TO",
+    "cpg": "CPG Torino",
+    "CASA ARTEMISIA": "Casa Artemisia",
+    "cisa 12": "CISA 12 Nichelino",
+    "GIULIA": "CER Giulia",
+    "locanda": "La Locanda nel Parco"
+  },
+
+  "daDecidere": {
+    "AUTONOMIE": null,
+    "educativa specialistica": null,
+    "Educativa territoriale": null
+  },
+
+  "perche": {
+    "AUTONOMIE": "l'area Autonomie ha quattro centri di costo, non uno: SCAT.TO abitare, Condominio Solidale, Care Leavers, CISA 12",
+    "educativa specialistica": "sette righe: l'educativa è divisa in Ed. amb. Nord e Ed. amb. Sud, il file non lo dice",
+    "Educativa territoriale": "quattro righe: stesso dubbio Nord/Sud",
+    "_deciso": "Ufficio, formazione, comunicazione, RU e la SIM di Cordaro vanno su Progettazione - Amministrazione; musei su MirArte (Dennis, 26/08/2026). La Serra aeroponica resta l'eccezione per singolo numero."
+  },
+
+  "perRiga": {
+    "_": "Eccezioni per singolo numero, quando il servizio della riga è fuorviante.",
+    "3465004565": "Una Serra per Mirafiori"
+  },
+
+  "personePerNumero": {
+    "_": [
+      "Chi usa il numero, quando il nome sul foglio TIM non porta all'account:",
+      "account inesistente, cognome scritto diversamente, o SIM passata a un'altra",
+      "persona senza che il foglio lo dica. Basta la parte prima della @.",
+      "null = deliberatamente senza persona, da assegnare dall'app.",
+      "Indicate da Dennis il 26/08/2026."
+    ],
+    "3357411619": "luca.cordaro",
+    "3355738230": "silvia.losardo",
+    "3453531505": "giorgia.tasca",
+    "3939607972": "simona.finetti",
+    "3421958120": null
+  },
+
+  "utenzeNonDiPersona": [
+    "SPICO",
+    "SERRA AEREOPONICA (EX ANNA RUSSO)",
+    "COMUNITA COSMICA",
+    "COMUNITA GIULIA",
+    "LOCANDA"
+  ]
+}

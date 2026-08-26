@@ -18,7 +18,7 @@ import {
   getAssegnazioniPerPersona,
 } from '@/lib/it/assegnazioni'
 import { getSim, simConfigurate } from '@/lib/it/sim'
-import { eBeneIT, type BeneInventario } from '@/types/inventario'
+import { STATI_BENE_CHIUSI, eBeneIT, type BeneInventario } from '@/types/inventario'
 import type { Assegnazione, CentroDiCostoVoce, Sim } from '@/types/it'
 
 /** Un dispositivo con chi ce l'ha adesso. */
@@ -34,7 +34,10 @@ export interface RigaSim {
 }
 
 export interface AreaIT {
+  /** Solo i dispositivi in patrimonio: i dismessi restano in Inventario. */
   dispositivi: RigaDispositivo[]
+  /** Quanti dispositivi sono usciti dal patrimonio, per dire dove sono finiti. */
+  dismessi: number
   sim: RigaSim[]
   /**
    * Tutte le assegnazioni, non solo le attive: gli storici si leggono in due
@@ -84,10 +87,14 @@ export async function getAreaIT(): Promise<AreaIT> {
   const attiveSim = indicizzaAttive(asgSim)
 
   return {
+    // Fuori i beni usciti dal patrimonio: l'area IT è l'elenco di quello che c'è,
+    // e un dismesso in mezzo agli altri è rumore per sempre. La sua storia non si
+    // perde — resta nella scheda del bene in Inventario, che è il registro.
     dispositivi: beni
-      .filter(eBeneIT)
+      .filter((b) => eBeneIT(b) && !STATI_BENE_CHIUSI.includes(b.statoBene))
       .map((bene) => ({ bene, attiva: attiveBeni.get(Number(bene.spItemId)) ?? null }))
       .sort((a, b) => a.bene.numero.localeCompare(b.bene.numero, 'it')),
+    dismessi: beni.filter((b) => eBeneIT(b) && STATI_BENE_CHIUSI.includes(b.statoBene)).length,
     sim: sim.map((s) => ({ sim: s, attiva: attiveSim.get(Number(s.spItemId)) ?? null })),
     storici: { bene: asgBeni, sim: asgSim },
     daClassificare: beni.filter((b) => !eBeneIT(b) && b.categoria === CATEGORIA_INFORMATICA),
