@@ -73,6 +73,13 @@ export default async function HomePage() {
             sottotitolo="Chiedi la fattura per un cliente"
           />
           <FunzioneCard
+            href="/assistenza"
+            emoji="🛠"
+            accent="cyan"
+            titolo="Assistenza IT"
+            sottotitolo="PC, telefono, stampante, rete: chiedi aiuto"
+          />
+          <FunzioneCard
             href="/miei-strumenti"
             emoji="💻"
             accent="cyan"

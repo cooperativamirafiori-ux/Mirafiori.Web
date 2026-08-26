@@ -29,10 +29,15 @@ Cartella del progetto: `web/` (la radice del repo git è `web/`, non la cartella
 5. **File oltre ~500 righe = segnale di spezzarlo.** `npm run mappa` li elenca in cima al report.
 6. **Non si scava negli interni di un altro modulo** (vedi § Convenzioni).
 7. **Prima di proporre un push: `npx tsc --noEmit`.** L'app non ha test automatici, il compilatore
-   è la rete di sicurezza — e con `strict: true` copre molto.
-8. **Non controllare mai il deploy su Vercel.** Parte da sé dopo il push e va per conto suo: niente
+   è la rete di sicurezza — e con `strict: true` copre molto. Questo lo lancia Claude.
+8. **`npm run build` lo lancia sempre Dennis sul Mac** (26 ago 2026). Nella sandbox il progetto è
+   una cartella montata e la compilazione ci striscia: si pianta sulla prima riga per un quarto
+   d'ora, mentre ogni chiamata scade dopo tre minuti — e ucciderla lascia una `.next` a metà che
+   poi rompe `npm run dev`. Quindi: Claude fa `tsc`, e il comando del build lo **dà** a Dennis
+   come ultimo passaggio, aspettando l'esito prima di proporre il commit.
+9. **Non controllare mai il deploy su Vercel.** Parte da sé dopo il push e va per conto suo: niente
    `list_deployments`, niente attese, niente "ti confermo quando è READY". Finito il push, finito.
-9. **Comandi da terminale: uno per volta.** Si scrive chiaramente cosa deve copiare, **un solo blocco
+10. **Comandi da terminale: uno per volta.** Si scrive chiaramente cosa deve copiare, **un solo blocco
    per messaggio**, poi si aspetta che Dennis dica "ok" prima di dare il successivo. Mai una sequenza
    di cinque comandi da eseguire in fila: se il secondo fallisce, gli altri tre fanno danno.
    Ricorda anche che è **zsh**: nessun commento `#` sulla stessa riga del comando, finisce fra gli
@@ -54,6 +59,7 @@ e non serve cercare altrove.
 | **Costi strutture** | `app/(app)/inserisci-costo/` `cruscotto-costi/` | `app/api/costi/` | `lib/costi/data.ts` | il cruscotto ha due viste: per centro di costo (default) e per struttura |
 | **Centri di costo** | — (anagrafica) | — | `lib/centri-costo/data.ts` | lista SP `SP_LIST_CENTRI_COSTO`, 23 CC raggruppati in 10 aree<br>`scripts/provision-centri-costo.mjs` `provision-centri-costo-collegamenti.mjs` `backfill-centro-costo-costi.mjs`<br>`docs/centri-di-costo-piano.md` |
 | **Acquisti** | `app/(app)/acquisti/` (`nuova/` `mie/` `gestione/`) | `app/api/acquisti/**`<br>`app/api/consegna/[token]/`<br>`app/api/cron/acquisti/` | `lib/acquisti/`: `data.ts` `flusso.ts` `notifiche.ts` | pubblico tokenizzato: `app/consegna/[token]/`<br>`../Area Acquisti - Manuale operativo.docx`<br>`scripts/provision-acquisti.mjs` |
+| **Assistenza IT** | `app/(app)/assistenza/` (`nuova/` `mie/` `gestione/`) | `app/api/assistenza/**`<br>`app/api/cron/assistenza/` | `lib/assistenza/`: `data.ts` `flusso.ts` `notifiche.ts` `allegati.ts` | aperta a **tutti**: il permesso `IT e Dispositivi` serve solo a `gestione/`<br>il ticket lo chiude l'IT, il richiedente può riaprirlo entro 15 giorni<br>`scripts/provision-assistenza.mjs` · `docs/assistenza-it.md` |
 | **Richiesta fattura** | `app/(app)/richiesta-fattura/` | `app/api/fatture/`<br>`app/api/clienti/[id]/` | `lib/fatture/`: `data.ts` `notifiche.ts` `centri-di-costo.ts`<br>anagrafica: `lib/clienti/data.ts`<br>campi e validazione in `types/fatture.ts` | aperta a **tutti** gli utenti, nessun permesso d'area<br>`scripts/provision-fatture.mjs` `provision-clienti.mjs` `import-clienti.mjs`<br>`docs/richiesta-fattura.md` |
 | **Prestazioni occasionali** | `app/(app)/prestazioni/` (`nuova/` `attive/`) | `app/api/prestazioni/**`<br>`app/api/prestatori/**`<br>`app/api/notula/[token]/**`<br>`app/api/docusign/callback/` | `lib/prestazioni/`: `data.ts` `documenti.ts` `firma.ts` `docusign.ts` `casistiche-gdpr.ts` `notifiche.ts` | modelli docx: `lib/templates/prestazione-occasionale/`<br>allegati: `lib/allegati-prestatore/`<br>pubblico: `app/notula/[token]/`<br>`docs/prestazioni-*.md` `docs/docusign-setup.md` |
 | **Risorse Umane** | `app/(app)/risorse-umane/` (`GestioneRU.tsx`, `CartellaDipendente.tsx`, `dipendenti/` `collaboratori/` `tirocini/`) | `app/api/risorse-umane/**` | `lib/risorse-umane/`: `data.ts` `api.ts` `fetch.ts` `export-xlsx.ts` `gruppo.ts` | RU vive su **sito SharePoint dedicato** con auth **delegata** (`lib/core/graph-delegato.ts`)<br>`docs/risorse-umane-setup.md` `docs/piano-ru-*.md` `docs/runbook-ru-*.md`<br>`scripts/ru-assetto.mjs` + gli `import-*.mjs` |
@@ -93,8 +99,8 @@ lib/<area>/        una cartella per area di dominio
 types/<area>.ts    tipi, già una per area
 ```
 
-Aree presenti: `acquisti` `centri-costo` `clienti` `costi` `fatture` `inventario` `manutenzioni` `prestazioni`
-`risorse-umane` `software` `strutture` `timbrature`.
+Aree presenti: `acquisti` `assistenza` `centri-costo` `clienti` `costi` `fatture` `inventario` `it`
+`manutenzioni` `prestazioni` `risorse-umane` `software` `strutture` `timbrature`.
 
 `centri-costo`, `clienti` e `strutture` sono **anagrafiche**: non hanno schermate proprie, le usa chi ne ha bisogno
 (oggi `fatture` la prima, `manutenzioni` e `acquisti` la seconda).

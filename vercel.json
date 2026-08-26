@@ -17,6 +17,10 @@
       "schedule": "30 7 * * *"
     },
     {
+      "path": "/api/cron/assistenza",
+      "schedule": "45 7 * * *"
+    },
+    {
       "path": "/api/cron/timbrature-alert",
       "schedule": "0 17 * * *"
     }
