@@ -122,11 +122,19 @@ stili — che è la parte scritta peggio e che così non leggiamo affatto.
 |---|---:|---|
 | Bonifico | 785 | coda |
 | Contanti | 511 | archivio (già uscito) |
-| RID · SEPA Direct Debit (CORE/B2B) · Domiciliazione · PagoPA · RIBA · MAV · Quietanza erario | 607 | escono da sole |
+| RID · SEPA Direct Debit (CORE/B2B) · Domiciliazione · RIBA · Quietanza erario | 572 | escono da sole |
 | Carta di pagamento | 262 | archivio (già uscito) |
+| PagoPA | 34 | coda |
 | Bollettino di c/c postale | 4 | coda |
 | Assegno | 3 | coda |
+| MAV | 1 | coda |
 | Trattenuta su somme già riscosse | 1 | coda, come sconosciuta |
+
+**La domanda che divide le due liste è una sola: qualcuno deve fare un gesto perché il denaro
+esca?** Se sì è una coda, se no è un addebito. Non conta che il pagamento sia elettronico o
+preautorizzato in astratto: PagoPA, MAV e RAV sono *avvisi* — arriva il codice e qualcuno lo
+paga — e stavano fra gli addebiti automatici per errore, corretto il 01/09/2026 su segnalazione
+di Dennis. Da rivedere quando capiterà il caso: `Quietanza erario` (2 righe) è oggi un addebito.
 
 ⚠️ **«Bollettino di c/c postale» è l'errore che il file vero ha scoperto**: il confronto era su
 sottostringa e *postale* contiene *pos*, quindi quei quattro bollettini nascevano già pagati e
@@ -134,18 +142,21 @@ nessuno li avrebbe più visti. Ora il confronto è su **parola intera** (`famigl
 `tracciato.ts`). Aggiungendo una tipologia, tenere l'ancora `\b`.
 
 **Cosa produce il primo caricamento** (soglia 1.500 €, casella «chiudi le pagate» spuntata):
+nelle due code **202 righe su 2.173** per 134.951 €, di cui **164 già scadute per 100.352 €**, la
+più vecchia del 7 gennaio. Escono da sole 63 righe. Senza la casella spuntata le code sarebbero
+oltre 800 righe: è la misura di quanto serva, al primo giro.
 
-| | Righe | Valore |
-|---|---:|---:|
-| Coda **da pagare** | 153 | 55.464 € |
-| Coda **da approvare** | 21 | 73.921 € |
-| Escono da sole (residue) | 91 | 34.342 € |
-| Chiuse (negozio + gestionale) | 1.873 | 599.822 € |
-| Note di credito | 35 | −19.136 € |
+## Le piastrelle di testa
 
-Nelle due code restano **174 righe su 2.173**, di cui **149 già scadute per 96.886 €**, la più
-vecchia del 7 gennaio. Senza la casella spuntata le code sarebbero 780 righe: è la misura di
-quanto serva, al primo giro.
+Scaduto · entro 7 · 30 · 60 · 90 giorni · da approvare. Le finestre sono **cumulative** — «entro
+60» comprende «entro 30», come si legge la frase — e **non comprendono lo scaduto**, che ha la
+sua piastrella: sommare il ritardo al futuro nasconderebbe proprio il numero da guardare per
+primo.
+
+Contano le due code. La spunta **«includi gli addebiti automatici»** li aggiunge alle finestre,
+e allora le piastrelle smettono di dire «quanto devo pagare» e dicono «quanto esce dal conto» —
+due domande diverse, ed è per questo che è una spunta e non un totale unico. Gli automatici con
+data passata non entrano mai: sono già usciti, non sono uno scaduto da pagare.
 
 Senza chiusura dal gestionale e a soglia 1.000 € chi approva vedrebbe 98 righe invece di 21: la
 soglia a 1.500 taglia due terzi della coda di chi approva e sposta 34 righe (39.040 €) su chi

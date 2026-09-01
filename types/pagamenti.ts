@@ -89,13 +89,34 @@ export interface RigaScadenza {
   giorniRitardo: number
 }
 
+export interface Totale {
+  righe: number
+  importo: number
+}
+
 export interface TotaliCoda {
-  scaduto: { righe: number; importo: number }
-  entro7: { righe: number; importo: number }
-  daApprovare: { righe: number; importo: number }
-  /** Approvato e non ancora pagato: l'impegnato. Senza, si impegna due volte lo stesso denaro. */
-  impegnato: { righe: number; importo: number }
-  daPagare: { righe: number; importo: number }
+  scaduto: Totale
+  /**
+   * Finestre **cumulative** da oggi: «entro 60» comprende «entro 30», come si
+   * legge la frase. Non comprendono lo scaduto, che ha una piastrella sua.
+   */
+  entro7: Totale
+  entro30: Totale
+  entro60: Totale
+  entro90: Totale
+  daApprovare: Totale
+  daPagare: Totale
+  /**
+   * Gli addebiti automatici in arrivo, a parte, per la spunta «previsione
+   * completa». Solo il futuro: un RID con data passata è già uscito dal conto,
+   * non è uno scaduto da pagare.
+   */
+  automatiche: {
+    entro7: Totale
+    entro30: Totale
+    entro60: Totale
+    entro90: Totale
+  }
 }
 
 // ------------------------------------------------------------

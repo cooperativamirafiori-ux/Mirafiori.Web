@@ -65,6 +65,13 @@ export function FlussiFatture({
   const [dataPagamento, setDataPagamento] = useState(oggiISO())
   const [inCorso, setInCorso] = useState(false)
   const [ultimeChiuse, setUltimeChiuse] = useState<string[]>([])
+  // Spenta di default: le piastrelle raccontano le code, che è quello che si
+  // vede sotto. Accesa, diventano una previsione di cassa — due domande
+  // diverse, e chi guarda deve sapere quale sta leggendo.
+  const [conAutomatici, setConAutomatici] = useState(false)
+
+  const finestra = (t: TotaliCoda, chiave: 'entro7' | 'entro30' | 'entro60' | 'entro90') =>
+    t[chiave].importo + (conAutomatici ? t.automatiche[chiave].importo : 0)
 
   const carica = useCallback(async () => {
     setCaricando(true)
@@ -175,19 +182,31 @@ export function FlussiFatture({
         </div>
       )}
 
-      {/* I numeri di testa. `impegnato` è quello che di solito manca: chi
-          approva guardando solo «da approvare» impegna due volte lo stesso
-          denaro. */}
+      {/* I numeri di testa: prima il ritardo, poi la scala del futuro.
+          Le finestre sono cumulative e lasciano fuori lo scaduto — sommarlo al
+          futuro nasconderebbe proprio quello che va guardato per primo. */}
       {t && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Kpi titolo="Scaduto" valore={euro(t.scaduto.importo)} accento="red" />
-          <Kpi titolo="Scade entro 7 giorni" valore={euro(t.entro7.importo)} accento="amber" />
-          <Kpi titolo="Da approvare" valore={euro(t.daApprovare.importo)} accento="violet" />
-          <Kpi
-            titolo="Approvato, non ancora pagato"
-            valore={euro(t.impegnato.importo)}
-            accento="slate"
-          />
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <Kpi titolo="Scaduto" valore={euro(t.scaduto.importo)} accento="red" />
+            <Kpi titolo="Scade entro 7 giorni" valore={euro(finestra(t, 'entro7'))} accento="amber" />
+            <Kpi titolo="Entro 30 giorni" valore={euro(finestra(t, 'entro30'))} accento="cyan" />
+            <Kpi titolo="Entro 60 giorni" valore={euro(finestra(t, 'entro60'))} accento="cyan" />
+            <Kpi titolo="Entro 90 giorni" valore={euro(finestra(t, 'entro90'))} accento="cyan" />
+            <Kpi titolo="Da approvare" valore={euro(t.daApprovare.importo)} accento="violet" />
+          </div>
+          <label className="flex items-center gap-2 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={conAutomatici}
+              onChange={(e) => setConAutomatici(e.target.checked)}
+            />
+            Includi gli addebiti automatici nelle finestre
+            <span className="text-gray-400">
+              (+{euro(t.automatiche.entro90.importo)} entro 90 giorni)
+            </span>
+          </label>
         </div>
       )}
 

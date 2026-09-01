@@ -134,50 +134,76 @@ export async function listaAutomatiche(giorni = 60): Promise<RigaScadenza[]> {
 /**
  * I numeri di testa.
  *
- * `impegnato` è quello che di solito manca: approvato e non ancora pagato.
- * Chi approva guardando solo «da approvare» impegna due volte lo stesso
- * denaro.
+ * Le finestre 7/30/60/90 sono **cumulative** — «entro 60» comprende «entro 30»,
+ * come si legge la frase — e **non comprendono lo scaduto**, che ha una
+ * piastrella sua: sommare il ritardo al futuro nasconderebbe proprio la cosa
+ * che il cruscotto deve mostrare per prima.
+ *
+ * Le piastrelle contano le due code; gli addebiti automatici in arrivo si
+ * calcolano a parte e li somma l'interfaccia, quando si chiede la previsione
+ * completa. Sono tenuti separati perché rispondono a due domande diverse:
+ * «quanto devo pagare» e «quanto esce dal conto».
  */
 export async function totali(): Promise<TotaliCoda> {
   const { data, error } = await supabase()
     .from('scadenza')
-    .select('stato, importo, data_scadenza, approvata_il')
-    .in('stato', ['da_pagare', 'da_approvare'])
-    .limit(5000)
+    .select('stato, importo, data_scadenza')
+    .in('stato', ['da_pagare', 'da_approvare', 'automatica'])
+    .limit(8000)
   if (error) throw new Error(`Lettura totali: ${error.message}`)
 
   const oggi = oggiISO()
-  const fra7 = new Date()
-  fra7.setDate(fra7.getDate() + 7)
-  const limite7 = fra7.toISOString().slice(0, 10)
+  const fra = (giorni: number) => {
+    const d = new Date()
+    d.setDate(d.getDate() + giorni)
+    return d.toISOString().slice(0, 10)
+  }
+  const limiti = { 7: fra(7), 30: fra(30), 60: fra(60), 90: fra(90) }
 
   const vuoto = () => ({ righe: 0, importo: 0 })
   const t: TotaliCoda = {
     scaduto: vuoto(),
     entro7: vuoto(),
+    entro30: vuoto(),
+    entro60: vuoto(),
+    entro90: vuoto(),
     daApprovare: vuoto(),
-    impegnato: vuoto(),
     daPagare: vuoto(),
+    automatiche: { entro7: vuoto(), entro30: vuoto(), entro60: vuoto(), entro90: vuoto() },
   }
 
   for (const r of (data ?? []) as Array<{
     stato: StatoScadenza
     importo: number | string
     data_scadenza: string
-    approvata_il: string | null
   }>) {
     const imp = Number(r.importo)
     const somma = (v: { righe: number; importo: number }) => {
       v.righe++
       v.importo += imp
     }
-    if (r.stato === 'da_approvare') somma(t.daApprovare)
-    if (r.stato === 'da_pagare') {
-      somma(t.daPagare)
-      if (r.approvata_il) somma(t.impegnato)
+
+    if (r.stato === 'automatica') {
+      // Nel passato è già uscito: non è scaduto, non è previsione, non conta.
+      if (r.data_scadenza < oggi) continue
+      if (r.data_scadenza <= limiti[7]) somma(t.automatiche.entro7)
+      if (r.data_scadenza <= limiti[30]) somma(t.automatiche.entro30)
+      if (r.data_scadenza <= limiti[60]) somma(t.automatiche.entro60)
+      if (r.data_scadenza <= limiti[90]) somma(t.automatiche.entro90)
+      continue
     }
-    if (r.data_scadenza < oggi) somma(t.scaduto)
-    else if (r.data_scadenza <= limite7) somma(t.entro7)
+
+    if (r.stato === 'da_approvare') somma(t.daApprovare)
+    if (r.stato === 'da_pagare') somma(t.daPagare)
+
+    if (r.data_scadenza < oggi) {
+      somma(t.scaduto)
+      continue
+    }
+    if (r.data_scadenza <= limiti[7]) somma(t.entro7)
+    if (r.data_scadenza <= limiti[30]) somma(t.entro30)
+    if (r.data_scadenza <= limiti[60]) somma(t.entro60)
+    if (r.data_scadenza <= limiti[90]) somma(t.entro90)
   }
   return t
 }

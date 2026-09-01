@@ -3,7 +3,7 @@
 > Generato da `npm run mappa` il 2026-09-01. **Non modificare a mano**: le decisioni e le
 > convenzioni stanno in `CLAUDE.md`, qui c'è solo la fotografia dei file.
 
-**355 file · 65.831 righe totali.**
+**355 file · 65.914 righe totali.**
 
 ## ⚠️ File oltre 500 righe — da spezzare
 
@@ -301,9 +301,9 @@ _1 file · 65 righe_
 
 ### Controllo di gestione · Flussi fatture
 
-_17 file · 4087 righe_
+_17 file · 4170 righe_
 
-- `app/(app)/controllo-gestione/flussi-fatture/FlussiFatture.tsx` (412 righe)
+- `app/(app)/controllo-gestione/flussi-fatture/FlussiFatture.tsx` (431 righe)
 - `app/(app)/controllo-gestione/flussi-fatture/page.tsx` (31 righe)
 - `app/(app)/controllo-gestione/flussi-fatture/Testata.tsx` (174 righe)
 - `app/(app)/controllo-gestione/page.tsx` (85 righe)
@@ -312,14 +312,14 @@ _17 file · 4087 righe_
 - `app/api/pagamenti/scadenze/pagata/route.ts` (89 righe)
 - `app/api/pagamenti/scadenze/route.ts` (52 righe)
 - `docs/controllo-di-gestione-piano.md` (1272 righe) ⚠️
-- `docs/flussi-fatture.md` (160 righe)
-- `lib/pagamenti/data.ts` (243 righe) — esporta: listaScadenze, listaAutomatiche, totali, scadutoPerAnzianita, ultimoImport
+- `docs/flussi-fatture.md` (171 righe)
+- `lib/pagamenti/data.ts` (269 righe) — esporta: listaScadenze, listaAutomatiche, totali, scadutoPerAnzianita, ultimoImport
 - `lib/pagamenti/flusso.ts` (143 righe) — esporta: approva, segnaPagate, annullaPagamento
 - `lib/pagamenti/guard.ts` (79 righe) — esporta: guardLettura, guardPagamento, guardApprovazione
 - `lib/pagamenti/import.ts` (507 righe) ⚠️ — esporta: sogliaApprovazione, statoIniziale, importaScadenzario
-- `lib/pagamenti/tracciato.ts` (339 righe) — esporta: aData, aNumero, famigliaDi, leggiScadenzario
+- `lib/pagamenti/tracciato.ts` (345 righe) — esporta: aData, aNumero, famigliaDi, leggiScadenzario
 - `lib/pagamenti/xlsx.ts` (234 righe) — esporta: leggiFoglio
-- `types/pagamenti.ts` (127 righe)
+- `types/pagamenti.ts` (148 righe)
 
 ### Log attività
 

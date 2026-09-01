@@ -220,15 +220,15 @@ export function aNumero(v: unknown): number | null {
 // pagamenti da negozio perché *postale* contiene *pos*: quattro bollettini da
 // pagare sarebbero nati già pagati e nessuno li avrebbe più visti.
 const NEGOZIO = [/\bcontant/, /\bcarta\b/, /\bbancomat\b/, /\bpos\b/, /\bcash\b/]
+// La domanda che divide le due liste è una sola: **qualcuno deve fare un
+// gesto perché il denaro esca?** Se sì è una coda, se no è un addebito.
+// Non conta che il pagamento sia elettronico o preautorizzato in astratto.
 const AUTOMATICA = [
   /\brid\b/,
   /\bsdd\b/,
   /\bsepa direct/,
   /\bdomicili/,
   /\baddebito/,
-  /\bmav\b/,
-  /\brav\b/,
-  /\bpagopa\b/,
   /\bquietanza/,
   /\briba\b/, // ricevuta bancaria: la presenta la banca, non la paga nessuno a mano
   /\bricevuta bancaria/,
@@ -239,7 +239,13 @@ const BONIFICO = [
   /\bvaglia/,
   /\bcontrassegno/,
   /\brimessa/,
-  /\bbollettino/, // qualcuno lo deve pagare: è una coda, non un archivio
+  /\bbollettino/,
+  // ⚠️ PagoPA, MAV e RAV stavano fra gli addebiti automatici: sbagliato
+  // (segnalato da Dennis il 01/09/2026). Sono avvisi di pagamento — arriva il
+  // codice, e qualcuno lo paga. Nessuno di questi esce da solo.
+  /\bpagopa\b/,
+  /\bmav\b/,
+  /\brav\b/,
 ]
 
 export function famigliaDi(modalita: string | null): FamigliaModalita {
