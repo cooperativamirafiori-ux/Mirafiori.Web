@@ -66,7 +66,7 @@ e non serve cercare altrove.
 | **Inventario beni** | `app/(app)/inventario/` | `app/api/inventario/**` | `lib/inventario/data.ts` | `scripts/provision-inventario.mjs` |
 | **Amministrazione · Permessi** | `app/(app)/amministrazione/permessi/` (`GestionePermessi.tsx` elenco+dettaglio, `SceltaPersona.tsx` autocompletamento, `VistaPerArea.tsx`) | `app/api/permessi/**`<br>`app/api/rubrica/` | `lib/core/permessi.ts` (sta in core: la usa anche l'autenticazione)<br>`lib/core/rubrica.ts` (account del tenant da Graph) | `scripts/provision-autorizzazioni.mjs` `scripts/diagnosi-permessi.mjs` `scripts/diagnosi-rubrica.mjs` |
 | **Amministrazione · Software** | `app/(app)/amministrazione/software/` | `app/api/software/**` | `lib/software/data.ts` (+ `lib/core/calendar.ts` per gli alert scadenza) | `scripts/provision-software.mjs` `provision-software-centro-costo.mjs`<br>centro di costo obbligatorio (lookup, come Costi e Acquisti) |
-| **Controllo di Gestione · Flussi fatture** | `app/(app)/controllo-gestione/` (hub) + `flussi-fatture/` (`FlussiFatture.tsx`) | `app/api/pagamenti/**` | `lib/pagamenti/`: `tracciato.ts` (lettura xlsx) `import.ts` `data.ts` `flusso.ts` `guard.ts` | dati su **Supabase** (`supabase/pagamenti_schema.sql`)<br>**tre permessi**: `Controllo di Gestione` (cruscotti), `Pagamenti` (paga), `Approvazione Pagamenti` (approva) — la sezione si apre con uno qualsiasi<br>soglia dalla lista SP Parametri (`SogliaApprovazionePagamenti`)<br>`docs/flussi-fatture.md` · piano completo in `docs/controllo-di-gestione-piano.md` |
+| **Controllo di Gestione · Flussi fatture** | `app/(app)/controllo-gestione/` (hub) + `flussi-fatture/` (`FlussiFatture.tsx`) | `app/api/pagamenti/**` | `lib/pagamenti/`: `xlsx.ts` (lettore .xlsx proprio) `tracciato.ts` `import.ts` `data.ts` `flusso.ts` `guard.ts` | dati su **Supabase** (`supabase/pagamenti_schema.sql`)<br>⚠️ l'export di Fattura SMART **non si legge con exceljs** (namespace `x:`, celle senza `r=`): vedi `lib/pagamenti/xlsx.ts`<br>**tre permessi**: `Controllo di Gestione` (cruscotti), `Pagamenti` (paga), `Approvazione Pagamenti` (approva) — la sezione si apre con uno qualsiasi<br>soglia dalla lista SP Parametri (`SogliaApprovazionePagamenti`)<br>`docs/flussi-fatture.md` · piano completo in `docs/controllo-di-gestione-piano.md` |
 | **Log attività** | — | — | `lib/core/audit.ts` | `docs/log-attivita-setup-sharepoint.md`<br>`scripts/provision-log-attivita.mjs` |
 | **Home / hub** | `app/(app)/home/page.tsx` (card + sezioni)<br>`app/(app)/amazing/` | — | — | il layout a card sta tutto in `home/page.tsx` (`Sezione`, `HeroCard`, `FunzioneCard`) |
 | **Accesso / login** | `app/(auth)/login/` | `app/api/auth/[...nextauth]/` | `lib/core/auth.ts` `lib/core/ms-token.ts` | `middleware.ts` (elenco route pubbliche) |
@@ -298,6 +298,12 @@ Debito residuo, in ordine di peso (verifica sempre con `npm run mappa`):
 - **Il campo ore su SharePoint è `OrePulizia`**, non `Ore_x0020_Tecnico` (lo spec era sbagliato).
 - **I campi lookup e persona di Graph arrivano come stringa**, non come oggetto: usare
   l'helper `lookupValue()` in `lib/core/sp.ts`.
+- **L'export di Fattura SMART non è un .xlsx a norma** e exceljs non lo legge («Unexpected xml
+  node in parseOpen»): prefisso di namespace `x:` in `sharedStrings`/`styles`, celle senza
+  riferimento, parti dichiarate e assenti. Si legge con `lib/pagamenti/xlsx.ts`, e le date
+  arrivano come numeri seriali.
+- **Riconoscendo una modalità di pagamento, confrontare per parola intera.** Con la sottostringa
+  «Bollettino di c/c **pos**tale» risultava una carta, e quei bollettini nascevano già pagati.
 - **Niente `formData()` per gli upload**: usare `lib/core/upload-diretto.ts` (sessione + conferma,
   tetto 50 MB). Il vecchio approccio saturava il limite di body di Vercel.
 - **`isAdmin()` ha una lista di fallback hardcoded** (dennis, stefano, gabriele) perché

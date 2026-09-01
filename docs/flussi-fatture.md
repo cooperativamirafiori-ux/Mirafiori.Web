@@ -100,6 +100,57 @@ Amazon compare 24 volte a bonifico e 17 a carta, ed è lo stesso conto. Da qui i
 doppio pagamento, e l'avviso da storico previsto come prossimo passo (`scadenza.alert` esiste
 già, nessuno lo valorizza ancora).
 
+## Il file vero, letto il 01/09/2026
+
+`ScadenzeFornitori.xlsx`, 2.173 scadenze, gennaio–settembre 2026, 2.125 documenti (48 righe
+sono seconde o terze rate). Letto senza un solo scarto.
+
+**Il lettore .xlsx è nostro** (`lib/pagamenti/xlsx.ts`), non exceljs. Il pacchetto che genera
+Fattura SMART non è a norma: `sharedStrings.xml` e `styles.xml` usano il prefisso di namespace
+`x:` — su cui exceljs si ferma con *«Unexpected xml node in parseOpen»* —, le celle non hanno il
+riferimento (`<c>` senza `r="B5"`), `[Content_Types].xml` dichiara una parte che nel file non
+c'è, e `sst count="1"` mentre le stringhe sono due. Normalizzare il pacchetto a ogni import
+sarebbe più codice del lettore, e comunque in balìa della prossima stranezza. exceljs resta dov'è
+per *scrivere* (export RU, foglio ore).
+
+Conseguenza: **le date arrivano come numeri seriali** e le converte `aData`, non il foglio degli
+stili — che è la parte scritta peggio e che così non leggiamo affatto.
+
+**Tipologie presenti nel file**, con la coda in cui finiscono:
+
+| Tipologia | Righe | Va in |
+|---|---:|---|
+| Bonifico | 785 | coda |
+| Contanti | 511 | archivio (già uscito) |
+| RID · SEPA Direct Debit (CORE/B2B) · Domiciliazione · PagoPA · RIBA · MAV · Quietanza erario | 607 | escono da sole |
+| Carta di pagamento | 262 | archivio (già uscito) |
+| Bollettino di c/c postale | 4 | coda |
+| Assegno | 3 | coda |
+| Trattenuta su somme già riscosse | 1 | coda, come sconosciuta |
+
+⚠️ **«Bollettino di c/c postale» è l'errore che il file vero ha scoperto**: il confronto era su
+sottostringa e *postale* contiene *pos*, quindi quei quattro bollettini nascevano già pagati e
+nessuno li avrebbe più visti. Ora il confronto è su **parola intera** (`famigliaDi` in
+`tracciato.ts`). Aggiungendo una tipologia, tenere l'ancora `\b`.
+
+**Cosa produce il primo caricamento** (soglia 1.500 €, casella «chiudi le pagate» spuntata):
+
+| | Righe | Valore |
+|---|---:|---:|
+| Coda **da pagare** | 153 | 55.464 € |
+| Coda **da approvare** | 21 | 73.921 € |
+| Escono da sole (residue) | 91 | 34.342 € |
+| Chiuse (negozio + gestionale) | 1.873 | 599.822 € |
+| Note di credito | 35 | −19.136 € |
+
+Nelle due code restano **174 righe su 2.173**, di cui **149 già scadute per 96.886 €**, la più
+vecchia del 7 gennaio. Senza la casella spuntata le code sarebbero 780 righe: è la misura di
+quanto serva, al primo giro.
+
+Senza chiusura dal gestionale e a soglia 1.000 € chi approva vedrebbe 98 righe invece di 21: la
+soglia a 1.500 taglia due terzi della coda di chi approva e sposta 34 righe (39.040 €) su chi
+paga.
+
 ## Cosa manca, in ordine
 
 1. Avviso «questo fornitore si paga di solito in negozio» sulle righe a bonifico.

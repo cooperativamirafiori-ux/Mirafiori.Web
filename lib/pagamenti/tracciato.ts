@@ -22,7 +22,7 @@
  * `Di cui Abbuono` non si leggono affatto.
  */
 
-import ExcelJS from 'exceljs'
+import { leggiFoglio, type Cella, type Griglia } from '@/lib/pagamenti/xlsx'
 import type { FamigliaModalita, TipoDocumento } from '@/types/pagamenti'
 
 export interface RigaFile {
@@ -97,14 +97,14 @@ const OBBLIGATORIE: Campo[] = ['protocolloNumero', 'protocolloData', 'dataScaden
  * Trova la riga delle intestazioni e la mappa colonna → indice.
  * Cerca nelle prime 15 righe quella che contiene «Scadenza» e un importo.
  */
-function trovaIntestazioni(ws: ExcelJS.Worksheet): {
+function trovaIntestazioni(griglia: Griglia): {
   riga: number
   indici: Partial<Record<Campo, number>>
   intestazioni: string[]
 } {
-  const limite = Math.min(ws.rowCount, 15)
-  for (let r = 1; r <= limite; r++) {
-    const celle = ws.getRow(r).values as unknown[]
+  const limite = Math.min(griglia.length, 15)
+  for (let r = 0; r < limite; r++) {
+    const celle = griglia[r]
     if (!Array.isArray(celle)) continue
     const testi = celle.map(norm)
     const contiene = (nomi: readonly string[]) => testi.some((t) => t.length > 0 && nomi.includes(t))
@@ -155,9 +155,25 @@ function testo(v: unknown): string {
   return String(v).trim()
 }
 
-/** Date: Excel le manda come Date, ma un export può mandarle come 31/12/2026. */
+/**
+ * Date, nei tre modi in cui arrivano.
+ *
+ * Nel file di Fattura SMART sono **numeri seriali** (45994 = 25/11/2025): il
+ * formato «data» sta nel foglio degli stili, che qui non leggiamo apposta —
+ * sappiamo già quali colonne sono date, e gli stili sono la parte del file
+ * scritta peggio. Restano gestiti anche `Date` e il testo `31/12/2026`.
+ *
+ * Il giorno zero di Excel è il 30/12/1899, non il 31: quel giorno inesistente
+ * compensa il 29 febbraio 1900 che Excel crede esistito.
+ */
 export function aData(v: unknown): string | null {
   if (v == null || v === '') return null
+  if (typeof v === 'number') {
+    // Sotto l'1 è un orario senza data; sopra il 2958465 è oltre il 9999.
+    if (!isFinite(v) || v < 1 || v > 2_958_465) return null
+    const ms = Date.UTC(1899, 11, 30) + Math.floor(v) * 86_400_000
+    return new Date(ms).toISOString().slice(0, 10)
+  }
   if (v instanceof Date && !isNaN(v.getTime())) {
     // Le date Excel arrivano a mezzanotte UTC: costruire la stringa dai campi
     // UTC evita che un fuso a ovest le sposti al giorno prima.
@@ -199,28 +215,39 @@ export function aNumero(v: unknown): number | null {
 // passa comunque dalle code: una modalità sconosciuta deve farsi vedere da
 // qualcuno, non sparire in un archivio di cose già pagate.
 
-const NEGOZIO = ['contant', 'carta', 'bancomat', 'pos', 'cash']
+// ⚠️ Il confronto è su **parola intera**, non su sottostringa. Prima non lo
+// era, e sul file vero del 01/09/2026 «Bollettino di c/c postale» finiva fra i
+// pagamenti da negozio perché *postale* contiene *pos*: quattro bollettini da
+// pagare sarebbero nati già pagati e nessuno li avrebbe più visti.
+const NEGOZIO = [/\bcontant/, /\bcarta\b/, /\bbancomat\b/, /\bpos\b/, /\bcash\b/]
 const AUTOMATICA = [
-  'rid',
-  'sdd',
-  'sepa direct',
-  'domicili',
-  'addebito',
-  'mav',
-  'rav',
-  'pagopa',
-  'quietanza',
-  'riba', // ricevuta bancaria: la presenta la banca, non la paga nessuno a mano
-  'ricevuta bancaria',
+  /\brid\b/,
+  /\bsdd\b/,
+  /\bsepa direct/,
+  /\bdomicili/,
+  /\baddebito/,
+  /\bmav\b/,
+  /\brav\b/,
+  /\bpagopa\b/,
+  /\bquietanza/,
+  /\briba\b/, // ricevuta bancaria: la presenta la banca, non la paga nessuno a mano
+  /\bricevuta bancaria/,
 ]
-const BONIFICO = ['bonifico', 'assegno', 'vaglia', 'contrassegno', 'rimessa']
+const BONIFICO = [
+  /\bbonifico/,
+  /\bassegno/,
+  /\bvaglia/,
+  /\bcontrassegno/,
+  /\brimessa/,
+  /\bbollettino/, // qualcuno lo deve pagare: è una coda, non un archivio
+]
 
 export function famigliaDi(modalita: string | null): FamigliaModalita {
   const t = norm(modalita)
   if (!t) return 'altro'
-  if (NEGOZIO.some((k) => t.includes(k))) return 'negozio'
-  if (AUTOMATICA.some((k) => t.includes(k))) return 'automatica'
-  if (BONIFICO.some((k) => t.includes(k))) return 'bonifico'
+  if (NEGOZIO.some((k) => k.test(t))) return 'negozio'
+  if (AUTOMATICA.some((k) => k.test(t))) return 'automatica'
+  if (BONIFICO.some((k) => k.test(t))) return 'bonifico'
   return 'altro'
 }
 
@@ -229,12 +256,8 @@ export function famigliaDi(modalita: string | null): FamigliaModalita {
 // ------------------------------------------------------------
 
 export async function leggiScadenzario(buffer: ArrayBuffer): Promise<EsitoLettura> {
-  const wb = new ExcelJS.Workbook()
-  await wb.xlsx.load(buffer)
-  const ws = wb.worksheets[0]
-  if (!ws) throw new Error('Il file non contiene nessun foglio')
-
-  const { riga: rigaIntestazioni, indici, intestazioni } = trovaIntestazioni(ws)
+  const griglia = leggiFoglio(buffer)
+  const { riga: rigaIntestazioni, indici, intestazioni } = trovaIntestazioni(griglia)
 
   const mancanti = OBBLIGATORIE.filter((c) => indici[c] == null)
   if (mancanti.length > 0) {
@@ -247,13 +270,13 @@ export async function leggiScadenzario(buffer: ArrayBuffer): Promise<EsitoLettur
   const righe: RigaFile[] = []
   const scarti: EsitoLettura['scarti'] = []
 
-  const val = (celle: unknown[], campo: Campo): unknown => {
+  const val = (celle: Cella[], campo: Campo): Cella => {
     const i = indici[campo]
-    return i == null ? null : celle[i]
+    return i == null ? null : celle[i] ?? null
   }
 
-  for (let r = rigaIntestazioni + 1; r <= ws.rowCount; r++) {
-    const celle = ws.getRow(r).values as unknown[]
+  for (let r = rigaIntestazioni + 1; r < griglia.length; r++) {
+    const celle = griglia[r]
     if (!Array.isArray(celle)) continue
     const vuota = celle.every((c) => c == null || testo(c) === '')
     if (vuota) continue
@@ -265,15 +288,15 @@ export async function leggiScadenzario(buffer: ArrayBuffer): Promise<EsitoLettur
     const fornitore = testo(val(celle, 'fornitore'))
 
     if (!protocolloNumero || !protocolloData) {
-      scarti.push({ riga: r, motivo: 'protocollo del documento assente' })
+      scarti.push({ riga: r + 1, motivo: 'protocollo del documento assente' })
       continue
     }
     if (!dataScadenza) {
-      scarti.push({ riga: r, motivo: 'data di scadenza assente' })
+      scarti.push({ riga: r + 1, motivo: 'data di scadenza assente' })
       continue
     }
     if (importoLetto == null) {
-      scarti.push({ riga: r, motivo: 'importo non leggibile' })
+      scarti.push({ riga: r + 1, motivo: 'importo non leggibile' })
       continue
     }
 
@@ -307,7 +330,7 @@ export async function leggiScadenzario(buffer: ArrayBuffer): Promise<EsitoLettur
       pagataSecondoGestionale: statoGestionale === 'pagata' || statoGestionale === 'pagato',
       dataPagamentoGestionale: aData(val(celle, 'dataPagamentoGestionale')),
       note: testo(val(celle, 'note')) || null,
-      riga: r,
+      riga: r + 1,
     })
   }
 

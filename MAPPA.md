@@ -3,7 +3,7 @@
 > Generato da `npm run mappa` il 2026-09-01. **Non modificare a mano**: le decisioni e le
 > convenzioni stanno in `CLAUDE.md`, qui c'è solo la fotografia dei file.
 
-**354 file · 65.523 righe totali.**
+**355 file · 65.831 righe totali.**
 
 ## ⚠️ File oltre 500 righe — da spezzare
 
@@ -301,7 +301,7 @@ _1 file · 65 righe_
 
 ### Controllo di gestione · Flussi fatture
 
-_16 file · 3779 righe_
+_17 file · 4087 righe_
 
 - `app/(app)/controllo-gestione/flussi-fatture/FlussiFatture.tsx` (412 righe)
 - `app/(app)/controllo-gestione/flussi-fatture/page.tsx` (31 righe)
@@ -312,12 +312,13 @@ _16 file · 3779 righe_
 - `app/api/pagamenti/scadenze/pagata/route.ts` (89 righe)
 - `app/api/pagamenti/scadenze/route.ts` (52 righe)
 - `docs/controllo-di-gestione-piano.md` (1272 righe) ⚠️
-- `docs/flussi-fatture.md` (109 righe)
+- `docs/flussi-fatture.md` (160 righe)
 - `lib/pagamenti/data.ts` (243 righe) — esporta: listaScadenze, listaAutomatiche, totali, scadutoPerAnzianita, ultimoImport
 - `lib/pagamenti/flusso.ts` (143 righe) — esporta: approva, segnaPagate, annullaPagamento
 - `lib/pagamenti/guard.ts` (79 righe) — esporta: guardLettura, guardPagamento, guardApprovazione
 - `lib/pagamenti/import.ts` (507 righe) ⚠️ — esporta: sogliaApprovazione, statoIniziale, importaScadenzario
-- `lib/pagamenti/tracciato.ts` (316 righe) — esporta: aData, aNumero, famigliaDi, leggiScadenzario
+- `lib/pagamenti/tracciato.ts` (339 righe) — esporta: aData, aNumero, famigliaDi, leggiScadenzario
+- `lib/pagamenti/xlsx.ts` (234 righe) — esporta: leggiFoglio
 - `types/pagamenti.ts` (127 righe)
 
 ### Log attività
@@ -462,6 +463,7 @@ candidati da spezzare per area o da spostare in `lib/core/` (vedi `CLAUDE.md` §
 | `lib/pagamenti/data` | Controllo di gestione · Flussi fatture | 1 | app/api/pagamenti/scadenze/route.ts |
 | `lib/risorse-umane/gruppo` | Infrastruttura condivisa (core) | 1 | lib/core/auth.ts |
 | `lib/pagamenti/tracciato` | Controllo di gestione · Flussi fatture | 1 | lib/pagamenti/import.ts |
+| `lib/pagamenti/xlsx` | Controllo di gestione · Flussi fatture | 1 | lib/pagamenti/tracciato.ts |
 | `lib/risorse-umane/export-scheda-socio` | Risorse Umane | 1 | lib/risorse-umane/api.ts |
 | `lib/risorse-umane/export-xlsx` | Risorse Umane | 1 | lib/risorse-umane/api.ts |
 | `lib/core/calendar` | Amministrazione · Software | 1 | lib/software/data.ts |
