@@ -1,6 +1,7 @@
 import { auth } from '@/lib/core/auth'
 import Link from 'next/link'
 import { LogoutButton } from '@/components/ui/LogoutButton'
+import { puoEntrareControlloGestione } from '@/lib/core/permessi'
 
 export default async function HomePage() {
   const session = await auth()
@@ -15,7 +16,11 @@ export default async function HomePage() {
 
   const puoIT = session?.user?.permessi?.includes('IT e Dispositivi') ?? false
 
-  const mostraRiservata = puoRisorseUmane || puoAmministrare || puoIT
+  // Il Controllo di Gestione non ha un permesso proprio: si entra se se ne ha
+  // almeno uno dei suoi, e dentro si vede solo la parte che quello apre.
+  const puoControlloGestione = puoEntrareControlloGestione(session?.user?.permessi)
+
+  const mostraRiservata = puoRisorseUmane || puoAmministrare || puoIT || puoControlloGestione
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-brand-cyan-light/40 via-white to-white">
@@ -127,6 +132,15 @@ export default async function HomePage() {
                 accent="purple"
                 titolo="IT e Dispositivi"
                 sottotitolo="Dispositivi, SIM e assegnazioni"
+              />
+            )}
+            {puoControlloGestione && (
+              <FunzioneCard
+                href="/controllo-gestione"
+                emoji="📊"
+                accent="orange"
+                titolo="Controllo di Gestione"
+                sottotitolo="Scadenze delle fatture, approvazioni e costi"
               />
             )}
             {puoAmministrare && (

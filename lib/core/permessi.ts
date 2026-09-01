@@ -9,6 +9,11 @@
 import { graphGet, graphPost, graphDelete } from '@/lib/core/graph'
 import { listBase, PREFER_NON_INDEXED } from '@/lib/core/sp'
 import { AREA_IT } from '@/types/it'
+import {
+  AREA_CONTROLLO_GESTIONE,
+  AREA_PAGAMENTI,
+  AREA_APPROVAZIONE_PAGAMENTI,
+} from '@/types/pagamenti'
 
 export async function isAdmin(email: string): Promise<boolean> {
   try {
@@ -47,6 +52,12 @@ export async function isAdmin(email: string): Promise<boolean> {
 // Il cruscotto HR delle timbrature, che legge da Supabase e con SharePoint non
 // c'entra, ha invece il suo permesso: "Timbrature HR". Vedi il punto 14 di
 // docs/piano-ru-sito-dedicato-accesso-delegato.md.
+// ⚠️ Il Controllo di Gestione ha TRE permessi, non uno, e non è un eccesso di
+// zelo: la sezione conterrà i cruscotti dei costi, che vedranno in molti, e i
+// flussi delle fatture, che devono restare a quattro persone. Il permesso sta
+// quindi sulle sotto-sezioni, e la sezione si apre se se ne ha almeno uno
+// (puoEntrareControlloGestione più sotto). Chi domani prenderà il permesso per
+// guardare un cruscotto non guadagna niente sui pagamenti.
 export const AREE_PERMESSI = [
   'Amministrazione',
   'Prestazioni Occasionali',
@@ -55,6 +66,9 @@ export const AREE_PERMESSI = [
   // Importata e non riscritta: il nome dell'area serve anche alle route e alle
   // pagine, e due copie della stessa stringa prima o poi divergono di uno spazio.
   AREA_IT,
+  AREA_CONTROLLO_GESTIONE,
+  AREA_PAGAMENTI,
+  AREA_APPROVAZIONE_PAGAMENTI,
 ] as const
 
 export type AreaPermesso = (typeof AREE_PERMESSI)[number]
@@ -79,6 +93,38 @@ export const DESCRIZIONI_AREE: Record<string, string> = {
   'IT e Dispositivi':
     'Dispositivi e SIM: anagrafica, assegnazione e restituzione, verbali di consegna. ' +
     'Chi non ha questo permesso vede comunque i propri strumenti in “I miei strumenti”.',
+  [AREA_CONTROLLO_GESTIONE]:
+    'Cruscotti dei costi e dei ricavi di tutti i centri di costo. ' +
+    'Da solo NON apre i Flussi fatture: le scadenze restano invisibili.',
+  [AREA_PAGAMENTI]:
+    'Flussi fatture: caricamento dello scadenzario e coda delle fatture da pagare, ' +
+    'con il tasto “Pagata”. Le fatture sopra soglia si vedono ma non si approvano.',
+  [AREA_APPROVAZIONE_PAGAMENTI]:
+    'Approvazione delle fatture sopra soglia, prima che l’amministrazione le paghi. ' +
+    'Il resto dei Flussi fatture si vede in sola lettura.',
+}
+
+/**
+ * Apre la sezione Controllo di Gestione: basta uno qualsiasi dei suoi permessi.
+ *
+ * La porta non ha un permesso proprio di proposito. Se ne avesse uno, per
+ * lasciar entrare un coordinatore ai cruscotti bisognerebbe dargli due
+ * permessi, e prima o poi qualcuno gliene darebbe uno di troppo. Qui invece
+ * ogni permesso apre esattamente le sue card e niente altro.
+ */
+export function puoEntrareControlloGestione(permessi: string[] | undefined): boolean {
+  if (!permessi) return false
+  return (
+    permessi.includes(AREA_CONTROLLO_GESTIONE) ||
+    permessi.includes(AREA_PAGAMENTI) ||
+    permessi.includes(AREA_APPROVAZIONE_PAGAMENTI)
+  )
+}
+
+/** Vede i Flussi fatture — chi paga e chi approva, ciascuno col suo tasto. */
+export function puoVedereFlussiFatture(permessi: string[] | undefined): boolean {
+  if (!permessi) return false
+  return permessi.includes(AREA_PAGAMENTI) || permessi.includes(AREA_APPROVAZIONE_PAGAMENTI)
 }
 
 // Fallback usato se la lista SP non esiste ancora o Graph fallisce.

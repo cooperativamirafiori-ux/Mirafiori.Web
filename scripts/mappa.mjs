@@ -111,6 +111,14 @@ const AREE = [
   },
   { nome: 'Amministrazione (hub)', prefissi: ['app/(app)/amministrazione'] },
   {
+    nome: 'Controllo di gestione · Flussi fatture',
+    prefissi: [
+      'app/(app)/controllo-gestione', 'app/api/pagamenti', 'lib/pagamenti',
+      'types/pagamenti', 'supabase/pagamenti', 'docs/flussi-fatture',
+      'docs/controllo-di-gestione',
+    ],
+  },
+  {
     nome: 'Log attività',
     prefissi: ['lib/audit', 'docs/log-attivita', 'scripts/provision-log-attivita', 'docs/Domande_Consulenti_Log'],
   },
