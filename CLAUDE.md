@@ -55,7 +55,7 @@ e non serve cercare altrove.
 | Area | UI | API | Logica (`lib/`) | Altro |
 |---|---|---|---|---|
 | **Timbrature · Foglio ore** | `app/(app)/timbrature/` (operatore + `validazione/`)<br>`app/(app)/risorse-umane/timbrature/` (cruscotto HR) | `app/api/timbrature/**`<br>`app/api/foglio-ore/[token]/`<br>`app/api/cron/{timbrature-alert,sollecito-timbrature,promemoria-ore}/` | `lib/timbrature/`: **`data.ts` è la porta** e riesporta `date.ts` `anagrafica.ts` `stati.ts` `righe.ts` `riepilogo.ts`<br>più `flusso.ts` `guard.ts` `sync.ts` `notifiche.ts` `foglio-ore-xlsx.ts` `festivita.ts` | pubblico tokenizzato: `app/foglio-ore/[token]/`<br>`docs/timbrature-*.md` — **le decisioni stanno in `docs/timbrature-revisione-agosto-2026.md`** |
-| **Manutenzioni** | `app/(app)/manutenzioni/` `nuova-richiesta/` `mie-richieste/` `dashboard/` `gestione/[id]/` | `app/api/manutenzioni/**` | `lib/manutenzioni/`: `data.ts` `notifiche.ts`<br>anagrafiche: `lib/strutture/data.ts` | — |
+| **Manutenzioni** | `app/(app)/manutenzioni/` `nuova-richiesta/` `mie-richieste/` `dashboard/` `gestione/[id]/` | `app/api/manutenzioni/**` | `lib/manutenzioni/`: `data.ts` `notifiche.ts`<br>anagrafiche: `lib/strutture/data.ts` | **due livelli**: il permesso `Manutenzioni` (`AREA_MANUTENZIONI` in `types/manutenzioni.ts`) apre richiesta e "le mie richieste" — pensato per i responsabili di struttura, si assegna dal pannello Permessi; `dashboard/` `gestione/` `inserisci-costo/` `cruscotto-costi/` restano su `isAdmin`<br>la regola sta in `puoRichiedereManutenzione()` (gli admin passano senza il permesso)<br>`scripts/seed-permessi-manutenzioni.mjs` semina il permesso dai responsabili delle Strutture |
 | **Costi strutture** | `app/(app)/inserisci-costo/` `cruscotto-costi/` | `app/api/costi/` | `lib/costi/data.ts` | il cruscotto ha due viste: per centro di costo (default) e per struttura |
 | **Centri di costo** | — (anagrafica) | — | `lib/centri-costo/data.ts` | lista SP `SP_LIST_CENTRI_COSTO`, 23 CC raggruppati in 10 aree<br>`scripts/provision-centri-costo.mjs` `provision-centri-costo-collegamenti.mjs` `backfill-centro-costo-costi.mjs`<br>`docs/centri-di-costo-piano.md` |
 | **Acquisti** | `app/(app)/acquisti/` (`nuova/` `mie/` `gestione/`) | `app/api/acquisti/**`<br>`app/api/consegna/[token]/`<br>`app/api/cron/acquisti/` | `lib/acquisti/`: `data.ts` `flusso.ts` `notifiche.ts` | pubblico tokenizzato: `app/consegna/[token]/`<br>`../Area Acquisti - Manuale operativo.docx`<br>`scripts/provision-acquisti.mjs` |
@@ -306,8 +306,10 @@ Debito residuo, in ordine di peso (verifica sempre con `npm run mappa`):
   «Bollettino di c/c **pos**tale» risultava una carta, e quei bollettini nascevano già pagati.
 - **Niente `formData()` per gli upload**: usare `lib/core/upload-diretto.ts` (sessione + conferma,
   tetto 50 MB). Il vecchio approccio saturava il limite di body di Vercel.
-- **`isAdmin()` ha una lista di fallback hardcoded** (dennis, stefano, gabriele) perché
-  `SP_LIST_ADMIN` non è configurata. Se si tocca l'auth, tenerne conto.
+- **`isAdmin()` ha una lista hardcoded** (`ADMIN_HARDCODED`: dennis, stefano, gabriele) perché
+  `SP_LIST_ADMIN` non è configurata — ed è una scelta, non un residuo: sono i tre che gestiscono
+  le manutenzioni. Il controllo su `LIST('admin')` è **esplicito**, non affidato al `catch`:
+  se la lista venisse creata vuota, altrimenti i tre perderebbero l'accesso in silenzio.
 - **Le route pubbliche tokenizzate vanno escluse dal matcher in `middleware.ts`**, altrimenti
   next-auth le blocca: oggi `notula`, `consegna`, `foglio-ore`, `api/cron`, `api/docusign`.
 - **`.env.local` e le variabili su Vercel divergono facilmente.** Prima di dare per rotto qualcosa

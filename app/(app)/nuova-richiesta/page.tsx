@@ -1,8 +1,16 @@
+import { redirect } from 'next/navigation'
+import { auth } from '@/lib/core/auth'
+import { puoRichiedereManutenzione } from '@/lib/core/permessi'
 import { getStrutture } from '@/lib/strutture/data'
 import { Header } from '@/components/ui/Header'
 import { NuovaRichiestaForm } from './NuovaRichiestaForm'
 
 export default async function NuovaRichiestaPage() {
+  // Il controllo sta anche qui, e non solo sulla pagina Manutenzioni:
+  // l'indirizzo è raggiungibile da solo.
+  const session = await auth()
+  if (!puoRichiedereManutenzione(session?.user)) redirect('/home')
+
   const strutture = await getStrutture()
 
   // Valori choice da SP — allineati ai valori reali della lista

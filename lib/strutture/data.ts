@@ -19,6 +19,12 @@ export async function getStrutture(): Promise<Struttura[]> {
       title: item.fields.Title,
       codice: item.fields.Codice,
       strutturaLabel: item.fields.StrutturaLabel,
+      // ⚠️ Arrivano vuote, ed è normale: Graph, espandendo `fields`, per una
+      // colonna persona non restituisce l'email ma solo `<Nome>LookupId`.
+      // L'email va risolta sull'elenco informazioni utente
+      // (getSPUserEmailByLookupId in lib/core/sp.ts) — lo fa
+      // scripts/seed-permessi-manutenzioni.mjs. Nessuno oggi usa questi due
+      // campi: chi li usasse dando per buona l'email avrebbe una stringa vuota.
       responsabileEmail: item.fields.Responsabile?.Email ?? '',
       responsabilePulizieEmail: item.fields.ResponsabilePulizie?.Email ?? '',
       centroCosto: ccId

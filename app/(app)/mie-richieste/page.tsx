@@ -1,4 +1,6 @@
+import { redirect } from 'next/navigation'
 import { auth } from '@/lib/core/auth'
+import { puoRichiedereManutenzione } from '@/lib/core/permessi'
 import { getRichiesteByEmail } from '@/lib/manutenzioni/data'
 import { Header } from '@/components/ui/Header'
 import { StatoBadge } from '@/components/ui/StatoBadge'
@@ -8,6 +10,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function MieRichiestePage() {
   const session = await auth()
+  if (!puoRichiedereManutenzione(session?.user)) redirect('/home')
   const email = session?.user?.email ?? ''
 
   const richieste = await getRichiesteByEmail(email)

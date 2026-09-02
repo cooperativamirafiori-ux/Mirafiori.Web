@@ -7,15 +7,40 @@
  */
 
 import { graphGet, graphPost, graphDelete } from '@/lib/core/graph'
-import { listBase, PREFER_NON_INDEXED } from '@/lib/core/sp'
+import { listBase, LIST, PREFER_NON_INDEXED } from '@/lib/core/sp'
 import { AREA_IT } from '@/types/it'
+import { AREA_MANUTENZIONI } from '@/types/manutenzioni'
 import {
   AREA_CONTROLLO_GESTIONE,
   AREA_PAGAMENTI,
   AREA_APPROVAZIONE_PAGAMENTI,
 } from '@/types/pagamenti'
 
+/**
+ * Gli amministratori scritti nel codice.
+ *
+ * Sono i tre che gestiscono le manutenzioni: pannello di controllo,
+ * inserimento costi, cruscotto costi. Restano qui e non nella lista
+ * Autorizzazioni perché non cambiano, e perché un elenco di tre nomi in
+ * chiaro si legge senza aprire SharePoint.
+ */
+export const ADMIN_HARDCODED = [
+  'dennis.maseri@cooperativamirafiori.com',
+  'stefano.martino@cooperativamirafiori.com',
+  'gabriele.uscello@cooperativamirafiori.com',
+]
+
+/**
+ * Admin dell'app: lista SP "Admin" se configurata, altrimenti i tre qui sopra.
+ *
+ * Il controllo su `LIST('admin')` è esplicito e non affidato al `catch`:
+ * `SP_LIST_ADMIN` oggi è vuota, e prima questo funzionava solo perché l'URL
+ * malformato faceva sollevare Graph. Se un domani la lista venisse creata
+ * vuota, senza questo controllo i tre perderebbero l'accesso in silenzio.
+ */
 export async function isAdmin(email: string): Promise<boolean> {
+  const e = email.toLowerCase()
+  if (!LIST('admin')) return ADMIN_HARDCODED.includes(e)
   try {
     const filter = encodeURIComponent(`fields/Utente eq '${email}'`)
     const res = await graphGet<{ value: any[] }>(
@@ -23,13 +48,8 @@ export async function isAdmin(email: string): Promise<boolean> {
     )
     return res.value.length > 0
   } catch {
-    // Se la lista non esiste ancora o c'è errore, fallback su lista hardcoded
-    const fallback = [
-      'dennis.maseri@cooperativamirafiori.com',
-      'stefano.martino@cooperativamirafiori.com',
-      'gabriele.uscello@cooperativamirafiori.com',
-    ]
-    return fallback.includes(email.toLowerCase())
+    // Lista non raggiungibile o errore Graph: si torna all'elenco in codice.
+    return ADMIN_HARDCODED.includes(e)
   }
 }
 
@@ -66,6 +86,7 @@ export const AREE_PERMESSI = [
   // Importata e non riscritta: il nome dell'area serve anche alle route e alle
   // pagine, e due copie della stessa stringa prima o poi divergono di uno spazio.
   AREA_IT,
+  AREA_MANUTENZIONI,
   AREA_CONTROLLO_GESTIONE,
   AREA_PAGAMENTI,
   AREA_APPROVAZIONE_PAGAMENTI,
@@ -93,6 +114,10 @@ export const DESCRIZIONI_AREE: Record<string, string> = {
   'IT e Dispositivi':
     'Dispositivi e SIM: anagrafica, assegnazione e restituzione, verbali di consegna. ' +
     'Chi non ha questo permesso vede comunque i propri strumenti in “I miei strumenti”.',
+  [AREA_MANUTENZIONI]:
+    'Richieste manutenzione: apertura di una nuova richiesta e stato delle proprie. ' +
+    'Pensato per i responsabili di struttura. Non apre il pannello di controllo ' +
+    'né i costi, che restano ai tre amministratori.',
   [AREA_CONTROLLO_GESTIONE]:
     'Cruscotti dei costi e dei ricavi di tutti i centri di costo. ' +
     'Da solo NON apre i Flussi fatture: le scadenze restano invisibili.',
@@ -119,6 +144,25 @@ export function puoEntrareControlloGestione(permessi: string[] | undefined): boo
     permessi.includes(AREA_PAGAMENTI) ||
     permessi.includes(AREA_APPROVAZIONE_PAGAMENTI)
   )
+}
+
+/**
+ * Può aprire una richiesta di manutenzione: i responsabili di struttura col
+ * permesso, più gli admin.
+ *
+ * Gli admin passano senza avere la riga in Autorizzazioni: chi gestisce i
+ * ticket deve poterne aprire uno, e dover ricordarsi di spuntare anche il
+ * permesso "richiedente" è esattamente il passaggio che si dimentica.
+ *
+ * Prende `session.user` invece del solo array dei permessi perché la decisione
+ * dipende da due campi: tenerli insieme evita che una pagina controlli il
+ * permesso e si dimentichi l'admin.
+ */
+export function puoRichiedereManutenzione(
+  user: { isAdmin?: boolean; permessi?: string[] } | undefined | null,
+): boolean {
+  if (!user) return false
+  return Boolean(user.isAdmin) || (user.permessi?.includes(AREA_MANUTENZIONI) ?? false)
 }
 
 /** Vede i Flussi fatture — chi paga e chi approva, ciascuno col suo tasto. */

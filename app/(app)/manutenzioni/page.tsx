@@ -1,9 +1,14 @@
 import { auth } from '@/lib/core/auth'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Header } from '@/components/ui/Header'
+import { puoRichiedereManutenzione } from '@/lib/core/permessi'
 
 export default async function ManutenzioniPage() {
   const session = await auth()
+  // L'area non è più aperta a tutti: serve il permesso "Manutenzioni"
+  // (i responsabili di struttura) o essere admin.
+  if (!puoRichiedereManutenzione(session?.user)) redirect('/home')
   const isAdmin = session?.user?.isAdmin ?? false
 
   return (

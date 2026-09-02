@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/core/auth'
+import { puoRichiedereManutenzione } from '@/lib/core/permessi'
 import { creaRichiesta, aggiornaRichiesta } from '@/lib/manutenzioni/data'
 import { getSPUserLookupId } from '@/lib/core/sp'
 import { notificaNuovaRichiesta } from '@/lib/manutenzioni/notifiche'
@@ -20,6 +21,13 @@ export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session?.user?.email) {
     return NextResponse.json({ error: 'Non autenticato' }, { status: 401 })
+  }
+  // Il permesso "Manutenzioni" (o l'essere admin): non basta più essere loggati.
+  if (!puoRichiedereManutenzione(session.user)) {
+    return NextResponse.json(
+      { error: 'Non hai il permesso per aprire richieste di manutenzione.' },
+      { status: 403 },
+    )
   }
 
   let body: NuovaRichiestaPayload

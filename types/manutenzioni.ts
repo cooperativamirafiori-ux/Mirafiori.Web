@@ -2,6 +2,20 @@
 // Tipi che rispecchiano le SharePoint Lists del sistema
 // ============================================================
 
+/**
+ * Permesso per aprire una richiesta di manutenzione.
+ *
+ * Vale per la parte "richiedente" dell'area — nuova richiesta e le proprie
+ * richieste — e si assegna dal pannello Amministrazione › Permessi: nasce dai
+ * responsabili di struttura (scripts/seed-permessi-manutenzioni.mjs), ma la
+ * fonte che conta è la lista Autorizzazioni, così si può concederlo a chi non
+ * è responsabile e toglierlo a chi lo è.
+ *
+ * La parte gestionale (pannello di controllo, inserisci costo, cruscotto
+ * costi) NON passa da qui: resta su `isAdmin`, scritto nel codice.
+ */
+export const AREA_MANUTENZIONI = 'Manutenzioni'
+
 export type StatoRichiesta = 'Aperta' | 'In lavorazione' | 'Completata'
 
 export interface Struttura {

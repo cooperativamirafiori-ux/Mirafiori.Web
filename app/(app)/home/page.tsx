@@ -1,7 +1,7 @@
 import { auth } from '@/lib/core/auth'
 import Link from 'next/link'
 import { LogoutButton } from '@/components/ui/LogoutButton'
-import { puoEntrareControlloGestione } from '@/lib/core/permessi'
+import { puoEntrareControlloGestione, puoRichiedereManutenzione } from '@/lib/core/permessi'
 
 export default async function HomePage() {
   const session = await auth()
@@ -15,6 +15,11 @@ export default async function HomePage() {
   const puoRisorseUmane = (session?.user?.membroRU ?? false) || puoTimbratureHr
 
   const puoIT = session?.user?.permessi?.includes('IT e Dispositivi') ?? false
+
+  // Manutenzioni: card riservata ai responsabili di struttura col permesso
+  // (e agli admin). Chi non ce l'ha non la vede, così non finisce su un
+  // rimando alla home senza spiegazione.
+  const puoManutenzioni = puoRichiedereManutenzione(session?.user)
 
   // Il Controllo di Gestione non ha un permesso proprio: si entra se se ne ha
   // almeno uno dei suoi, e dentro si vede solo la parte che quello apre.
@@ -56,13 +61,15 @@ export default async function HomePage() {
 
         {/* Operatività */}
         <Sezione titolo="Operatività">
-          <FunzioneCard
-            href="/manutenzioni"
-            emoji="🔧"
-            accent="cyan"
-            titolo="Richieste Manutenzione"
-            sottotitolo="Segnala e gestisci gli interventi"
-          />
+          {puoManutenzioni && (
+            <FunzioneCard
+              href="/manutenzioni"
+              emoji="🔧"
+              accent="cyan"
+              titolo="Richieste Manutenzione"
+              sottotitolo="Segnala e gestisci gli interventi"
+            />
+          )}
           <FunzioneCard
             href="/acquisti"
             emoji="🛒"
