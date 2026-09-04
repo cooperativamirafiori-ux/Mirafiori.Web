@@ -18,6 +18,7 @@ import {
   assertScrivibile,
   eliminaTimbratura,
   inserisci,
+  liberaGiornataTeorica,
   listTimbrature,
   type OpzioniScrittura,
 } from '@/lib/timbrature/righe'
@@ -45,6 +46,11 @@ function giorniDelPeriodo(dal: string, al: string): string[] {
  *   - i giorni che hanno gia' qualcosa scritto: le ferie non si mettono sopra
  *     una giornata lavorata.
  *
+ * Le giornate generate dall'orario teorico (chi non timbra) non contano come
+ * "gia' scritte": vengono sostituite. Sono una previsione, non un fatto — e la
+ * settimana di ferie e' precisamente la notizia che quella previsione era
+ * sbagliata.
+ *
  * Un periodo che scavalca il mese funziona: i giustificativi si programmano in
  * anticipo, e il mese non ancora arrivato e' aperto. Se il mese di destinazione
  * e' invece gia' validato, quei giorni finiscono fra gli errori con il motivo.
@@ -66,7 +72,9 @@ export async function creaAssenzaPeriodo(
   const giorni = giorniDelPeriodo(dal, al)
   const festivita = { ...festivitaAnno(Number(dal.slice(0, 4))), ...festivitaAnno(Number(al.slice(0, 4))) }
   const monte = monteToSettimana(await profiloVigente(dipendenteId, dal))
-  const esistenti = new Set((await listTimbrature(dipendenteId, dal, al)).map((t) => t.data))
+  const righe = await listTimbrature(dipendenteId, dal, al)
+  const esistenti = new Set(righe.filter((t) => t.origine !== 'profilo').map((t) => t.data))
+  const teoriche = new Set(righe.filter((t) => t.origine === 'profilo').map((t) => t.data))
 
   const esito: EsitoAssenzaPeriodo = { inserite: [], nonLavorativi: [], giaCompilati: [], errori: [] }
   for (const g of giorni) {
@@ -81,6 +89,7 @@ export async function creaAssenzaPeriodo(
     }
     try {
       await assertScrivibile(dipendenteId, g, 'giustificativo', !!opts.perConto)
+      if (teoriche.has(g)) await liberaGiornataTeorica(dipendenteId, g)
       await inserisci(
         dipendenteId,
         { data: g, servizioId },

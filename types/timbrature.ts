@@ -77,6 +77,19 @@ export interface Dipendente {
   cognomeNome: string
   referenteEmail: string | null
   attivo: boolean
+  /**
+   * Non compila il foglio ore giorno per giorno: il mese si genera dall'orario
+   * teorico (le fasce del profilo) con il bottone "Compila il mese", e l'unica
+   * cosa da inserire sono le giornate NON lavorate, con il loro motivo.
+   *
+   * Sono i responsabili, che non timbrano ma un foglio ore per Pulse ce l'hanno,
+   * e le squadre il cui foglio lo compila per tutti la responsabile.
+   *
+   * Non c'entra con `attivo`: chi non timbra e' attivo a tutti gli effetti — ha
+   * monte ore, scostamento, un mese da validare e un PDF da confermare. Cambia
+   * solo il modo in cui le righe entrano.
+   */
+  nonTimbra: boolean
 }
 
 /**
@@ -106,6 +119,28 @@ export interface ProfiloOrario {
   /** Lettera di variazione firmata, nella cartella personale del dipendente. */
   fileUrl: string | null
   fileNome: string | null
+  /**
+   * L'orario teorico: a che ora si entra e si esce, su quale servizio.
+   * Vuoto per chi timbra — a loro basta il monte ore, gli orari veri li
+   * scrivono giorno per giorno. Serve a chi NON timbra: senza queste fasce non
+   * c'e' niente da generare, perche' una riga di lavoro vuole ingresso e uscita.
+   */
+  fasce: FasciaProfilo[]
+}
+
+/**
+ * Una fascia dell'orario teorico. Piu' fasce sullo stesso giorno sono il modo
+ * di dire "pausa pranzo" (9-13 e 14-18) e "meta' giornata in un'altra struttura"
+ * (il servizio sta sulla fascia, non sul dipendente).
+ */
+export interface FasciaProfilo {
+  id?: number
+  /** ISO: 1 = lunedi', 7 = domenica. */
+  giorno: 1 | 2 | 3 | 4 | 5 | 6 | 7
+  oraInizio: string // HH:mm
+  oraFine: string // HH:mm
+  servizioId: number
+  servizioNome?: string
 }
 
 /** Variazione di orario in arrivo da una route, gia' normalizzata. */
@@ -115,10 +150,18 @@ export interface VariazioneOrarioInput {
   ore: MonteOreSettimana
   motivo: string | null
   file: { url: string; nome: string } | null
+  /**
+   * Orario teorico. `null` = non toccarlo (si stanno salvando solo le ore);
+   * un array = sostituisce in blocco quello che c'era.
+   */
+  fasce: FasciaProfilo[] | null
 }
 
 /** Ore attese indicizzate 1..7 (lun..dom), per allineamento con WEEKDAY(x,2) di Excel */
 export type MonteOreSettimana = Record<1 | 2 | 3 | 4 | 5 | 6 | 7, number>
+
+/** Chi ha messo la riga: una persona, oppure l'orario teorico. */
+export type OrigineRiga = 'manuale' | 'profilo'
 
 export interface Timbratura {
   id: string
@@ -146,6 +189,13 @@ export interface Timbratura {
   perConto: boolean
   /** Progetto a cui vanno le ore. Solo sui servizi con `chiedeProgetto`, e mai obbligatorio. */
   progettoId: number | null
+  /**
+   * Da dove viene la riga. Distinzione che serve a due cose e non a
+   * raccontare la storia: solo le righe `profilo` vengono sostituite da una
+   * rigenerazione del mese o scavalcate da un giustificativo inserito dopo.
+   * Quelle `manuale` non si toccano mai da sole.
+   */
+  origine: OrigineRiga
   // arricchimenti (join con servizio e progetto)
   servizioNome?: string
   centroCostoCodice?: string | null
@@ -194,6 +244,30 @@ export interface EsitoAssenzaPeriodo {
   /** Giorni che avevano gia' qualcosa scritto: non si sovrascrive nulla. */
   giaCompilati: string[]
   errori: { data: string; motivo: string }[]
+}
+
+/**
+ * Esito della compilazione di un mese dall'orario teorico.
+ *
+ * Stessa forma dell'esito di un'assenza su periodo, e per la stessa ragione: si
+ * lavora su trenta giorni, il "no" su una giornata non ferma le altre, e a fine
+ * corsa va detto esattamente cosa e' successo — quante giornate scritte, quante
+ * saltate perche' c'era gia' qualcosa, quante perche' non si lavora.
+ */
+export interface EsitoCompilazioneProfilo {
+  /** Giornate riempite dall'orario teorico. */
+  compilate: string[]
+  /** Righe generate in tutto: piu' di una per giornata quando c'e' la pausa. */
+  righe: number
+  /** Giorni che avevano gia' qualcosa (ferie, o una riga scritta a mano). */
+  giaCompilati: string[]
+  /** Domeniche, festivi e giorni senza fasce nell'orario teorico. */
+  nonLavorativi: string[]
+  /** Righe da profilo cancellate prima di riscrivere (solo con `rigenera`). */
+  rimosse: number
+  errori: { data: string; motivo: string }[]
+  /** Messaggio da mostrare a chi ha premuto il bottone, quando c'e' da spiegare. */
+  avviso?: string
 }
 
 export interface ChiusuraMese {
@@ -357,6 +431,14 @@ export interface StatoDipendenteMese {
   settimane: RiepilogoSettimana[]
   /** Responsabile che deve validare il foglio; null = nessuno assegnato. */
   referenteEmail: string | null
+  /**
+   * Non timbra: il mese si riempie con "Compila il mese", non giorno per giorno.
+   * Nel cruscotto cambia il bottone che si vede, e nel cron cambia a chi va il
+   * sollecito — al responsabile che compila, non a chi non deve fare niente.
+   */
+  nonTimbra: boolean
+  /** Ha un orario teorico impostato: senza, il bottone non ha da cosa generare. */
+  haOrarioTeorico: boolean
   validatoDa: string | null
   validatoIl: string | null
   confermatoIl: string | null

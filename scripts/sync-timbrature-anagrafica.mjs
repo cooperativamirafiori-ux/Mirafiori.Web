@@ -123,6 +123,7 @@ function leggiScheda(it) {
     email: val(f.MailAziendale).toLowerCase(),
     referente: val(f.ReferenteFoglioOre).toLowerCase() || null,
     spuntata: val(f.TimbraturaAttiva) === 'Si',
+    nonTimbra: val(f.NonTimbra) === 'Si',
     statoRapporto: val(f.StatoRapporto) || val(f.StatoTirocinio) || '(vuoto)',
     chiuso,
     get attivo() { return this.spuntata && !this.chiuso },
@@ -143,7 +144,7 @@ async function main() {
 
   // --- lato SharePoint ------------------------------------------------------
   const tk = await graphToken()
-  const campi = 'Title,Cognome,Nome,MailAziendale,ReferenteFoglioOre,TimbraturaAttiva,StatoRapporto,StatoTirocinio'
+  const campi = 'Title,Cognome,Nome,MailAziendale,ReferenteFoglioOre,TimbraturaAttiva,NonTimbra,StatoRapporto,StatoTirocinio'
   const liste = [
     ['dipendenti', process.env.SP_LIST_DIPENDENTI],
     ['tirocini', process.env.SP_LIST_TIROCINI],
@@ -159,7 +160,7 @@ async function main() {
   }
 
   // --- lato Supabase --------------------------------------------------------
-  const righeSb = await sb('GET', '/dipendente?select=id,email,cognome_nome,referente_email,attivo')
+  const righeSb = await sb('GET', '/dipendente?select=id,email,cognome_nome,referente_email,attivo,non_timbra')
   const perEmail = new Map(righeSb.map((r) => [String(r.email).toLowerCase(), r]))
 
   console.log(`  schede in anagrafica RU ........ ${schede.length}`)
@@ -191,7 +192,10 @@ async function main() {
     if (!s.email) continue
     const cambiaAttivo = !riga || riga.attivo !== s.attivo
     const cambiaAltro =
-      riga && (riga.cognome_nome !== s.nominativo || (riga.referente_email ?? null) !== s.referente)
+      riga &&
+      (riga.cognome_nome !== s.nominativo ||
+        (riga.referente_email ?? null) !== s.referente ||
+        !!riga.non_timbra !== s.nonTimbra)
     if ((!riga && s.attivo) || cambiaAttivo || cambiaAltro) azioni.push({ s, riga })
   }
 
@@ -215,15 +219,17 @@ async function main() {
         if (!s.attivo) continue
         await sb('POST', '/dipendente', {
           email: s.email, cognome_nome: s.nominativo, referente_email: s.referente, attivo: true,
+          non_timbra: s.nonTimbra,
         })
         creati++
-        console.log(`  + creato   ${s.nominativo} (${s.email})`)
+        console.log(`  + creato   ${s.nominativo} (${s.email})${s.nonTimbra ? ' — non timbra' : ''}`)
       } else {
         await sb('PATCH', `/dipendente?id=eq.${riga.id}`, {
           cognome_nome: s.nominativo, referente_email: s.referente, attivo: s.attivo,
+          non_timbra: s.nonTimbra,
         })
         aggiornati++
-        console.log(`  ~ aggiorn. ${s.nominativo} → ${s.attivo ? 'attivo' : 'non attivo'}`)
+        console.log(`  ~ aggiorn. ${s.nominativo} → ${s.attivo ? 'attivo' : 'non attivo'}${s.nonTimbra ? ', non timbra' : ''}`)
       }
     } catch (e) {
       errori.push(`${s.nominativo}: ${e.message}`)

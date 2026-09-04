@@ -203,12 +203,20 @@ const FORMAZIONE_COMUNE: readonly RUField[] = [
  * scheda entrambi vengono riportati nel database delle timbrature usando la MAIL
  * AZIENDALE come chiave — vedi lib/timbrature-sync.ts.
  *
+ * `NonTimbra` è un'altra cosa e va INSIEME a `TimbraturaAttiva`, non al suo
+ * posto: dice che quella persona non compila giorno per giorno perché il suo
+ * orario è teorico e sempre uguale (i responsabili, le squadre il cui foglio lo
+ * fa la responsabile per tutti). Il mese si genera con un bottone dall'orario
+ * teorico impostato nel Cruscotto Timbrature, e resta da inserire solo quello
+ * che l'orario teorico non sa: ferie, mutua, permessi.
+ *
  * Attenzione: l'abilitazione decade automaticamente se il rapporto risulta
  * chiuso (dipendenti `StatoRapporto = Cessato`, tirocini `StatoTirocinio` =
  * `INTERROTTO`/`TERMINATO`), anche a spunta lasciata su "Si".
  */
 const TIMBRATURE_COMUNE: readonly RUField[] = [
   { key: 'TimbraturaAttiva', label: 'Timbratura attiva (accesso al foglio ore)', type: 'choice', choices: SINO, section: 'Timbrature' },
+  { key: 'NonTimbra', label: 'Non timbra (foglio ore da orario teorico)', type: 'choice', choices: SINO, section: 'Timbrature' },
   { key: 'ReferenteFoglioOre', label: 'Referente foglio ore (mail)', type: 'email', section: 'Timbrature' },
 ]
 

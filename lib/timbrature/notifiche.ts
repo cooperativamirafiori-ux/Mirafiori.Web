@@ -64,6 +64,49 @@ export async function notificaSollecitoTimbrature(opts: {
   })
 }
 
+/**
+ * Sollecito a chi COMPILA per conto di altri (chi non timbra).
+ *
+ * Il sollecito ordinario va al dipendente, ma per chi non timbra sarebbe una
+ * mail a una persona che non ha niente da fare: il suo foglio lo riempie il
+ * responsabile con "Compila il mese". Quindi si scrive al responsabile, una
+ * mail sola con l'elenco, e non una per collaboratore.
+ */
+export async function notificaFogliDaCompilare(opts: {
+  to: string
+  meseNome: string
+  anno: number
+  scadenza: string // YYYY-MM-DD
+  giorniRimasti: number
+  nominativi: string[]
+  linkApp: string
+}): Promise<void> {
+  const scadFmt = opts.scadenza.split('-').reverse().join('/')
+  const urgenza = opts.giorniRimasti <= 1 ? '#C00000' : opts.giorniRimasti <= 2 ? '#E36C09' : '#B8860B'
+
+  await sendEmail({
+    to: opts.to,
+    from: TIMBRATURE_MAIL_FROM,
+    subject: `⚠️ AZIONE RICHIESTA — fogli ore da compilare per ${opts.meseNome} (entro il ${scadFmt})`,
+    html: `
+      <div style="border:2px solid ${urgenza};border-radius:10px;padding:16px 18px;font-family:sans-serif">
+        <p style="margin:0 0 8px;font-size:18px;font-weight:800;color:${urgenza};text-transform:uppercase">
+          ⚠️ Fogli ore incompleti — ${opts.giorniRimasti === 0 ? 'ULTIMO GIORNO' : `mancano ${opts.giorniRimasti} giorni`}
+        </p>
+        <p style="margin:0 0 10px">Queste persone non timbrano: il foglio ore di
+          <strong>${opts.meseNome} ${opts.anno}</strong> lo compili tu, e al momento ha delle giornate scoperte.</p>
+        <ul style="margin:0 0 10px;padding-left:20px">
+          ${opts.nominativi.map((n) => `<li style="margin:2px 0">${n}</li>`).join('')}
+        </ul>
+        <p style="margin:12px 0 10px">Apri la scheda di ciascuno, premi <strong>“Compila il mese”</strong>
+          per riempirlo con l'orario teorico, poi inserisci ferie, malattie e permessi.</p>
+        <p style="margin:0 0 6px;font-weight:700">Dopo il ${scadFmt} il mese passa in validazione.</p>
+        ${BTN(opts.linkApp, 'Apri i fogli ore →', urgenza)}
+      </div>
+    `,
+  })
+}
+
 // ============================================================
 // Richieste Acquisto
 //

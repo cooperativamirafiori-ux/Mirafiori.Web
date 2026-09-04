@@ -289,9 +289,12 @@ export async function statoMeseTutti(
   const scaduto = meseScaduto(anno, mese)
   const out: StatoDipendenteMese[] = []
   for (const { dip: d, disattivato } of dips) {
-    const [rp, ch] = await Promise.all([
+    const [rp, ch, prof] = await Promise.all([
       riepilogoPeriodo(d.id, from, to),
       getChiusura(d.id, anno, mese),
+      // Solo per chi non timbra: serve a dire se il bottone "Compila il mese"
+      // ha da cosa generare. Per gli altri e' una domanda senza senso.
+      d.nonTimbra ? profiloVigente(d.id, to) : Promise.resolve(null),
     ])
     const incompleti = giorniIncompleti(rp).length
     out.push({
@@ -316,6 +319,8 @@ export async function statoMeseTutti(
       fileHrUrl: ch?.fileHrUrl ?? null,
       settimane: rp.settimane,
       referenteEmail: d.referenteEmail,
+      nonTimbra: d.nonTimbra,
+      haOrarioTeorico: (prof?.fasce.length ?? 0) > 0,
       validatoDa: ch?.validatoDa ?? null,
       validatoIl: ch?.validatoIl ?? null,
       confermatoIl: ch?.confermatoIl ?? null,

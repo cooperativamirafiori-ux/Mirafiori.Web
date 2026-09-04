@@ -19,7 +19,8 @@
 import { useEffect, useState } from 'react'
 import { Allegato } from '@/components/ui/Allegato'
 import { caricaDirettamente } from '@/lib/core/upload-diretto'
-import type { ProfiloOrario } from '@/types/timbrature'
+import type { FasciaProfilo, ProfiloOrario, Servizio } from '@/types/timbrature'
+import { OrarioTeorico, oreFascia } from './OrarioTeorico'
 
 const GG = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
 const oreFmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, ''))
@@ -27,17 +28,27 @@ const gg = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(
 
 const ORE_PROFILO = (p: ProfiloOrario) => [p.oreLun, p.oreMar, p.oreMer, p.oreGio, p.oreVen, p.oreSab, p.oreDom]
 
+/** Ore di un giorno secondo l'orario teorico che si sta componendo. */
+const oreDelGiorno = (fasce: FasciaProfilo[], giorno: number) =>
+  fasce.filter((f) => f.giorno === giorno).reduce((s, f) => s + oreFascia(f), 0)
+
 export function VariazioniOrario({
   dipendenteId,
   profili,
+  servizi,
+  nonTimbra,
   onAggiornato,
 }: {
   dipendenteId: number
   profili: ProfiloOrario[]
+  servizi: Servizio[]
+  /** Non timbra: oltre alle ore serve l'orario teorico, da cui si genera il mese. */
+  nonTimbra: boolean
   /** Ricarica dettaglio ed elenco: le ore attese di tutto il mese cambiano. */
   onAggiornato: () => Promise<void> | void
 }) {
   const [ore, setOre] = useState<Record<number, string>>({})
+  const [fasce, setFasce] = useState<FasciaProfilo[]>([])
   const [decorrenza, setDecorrenza] = useState('')
   const [motivo, setMotivo] = useState('')
   const [lettera, setLettera] = useState<File | null>(null)
@@ -54,6 +65,10 @@ export function VariazioniOrario({
         ? Object.fromEntries(ORE_PROFILO(p).map((n, i) => [i + 1, String(n)]))
         : {},
     )
+    // Le fasce si portano dietro senza id: quello che si salva è un orario
+    // teorico nuovo, appeso alla variazione nuova, non una modifica di quella
+    // vecchia — che deve restare com'è per i mesi già passati.
+    setFasce((p?.fasce ?? []).map(({ giorno, oraInizio, oraFine, servizioId }) => ({ giorno, oraInizio, oraFine, servizioId })))
     const oggi = new Date()
     setDecorrenza(`${oggi.getFullYear()}-${String(oggi.getMonth() + 1).padStart(2, '0')}-01`)
     setMotivo('')
@@ -92,6 +107,10 @@ export function VariazioniOrario({
           ore: Object.fromEntries(Object.entries(ore).map(([k, v]) => [k, Number(v) || 0])),
           motivo: motivo || null,
           file,
+          // Solo per chi non timbra. Per gli altri il campo non parte affatto,
+          // ed è quello che dice al server "non toccare l'orario teorico" —
+          // diverso da un array vuoto, che vorrebbe dire "cancellalo".
+          ...(nonTimbra ? { fasce } : {}),
         }),
       })
       const d = await r.json()
@@ -120,7 +139,12 @@ export function VariazioniOrario({
     }
   }
 
-  const settimanali = Object.values(ore).reduce((s, v) => s + (Number(v) || 0), 0)
+  // Il totale va contato come lo conterà il server: sui giorni con l'orario
+  // teorico vince la somma delle fasce, non il numero rimasto nella casella.
+  const settimanali = [1, 2, 3, 4, 5, 6, 7].reduce(
+    (s, g) => s + (fasce.some((f) => f.giorno === g) ? oreDelGiorno(fasce, g) : Number(ore[g]) || 0),
+    0,
+  )
 
   return (
     <div className="border border-gray-200 rounded-xl p-3 mb-5">
@@ -177,20 +201,34 @@ export function VariazioniOrario({
         })}
       </div>
 
+      {nonTimbra && (
+        <OrarioTeorico fasce={fasce} servizi={servizi} onChange={setFasce} disabilitato={azione} />
+      )}
+
       <div className="grid grid-cols-7 gap-1 mb-1">
-        {GG.map((g, i) => (
-          <div key={g} className="text-center">
-            <div className="text-[10px] text-gray-400">{g}</div>
-            <input
-              value={ore[i + 1] ?? ''}
-              onChange={(e) => setOre({ ...ore, [i + 1]: e.target.value })}
-              className="w-full border border-gray-300 rounded px-1 py-1 text-center text-sm"
-              inputMode="decimal"
-            />
-          </div>
-        ))}
+        {GG.map((g, i) => {
+          const coperto = fasce.some((f) => f.giorno === i + 1)
+          return (
+            <div key={g} className="text-center">
+              <div className="text-[10px] text-gray-400">{g}</div>
+              <input
+                value={coperto ? oreFmt(oreDelGiorno(fasce, i + 1)) : (ore[i + 1] ?? '')}
+                onChange={(e) => setOre({ ...ore, [i + 1]: e.target.value })}
+                readOnly={coperto}
+                title={coperto ? 'Ore calcolate dall’orario teorico' : undefined}
+                className={`w-full border rounded px-1 py-1 text-center text-sm ${
+                  coperto ? 'border-gray-200 bg-gray-100 text-gray-500' : 'border-gray-300'
+                }`}
+                inputMode="decimal"
+              />
+            </div>
+          )
+        })}
       </div>
-      <p className="text-[11px] text-gray-400 mb-2">Totale settimanale: {oreFmt(settimanali)} h</p>
+      <p className="text-[11px] text-gray-400 mb-2">
+        Totale settimanale: {oreFmt(settimanali)} h
+        {fasce.length > 0 && ' — i giorni in grigio li detta l’orario teorico'}
+      </p>
 
       <div className="flex flex-wrap gap-2 items-end mb-2">
         <label className="text-xs text-gray-600">

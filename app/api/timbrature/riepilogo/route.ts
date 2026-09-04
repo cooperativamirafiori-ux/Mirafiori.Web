@@ -8,7 +8,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { guardOperatore } from '@/lib/timbrature/guard'
 import type { FinestraMese } from '@/types/timbrature'
-import { riepilogoPeriodo, finestraMese, primoUltimoGiorno, ultimoGiornoUtile } from '@/lib/timbrature/data'
+import {
+  riepilogoPeriodo,
+  finestraMese,
+  primoUltimoGiorno,
+  profiloVigente,
+  ultimoGiornoUtile,
+} from '@/lib/timbrature/data'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,7 +41,21 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Fornire anno+mese oppure from+to' }, { status: 400 })
     }
     const riepilogo = await riepilogoPeriodo(g.dipendente.id, from, to)
-    return NextResponse.json({ riepilogo, finestra, scadenza })
+
+    // Solo per chi non timbra, e solo perche' la pagina deve sapere se il
+    // bottone "Compila il mese" ha da cosa generare. Per tutti gli altri la
+    // query non parte.
+    const haOrarioTeorico = g.dipendente.nonTimbra
+      ? ((await profiloVigente(g.dipendente.id, to))?.fasce.length ?? 0) > 0
+      : false
+
+    return NextResponse.json({
+      riepilogo,
+      finestra,
+      scadenza,
+      nonTimbra: g.dipendente.nonTimbra,
+      haOrarioTeorico,
+    })
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Errore' }, { status: 500 })
   }

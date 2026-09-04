@@ -15,6 +15,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { CompilaDaProfilo } from '@/components/timbrature/CompilaDaProfilo'
 import { VariazioniOrario } from './_componenti/VariazioniOrario'
 import {
   ETICHETTA_STATO,
@@ -42,7 +43,14 @@ const STILE_STATO: Record<StatoMese, string> = {
 }
 
 interface Dettaglio {
-  dipendente: { id: number; cognomeNome: string; email: string; referenteEmail: string | null }
+  dipendente: {
+    id: number
+    cognomeNome: string
+    email: string
+    referenteEmail: string | null
+    /** Non timbra: il mese si genera dall'orario teorico, non si compila. */
+    nonTimbra: boolean
+  }
   timbrature: Timbratura[]
   riepilogo: RiepilogoPeriodo
   profili: ProfiloOrario[]
@@ -585,10 +593,34 @@ export default function CruscottoTimbrature() {
               />
             </div>
 
+            {/*
+              Chi non timbra: il mese non si compila giorno per giorno, si
+              genera. Il bottone sta sopra il calendario e non in fondo perche'
+              e' la prima cosa da fare — poi si inseriscono ferie e malattie
+              sulle giornate cosi' riempite.
+            */}
+            {dettaglio.dipendente.nonTimbra && (
+              <CompilaDaProfilo
+                dipendenteId={dettaglio.dipendente.id}
+                nome={dettaglio.dipendente.cognomeNome}
+                anno={anno}
+                mese={mese}
+                meseNome={MESI[mese - 1]}
+                haOrarioTeorico={(dettaglio.profili[0]?.fasce.length ?? 0) > 0}
+                bloccato={!modificabile}
+                onFatto={async () => {
+                  await apriDettaglio(dettaglio.dipendente.id)
+                  await carica()
+                }}
+              />
+            )}
+
             {isHr && (
               <VariazioniOrario
                 dipendenteId={dettaglio.dipendente.id}
                 profili={dettaglio.profili}
+                servizi={dettaglio.servizi}
+                nonTimbra={dettaglio.dipendente.nonTimbra}
                 onAggiornato={async () => {
                   await apriDettaglio(dettaglio.dipendente.id)
                   await carica()

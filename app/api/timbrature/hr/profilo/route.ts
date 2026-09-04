@@ -19,6 +19,7 @@ import {
   getProfili,
   getProfiloById,
   leggiVariazione,
+  oreDaFasce,
   salvaProfilo,
 } from '@/lib/timbrature/data'
 import { logAzione } from '@/lib/core/audit'
@@ -51,7 +52,17 @@ export async function POST(req: NextRequest) {
   if (!v.dipendenteId || !/^\d{4}-\d{2}-\d{2}$/.test(v.decorrenza)) {
     return NextResponse.json({ error: 'dipendenteId e decorrenza (YYYY-MM-DD) obbligatori' }, { status: 400 })
   }
-  const settimanali = Object.values(v.ore).reduce((s, n) => s + n, 0)
+  // Le ore dei giorni coperti dall'orario teorico vengono ricalcolate dalle
+  // fasce in `salvaProfilo`: qui il totale va contato allo stesso modo,
+  // altrimenti un profilo compilato solo con le fasce (ore lasciate a zero
+  // perche' le detta l'orario) verrebbe respinto come "monte ore zero".
+  const ore = { ...v.ore }
+  if (v.fasce) {
+    for (let g = 1 as 1 | 2 | 3 | 4 | 5 | 6 | 7; g <= 7; g++) {
+      if (v.fasce.some((f) => f.giorno === g)) ore[g] = oreDaFasce(v.fasce, g)
+    }
+  }
+  const settimanali = Object.values(ore).reduce((s, n) => s + n, 0)
   if (settimanali <= 0) {
     return NextResponse.json(
       { error: 'Il monte ore settimanale non puo\' essere zero: indica le ore di almeno un giorno.' },
@@ -67,6 +78,7 @@ export async function POST(req: NextRequest) {
       aggiornatoDa: g.session.user.email!,
       motivo: v.motivo,
       file: v.file,
+      fasce: v.fasce,
     })
     await logAzione({
       utente: g.session.user.email!,
@@ -80,6 +92,7 @@ export async function POST(req: NextRequest) {
         oreSettimanali: settimanali,
         motivo: v.motivo,
         conAllegato: !!v.file,
+        fasceOrarioTeorico: v.fasce?.length ?? null,
       },
     })
     return NextResponse.json({ profilo })

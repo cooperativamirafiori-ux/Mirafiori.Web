@@ -8,7 +8,12 @@
  */
 
 import { supabase } from '@/lib/core/supabase'
-import { monteToSettimana, profiloVigente, servizioById } from '@/lib/timbrature/anagrafica'
+import {
+  getDipendenteById,
+  monteToSettimana,
+  profiloVigente,
+  servizioById,
+} from '@/lib/timbrature/anagrafica'
 import {
   calcolaOre,
   dataIt,
@@ -16,12 +21,14 @@ import {
   normalizzaOrario,
   oggiRoma,
   primaDataUtile,
+  round4,
   spezzaAMezzanotte,
   weekdayIso,
 } from '@/lib/timbrature/date'
 import { MOTIVO_STATO, statoMese } from '@/lib/timbrature/stati'
 import type {
   EsitoScrittura,
+  OrigineRiga,
   Servizio,
   Timbratura,
   TimbraturaInput,
@@ -50,6 +57,7 @@ function mapTimbratura(r: any): Timbratura {
     modificataIl: r.modificata_il ?? null,
     perConto: !!r.per_conto,
     progettoId: r.progetto_id ?? null,
+    origine: (r.origine ?? 'manuale') as OrigineRiga,
     servizioNome: s?.nome,
     centroCostoCodice: s?.centro_costo_codice ?? null,
     centroCostoNome: s?.centro_costo_nome ?? null,
@@ -90,6 +98,12 @@ export async function listTimbrature(
  *     programmano prima di partire (ed e' cosi' che si evitano i solleciti
  *     mentre si e' in vacanza) e la malattia si registra quando il certificato
  *     arriva, non entro tre giorni.
+ *
+ * Terza regola, per chi NON timbra: la finestra non si applica affatto. Esiste
+ * per far compilare il foglio giorno per giorno, che e' esattamente la cosa che
+ * quelle persone non fanno — il loro mese si genera dall'orario teorico, anche
+ * tutto in anticipo il primo del mese. Resta invece lo stato del mese, che vale
+ * per tutti.
  */
 async function assertModificabile(dipendenteId: number, dataYmd: string, tipoVoce: TipoVoce) {
   const anno = Number(dataYmd.slice(0, 4))
@@ -101,16 +115,21 @@ async function assertModificabile(dipendenteId: number, dataYmd: string, tipoVoc
   if (tipoVoce !== 'lavoro') return
 
   const oggi = oggiRoma()
+  const limite = primaDataUtile(oggi)
+  if (dataYmd <= oggi && dataYmd >= limite) return
+
+  // La query costa, quindi si fa solo qui: nel caso normale — una riga di oggi
+  // o di ieri — non si e' ancora toccato il database.
+  const dip = await getDipendenteById(dipendenteId)
+  if (dip?.nonTimbra) return
+
   if (dataYmd > oggi) {
     throw new Error('Le ore di lavoro si registrano a giornata conclusa: non si inseriscono in anticipo.')
   }
-  const limite = primaDataUtile(oggi)
-  if (dataYmd < limite) {
-    throw new Error(
-      `Puoi inserire o correggere le ore solo di oggi e dei ${GIORNI_INDIETRO} giorni precedenti ` +
-        `(dal ${dataIt(limite)}). Per una correzione piu' vecchia scrivi al tuo responsabile.`,
-    )
-  }
+  throw new Error(
+    `Puoi inserire o correggere le ore solo di oggi e dei ${GIORNI_INDIETRO} giorni precedenti ` +
+      `(dal ${dataIt(limite)}). Per una correzione piu' vecchia scrivi al tuo responsabile.`,
+  )
 }
 
 /**
@@ -280,6 +299,7 @@ export async function creaTimbratura(
   // Giornata intera (giustificativo senza orari): niente da spezzare.
   if (!oraInizio || !oraFine) {
     await assertScrivibile(dipendenteId, input.data, serv.tipoVoce, perConto)
+    await scavalcaGiornataTeorica(dipendenteId, serv, [{ data: input.data }], null)
     const riga = await inserisci(dipendenteId, input, serv, creataDa, perConto, {
       data: input.data,
       oraInizio: null,
@@ -295,11 +315,13 @@ export async function creaTimbratura(
     await assertScrivibileCoda(dipendenteId, t.data, serv.tipoVoce, perConto)
   }
 
+  const avvisoTeorico = await scavalcaGiornataTeorica(dipendenteId, serv, tratti, ore)
+
   const righe: Timbratura[] = []
   for (const t of tratti) {
     righe.push(await inserisci(dipendenteId, input, serv, creataDa, perConto, t))
   }
-  return { righe, avviso: avvisoSpezzamento(tratti) }
+  return { righe, avviso: [avvisoSpezzamento(tratti), avvisoTeorico].filter(Boolean).join(' ') || undefined }
 }
 
 export async function inserisci(
@@ -309,6 +331,7 @@ export async function inserisci(
   creataDa: string,
   perConto: boolean,
   tratto: TrattoScritto,
+  origine: OrigineRiga = 'manuale',
 ): Promise<Timbratura> {
   const { data, error } = await supabase()
     .from('timbratura')
@@ -321,11 +344,80 @@ export async function inserisci(
       ore: tratto.ore,
       creata_da: creataDa,
       per_conto: perConto,
+      origine,
     })
     .select(SELECT_TIMB)
     .single()
   if (error) throw new Error(error.message)
   return mapTimbratura(data)
+}
+
+/**
+ * Toglie da una giornata le righe generate dall'orario teorico, per far posto a
+ * un giustificativo.
+ *
+ * E' il caso della mutua: si comunica il giorno dopo, quando la giornata
+ * teorica e' gia' stata scritta. Senza questo, inserirla direbbe "giorno gia'
+ * compilato" e toccherebbe cancellare a mano una riga che non ha scritto
+ * nessuno — cioe' fare a mano proprio la cosa che il meccanismo doveva evitare.
+ *
+ * Vale solo per le righe `origine = 'profilo'`: una giornata scritta da una
+ * persona non viene mai spazzata via da un inserimento successivo.
+ */
+export async function liberaGiornataTeorica(
+  dipendenteId: number,
+  dataYmd: string,
+): Promise<{ righe: number; ore: number }> {
+  const { data, error } = await supabase()
+    .from('timbratura')
+    .delete()
+    .eq('dipendente_id', dipendenteId)
+    .eq('data', dataYmd)
+    .eq('origine', 'profilo')
+    .select('ore')
+  if (error) throw new Error(error.message)
+  const righe = data ?? []
+  return {
+    righe: righe.length,
+    ore: round4(righe.reduce((t: number, r: any) => t + Number(r.ore), 0)),
+  }
+}
+
+/**
+ * Il giustificativo scavalca la giornata teorica, e lo dice.
+ *
+ * A giornata intera la sostituzione e' esatta e non serve aggiungere altro. Ad
+ * ore no: il permesso di due ore prende il posto di otto ore teoriche, e se non
+ * lo si dice il foglio perde sei ore in silenzio. Quindi si avvisa e si indica
+ * cosa fare — le ore lavorate residue le sa solo chi c'era.
+ */
+async function scavalcaGiornataTeorica(
+  dipendenteId: number,
+  serv: Servizio,
+  tratti: { data: string }[],
+  oreGiustificativo: number | null,
+): Promise<string | undefined> {
+  if (serv.tipoVoce !== 'giustificativo') return undefined
+
+  let rimosse = 0
+  let oreTolte = 0
+  for (const t of tratti) {
+    const e = await liberaGiornataTeorica(dipendenteId, t.data)
+    rimosse += e.righe
+    oreTolte = round4(oreTolte + e.ore)
+  }
+  if (!rimosse) return undefined
+
+  // Giornata intera: la sostituzione e' completa, nessun buco da segnalare.
+  if (oreGiustificativo == null) return undefined
+  const residuo = round4(oreTolte - oreGiustificativo)
+  if (residuo <= 0.001) return undefined
+
+  return (
+    `Quel giorno era compilato dall'orario teorico (${oreIt(oreTolte)} h): l'ho sostituito con ` +
+    `${oreIt(oreGiustificativo)} h di ${serv.nome.toLowerCase()}. Restano ${oreIt(residuo)} h ` +
+    'da registrare come ore lavorate, se sono state fatte.'
+  )
 }
 
 /**

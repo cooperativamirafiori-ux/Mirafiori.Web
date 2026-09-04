@@ -10,6 +10,7 @@
  *   stati.ts       stato del mese (aperto → validato → confermato)
  *   righe.ts       le righe di ore: chi puo' scrivere cosa, e la scrittura
  *   assenze.ts     ferie e permessi su un periodo di giorni consecutivi
+ *   da-profilo.ts  il mese generato dall'orario teorico, per chi non timbra
  *   riepilogo.ts   dai dati ai numeri: giorni, settimane, flessibilita', cruscotti
  *   progetti.ts    consuntivo ore per progetto (rendicontazione)
  *
@@ -37,5 +38,6 @@ export * from '@/lib/timbrature/anagrafica'
 export * from '@/lib/timbrature/stati'
 export * from '@/lib/timbrature/righe'
 export * from '@/lib/timbrature/assenze'
+export * from '@/lib/timbrature/da-profilo'
 export * from '@/lib/timbrature/riepilogo'
 export * from '@/lib/timbrature/progetti'

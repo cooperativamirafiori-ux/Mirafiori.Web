@@ -91,6 +91,18 @@ export function referenteRU(rec: RURecord): string | null {
   return str(rec.ReferenteFoglioOre).toLowerCase() || null
 }
 
+/**
+ * La persona non timbra: il suo foglio ore si genera dall'orario teorico.
+ *
+ * Non è il contrario di `TimbraturaAttiva`, e le due spunte vanno insieme: chi
+ * non timbra deve comunque essere abilitato, perché un foglio ore ce l'ha e
+ * qualcuno deve poterlo aprire, compilare e validare. "Non timbra" dice come le
+ * righe entrano, non se esistono.
+ */
+export function nonTimbraRU(rec: RURecord): boolean {
+  return str(rec.NonTimbra) === ATTIVA
+}
+
 export interface EsitoRecord {
   ok: boolean
   /** Cosa è stato fatto sul database timbrature. */
@@ -116,17 +128,32 @@ export async function sincronizzaRecordRU(rec: RURecord): Promise<EsitoRecord> {
   }
 
   try {
+    const nonTimbra = nonTimbraRU(rec)
     const azione = await upsertDipendenteDaRU(email, {
       cognomeNome: nominativoRU(rec),
       referenteEmail: referenteRU(rec),
       attivo: ab.attivo,
+      nonTimbra,
     })
 
     if (ab.decaduta) {
       return { ok: true, azione, avviso: 'Timbrature non attive: il rapporto risulta chiuso. Rimetti lo stato in corso per riattivarle.' }
     }
+    if (nonTimbra && !ab.spuntata) {
+      return {
+        ok: true,
+        azione,
+        avviso: '"Non timbra" da sola non basta: senza "Timbratura attiva" la persona non ha un foglio ore da compilare. Metti Si anche lì.',
+      }
+    }
     if (azione === 'creato' || azione === 'attivato') {
-      return { ok: true, azione, avviso: 'Timbratura attivata. Ricordati di impostare il monte ore settimanale dal Cruscotto Timbrature.' }
+      return {
+        ok: true,
+        azione,
+        avviso: nonTimbra
+          ? 'Timbratura attivata senza timbratura giornaliera. Imposta l\'orario teorico dal Cruscotto Timbrature: senza, non c\'è niente da cui generare il mese.'
+          : 'Timbratura attivata. Ricordati di impostare il monte ore settimanale dal Cruscotto Timbrature.',
+      }
     }
     return { ok: true, azione }
   } catch (e) {
@@ -178,6 +205,7 @@ export async function sincronizzaTuttoRU(gc: GraphClient): Promise<EsitoSync> {
           cognomeNome: nominativoRU(rec),
           referenteEmail: referenteRU(rec),
           attivo: ab.attivo,
+          nonTimbra: nonTimbraRU(rec),
         })
         if (azione === 'creato') out.creati++
         else if (azione === 'attivato') out.attivati++

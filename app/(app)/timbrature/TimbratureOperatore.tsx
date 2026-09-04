@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Header } from '@/components/ui/Header'
+import { CompilaDaProfilo } from '@/components/timbrature/CompilaDaProfilo'
 import type { Servizio, Progetto, Timbratura, RiepilogoPeriodo, FinestraMese } from '@/types/timbrature'
 import { RiepilogoMese } from './_componenti/RiepilogoMese'
 import { GiorniMese, RigaVoce } from './_componenti/GiorniMese'
@@ -85,6 +86,14 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
   const [riepilogo, setRiepilogo] = useState<RiepilogoPeriodo | null>(null)
   const [finestra, setFinestra] = useState<FinestraMese | null>(null)
   const [scadenza, setScadenza] = useState<string | undefined>()
+  /**
+   * Non timbra: il mese non si compila giorno per giorno, si genera dall'orario
+   * teorico. Sono i responsabili — non timbrano, ma il foglio ore per Pulse se
+   * lo fanno da soli. Arriva dal riepilogo perche' `haOrarioTeorico` dipende
+   * dal mese che si sta guardando, e cambia insieme a lui.
+   */
+  const [nonTimbra, setNonTimbra] = useState(false)
+  const [haOrarioTeorico, setHaOrarioTeorico] = useState(false)
   const [loading, setLoading] = useState(true)
   const [errore, setErrore] = useState('')
   /**
@@ -116,6 +125,8 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
       setRiepilogo(dR.riepilogo ?? null)
       setFinestra(dR.finestra ?? null)
       setScadenza(dR.scadenza)
+      setNonTimbra(!!dR.nonTimbra)
+      setHaOrarioTeorico(!!dR.haOrarioTeorico)
     } catch (e) {
       setErrore(e instanceof Error ? e.message : 'Errore di caricamento')
     } finally {
@@ -567,6 +578,23 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
               </div>
               <button onClick={() => cambiaMese(1)} className="text-2xl text-gray-400 hover:text-gray-700 px-2">›</button>
             </div>
+
+            {/*
+              Chi non timbra parte da qui: prima si genera il mese dall'orario
+              teorico, poi si mettono ferie e malattie sulle giornate riempite.
+              Sta sopra il riepilogo perche' finche' il mese non e' generato il
+              riepilogo dice zero, e sembra un errore.
+            */}
+            {nonTimbra && (
+              <CompilaDaProfilo
+                anno={anno}
+                mese={mese}
+                meseNome={MESI[mese - 1]}
+                haOrarioTeorico={haOrarioTeorico}
+                bloccato={bloccato}
+                onFatto={carica}
+              />
+            )}
 
             {riepilogo && (
               <RiepilogoMese riepilogo={riepilogo} timbrature={timbrature} servizi={servizi} />

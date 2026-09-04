@@ -30,7 +30,11 @@ import {
   statoMeseTutti,
   ultimoGiornoUtile,
 } from '@/lib/timbrature/data'
-import { notificaFogliDaValidare, notificaSollecitoTimbrature } from '@/lib/timbrature/notifiche'
+import {
+  notificaFogliDaCompilare,
+  notificaFogliDaValidare,
+  notificaSollecitoTimbrature,
+} from '@/lib/timbrature/notifiche'
 import {
   MESI_IT,
   destinatarioResponsabile,
@@ -69,7 +73,11 @@ export async function GET(req: NextRequest) {
       const daAvvisare = stato.filter(
         (s) => s.stato === 'aperto' && !!s.email && !s.disattivato && (s.giorniIncompleti > 0 || s.scostamento < -0.001),
       )
-      for (const s of daAvvisare) {
+
+      // Chi non timbra non deve fare niente: il suo foglio lo riempie il
+      // responsabile con "Compila il mese". Sollecitare lui sarebbe una mail a
+      // chi non puo' rispondere, e il silenzio a chi dovrebbe agire.
+      for (const s of daAvvisare.filter((s) => !s.nonTimbra)) {
         await notificaSollecitoTimbrature({
           to: s.email,
           cognomeNome: s.cognomeNome,
@@ -82,7 +90,30 @@ export async function GET(req: NextRequest) {
           linkApp: linkTimbrature(),
         })
       }
-      esito.solleciti_dipendenti = daAvvisare.length
+      esito.solleciti_dipendenti = daAvvisare.filter((s) => !s.nonTimbra).length
+
+      // Una mail sola per responsabile, con l'elenco: chi ne segue otto non
+      // deve ricevere otto mail identiche.
+      const perCompilatore = new Map<string, string[]>()
+      for (const s of daAvvisare.filter((s) => s.nonTimbra && !!s.referenteEmail)) {
+        const to = s.referenteEmail!
+        perCompilatore.set(to, [...(perCompilatore.get(to) ?? []), s.cognomeNome])
+      }
+      for (const [to, nominativi] of perCompilatore) {
+        await notificaFogliDaCompilare({
+          to,
+          meseNome: MESI_IT[prec.mese],
+          anno: prec.anno,
+          scadenza,
+          giorniRimasti,
+          nominativi,
+          linkApp: linkValidazione(),
+        })
+      }
+      esito.solleciti_compilatori = perCompilatore.size
+      // Senza referente non c'e' nessuno a cui scrivere: va detto nell'esito,
+      // altrimenti il foglio resta vuoto e il cron sembra aver fatto tutto.
+      esito.senza_compilatore = daAvvisare.filter((s) => s.nonTimbra && !s.referenteEmail).length
     }
 
     // --- 2) la finestra e' scaduta: si passa ai responsabili ------------------

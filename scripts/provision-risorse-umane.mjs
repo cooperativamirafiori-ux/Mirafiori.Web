@@ -134,6 +134,9 @@ const COMUNE_COLS = [
   // Sezione Timbrature (vedi TIMBRATURE_COMUNE in types/risorse-umane.ts).
   // Chiave di collegamento col database timbrature: MailAziendale.
   { name: 'TimbraturaAttiva', ...choice(SINO) },
+  // "Non timbra": va insieme a TimbraturaAttiva, non al suo posto. Il foglio
+  // ore si genera dall'orario teorico invece di essere compilato ogni giorno.
+  { name: 'NonTimbra', ...choice(SINO) },
   { name: 'ReferenteFoglioOre', ...text() },
 ]
 const NOTE_COL = { name: 'Note', ...text(true) }
