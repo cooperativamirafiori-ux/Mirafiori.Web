@@ -16,11 +16,20 @@ import type {
   TotaliCoda,
 } from '@/types/pagamenti'
 
+/**
+ * ⚠️ Il join sulla fattura è **esterno**, senza `!inner`.
+ *
+ * Con `!inner` PostgREST trasforma la lettura in un INNER JOIN e ogni riga
+ * senza fattura sparisce dal risultato — cioè tutte le uscite inserite a mano
+ * (F24, tributi, rate: vedi supabase/uscite_manuali.sql). Sparirebbero dalle
+ * code e dai totali senza un errore, che è il modo peggiore di rompersi.
+ */
 const CAMPI = `
   id, posizione, data_scadenza, importo, modalita, famiglia_modalita, stimata,
   stato, data_pagamento, pagata_da, pagata_il, origine_pagamento, approvata_da, approvata_il,
   alert, segnalazione, scomparsa, creata_il,
-  fattura_passiva!inner (
+  oggetto, natura, origine, inserita_da, note,
+  fattura_passiva (
     id, fornitore, piva, numero_fornitore, data_fornitore, tipo_documento,
     protocollo_numero, protocollo_suffisso, protocollo_data
   )
@@ -45,6 +54,12 @@ interface Row {
   segnalazione: string | null
   scomparsa: boolean
   creata_il: string
+  oggetto: string | null
+  natura: string | null
+  origine: string
+  inserita_da: string | null
+  note: string | null
+  /** Nulla sulle righe inserite a mano: il join è esterno. */
   fattura_passiva: {
     id: string
     fornitore: string
@@ -55,7 +70,7 @@ interface Row {
     protocollo_numero: string
     protocollo_suffisso: string | null
     protocollo_data: string
-  }
+  } | null
 }
 
 const oggiISO = () => new Date().toISOString().slice(0, 10)
@@ -65,20 +80,31 @@ const giorniFra = (da: string, a: string): number =>
 
 function aRiga(r: Row, oggi: string): RigaScadenza {
   const f = r.fattura_passiva
-  const suffisso = f.protocollo_suffisso ? `/${f.protocollo_suffisso}` : ''
+  const suffisso = f?.protocollo_suffisso ? `/${f.protocollo_suffisso}` : ''
   return {
     id: r.id,
-    fatturaId: f.id,
-    fornitore: f.fornitore,
-    piva: f.piva,
-    numeroFornitore: f.numero_fornitore,
-    dataFornitore: f.data_fornitore,
-    protocollo: `${f.protocollo_numero}${suffisso} del ${f.protocollo_data}`,
+    fatturaId: f?.id ?? null,
+    fornitore: f?.fornitore ?? null,
+    piva: f?.piva ?? null,
+    numeroFornitore: f?.numero_fornitore ?? null,
+    dataFornitore: f?.data_fornitore ?? null,
+    protocollo: f ? `${f.protocollo_numero}${suffisso} del ${f.protocollo_data}` : null,
+    oggetto: r.oggetto,
+    // Il fornitore quando c'è la fattura, l'oggetto quando l'ha scritta una
+    // persona. Il ripiego finale non deve accadere: il vincolo
+    // scadenza_identita_chk impedisce una riga senza né l'uno né l'altro.
+    titolo: f?.fornitore ?? r.oggetto ?? 'Senza descrizione',
+    origine: (r.origine as RigaScadenza['origine']) ?? 'sdi',
+    natura: (r.natura as RigaScadenza['natura']) ?? null,
+    note: r.note,
+    inseritaDa: r.inserita_da,
     dataScadenza: r.data_scadenza,
     importo: Number(r.importo),
     modalita: r.modalita,
     famiglia: r.famiglia_modalita as FamigliaModalita,
-    tipoDocumento: f.tipo_documento,
+    // Una riga a mano non è un documento fiscale: 'fattura' è solo il valore
+    // che spegne la pillola «nota di credito» in elenco.
+    tipoDocumento: f?.tipo_documento ?? 'fattura',
     stato: r.stato,
     stimata: r.stimata,
     alert: (r.alert as RigaScadenza['alert']) ?? null,

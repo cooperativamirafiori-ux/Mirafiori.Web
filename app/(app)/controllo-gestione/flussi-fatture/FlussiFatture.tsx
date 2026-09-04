@@ -25,6 +25,7 @@ import { Pill } from '@/components/ui/Pill'
 import { Banner } from '@/components/ui/Banner'
 import { Vuoto } from '@/components/ui/Vuoto'
 import { StatoDati, Caricamento } from './Testata'
+import { NuovaUscita } from './NuovaUscita'
 import type { RicevutaImport, RigaScadenza, TotaliCoda } from '@/types/pagamenti'
 
 type Coda = 'da_pagare' | 'da_approvare' | 'automatiche'
@@ -149,6 +150,27 @@ export function FlussiFatture({
     setUltimeChiuse([])
   }
 
+  /**
+   * Cancella una riga inserita a mano. Vale solo su quelle: le scadenze da
+   * fattura le governa l'import, e l'API rifiuta il loro id.
+   */
+  async function eliminaUscita(id: string) {
+    setInCorso(true)
+    setErrore('')
+    setMessaggio('')
+    try {
+      const res = await fetch(`/api/pagamenti/uscite/${id}`, { method: 'DELETE' })
+      const j = await res.json()
+      if (!res.ok) throw new Error(j.error ?? 'Cancellazione non riuscita')
+      setMessaggio('Uscita cancellata')
+      await carica()
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : 'Cancellazione non riuscita')
+    } finally {
+      setInCorso(false)
+    }
+  }
+
   async function approvaSelezione() {
     const ids = selezionate.map((r) => r.id)
     if (ids.length === 0) return
@@ -162,6 +184,11 @@ export function FlussiFatture({
       <StatoDati ultimo={dati?.ultimoImport ?? null} />
 
       {puoPagare && <Caricamento onFatto={carica} setErrore={setErrore} />}
+
+      {/* Le uscite che non passano dallo SDI. Sta qui, sotto il caricamento
+          dello scadenzario, perché è l'altra metà della stessa operazione:
+          il file porta le fatture, questa mette il resto. */}
+      {puoPagare && <NuovaUscita onFatto={carica} />}
 
       <Banner tono="errore">{errore}</Banner>
       <Banner tono="ok">{messaggio}</Banner>
@@ -291,6 +318,11 @@ export function FlussiFatture({
                     return n
                   })
                 }
+                onElimina={
+                  r.origine === 'manuale' && puoPagare && r.stato !== 'pagata'
+                    ? () => void eliminaUscita(r.id)
+                    : undefined
+                }
               />
             ))}
           </ul>
@@ -344,13 +376,19 @@ function Riga({
   scelta,
   selezionabile,
   onToggle,
+  onElimina,
 }: {
   r: RigaScadenza
   scelta: boolean
   selezionabile: boolean
   onToggle: () => void
+  /** Solo sulle righe inserite a mano e non ancora pagate. */
+  onElimina?: () => void
 }) {
   const scaduta = r.giorniRitardo > 0
+  // Due passaggi invece di window.confirm: la conferma sta dove si è cliccato,
+  // e chi ha premuto per sbaglio se ne accorge senza che salti su una finestra.
+  const [confermaElimina, setConfermaElimina] = useState(false)
   return (
     <li
       className={`flex items-start gap-3 rounded-xl border bg-white px-3 py-3 ${
@@ -362,7 +400,13 @@ function Riga({
       )}
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-semibold text-gray-800 truncate">{r.fornitore}</span>
+          <span className="font-semibold text-gray-800 truncate">{r.titolo}</span>
+          {/* Una riga inserita a mano si distingue: nessuno l'ha vista in un
+              documento, e chi guarda la coda deve sapere che l'ha scritta una
+              persona. La natura si mostra solo quando è un semplice movimento,
+              perché è il caso che sorprende: esce dal conto ma non è un costo. */}
+          {r.origine === 'manuale' && <Pill text="inserita a mano" tono="viola" />}
+          {r.natura === 'flusso' && <Pill text="movimento di cassa" tono="ambra" />}
           {r.tipoDocumento === 'nota_credito' && <Pill text="nota di credito" tono="viola" />}
           {scaduta && (
             <Pill text={`scaduta da ${r.giorniRitardo} gg`} tono="rosso" dot="bg-red-500" />
@@ -375,11 +419,18 @@ function Riga({
           )}
         </div>
         <p className="text-sm text-gray-500 mt-0.5">
-          {r.numeroFornitore ? `Fattura ${r.numeroFornitore}` : `Protocollo ${r.protocollo}`}
+          {r.origine === 'manuale'
+            ? r.inseritaDa
+              ? `Inserita da ${r.inseritaDa}`
+              : 'Uscita senza fattura'
+            : r.numeroFornitore
+              ? `Fattura ${r.numeroFornitore}`
+              : `Protocollo ${r.protocollo}`}
           {r.dataFornitore ? ` del ${dataIt(r.dataFornitore)}` : ''} · scade il{' '}
           <span className={r.stimata ? 'italic' : ''}>{dataIt(r.dataScadenza)}</span>
-          {r.modalita ? ` · ${r.modalita}` : ''}
+          {r.origine !== 'manuale' && r.modalita ? ` · ${r.modalita}` : ''}
         </p>
+        {r.note && <p className="text-xs text-gray-500 mt-0.5">{r.note}</p>}
         {r.stato === 'da_approvare' && (
           <p className="text-xs text-gray-400 mt-0.5">in attesa da {r.giorniAttesa} giorni</p>
         )}
@@ -391,6 +442,34 @@ function Riga({
           <p className="text-xs text-gray-400">
             pagata il {dataIt(r.dataPagamento)}
             {r.originePagamento === 'gestionale' && ' · secondo il gestionale'}
+          </p>
+        )}
+        {onElimina && (
+          <p className="text-xs mt-0.5">
+            {confermaElimina ? (
+              <>
+                <button
+                  onClick={onElimina}
+                  className="font-semibold text-red-600 underline underline-offset-2"
+                >
+                  Cancella
+                </button>
+                <span className="text-gray-300 mx-1">·</span>
+                <button
+                  onClick={() => setConfermaElimina(false)}
+                  className="text-gray-500 underline underline-offset-2"
+                >
+                  no
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setConfermaElimina(true)}
+                className="text-gray-400 underline underline-offset-2 hover:text-gray-600"
+              >
+                elimina
+              </button>
+            )}
           </p>
         )}
       </div>
