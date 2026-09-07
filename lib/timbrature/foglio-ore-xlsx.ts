@@ -380,6 +380,16 @@ const CT_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.she
  * Funziona grazie a Sites.ReadWrite.All (Application), ma nel log nativo la
  * scrittura risulta fatta dall'app. E' una scelta consapevole: l'alternativa
  * sarebbe obbligare il dipendente a fare login per confermare.
+ *
+ * ⚠️ E si ripiega anche quando `gRU` c'e' ma NON HA ACCESSO al sito RU
+ * (7 set 2026). Il caso vero: un responsabile che valida i fogli dei suoi
+ * collaboratori senza far parte delle Risorse Umane — apre il cruscotto perche'
+ * e' referente in anagrafica, ma sul sito RU SharePoint gli risponde 403, e
+ * l'archiviazione moriva con "Non hai i permessi sul sito Risorse Umane".
+ * Il ripiego era dichiarato ma non c'era: `clientRU` in flusso.ts intercetta
+ * solo il token, non il 403 in scrittura. Vale anche per la scheda non trovata:
+ * con l'identita' delegata un elenco filtrato somiglia a un buco in anagrafica,
+ * e non si manda un allarme alle HR senza aver prima riprovato come app.
  */
 export async function pubblicaFoglioOre(
   dip: Dipendente,
@@ -393,46 +403,75 @@ export async function pubblicaFoglioOre(
   const base = nomeBase(dip, anno, mese)
 
   const ru = await import('@/lib/risorse-umane/data')
-  const { graphApplicativo } = await import('@/lib/core/graph-delegato')
-  const gc = gRU ?? graphApplicativo()
+  const { graphApplicativo, isAccessoNegato } = await import('@/lib/core/graph-delegato')
 
-  const match = await ru.trovaSchedaPerEmail(gc, dip.email)
-  if (!match) throw new DipendenteFuoriAnagrafica(dip.email, dip.cognomeNome)
+  /**
+   * Un tentativo completo di archiviazione con una data identita'.
+   *
+   * `primoTentativo` cambia solo il trattamento degli errori di permesso: al
+   * primo giro vanno lasciati risalire, perche' sono il segnale per riprovare
+   * come applicazione; all'ultimo si registrano e si va avanti, che e' il
+   * comportamento storico (un PDF mancante non annulla una validazione).
+   */
+  async function archivia(
+    gc: GraphClient,
+    primoTentativo: boolean,
+  ): Promise<FoglioOrePubblicato> {
+    const match = await ru.trovaSchedaPerEmail(gc, dip.email)
+    if (!match) throw new DipendenteFuoriAnagrafica(dip.email, dip.cognomeNome)
 
-  const spId = String(match.spItemId)
-  const xlsx = await ru.caricaDocumentoDipendente(gc, spId, `${base}.xlsx`, buffer, CT_XLSX)
+    const spId = String(match.spItemId)
+    const xlsx = await ru.caricaDocumentoDipendente(gc, spId, `${base}.xlsx`, buffer, CT_XLSX)
 
-  let pdf: Buffer | null = null
-  let pdfUrl: string | null = null
-  let hrUrl: string | null = null
-  try {
-    pdf = await ru.pdfDocumentoDipendente(gc, xlsx.id)
-    const doc = await ru.caricaDocumentoDipendente(gc, spId, `${base}.pdf`, pdf, 'application/pdf')
-    pdfUrl = doc.url
-  } catch (e) {
-    // Il PDF e' importante ma non deve far fallire la validazione: senza,
-    // la mail parte con il solo link al foglio.
-    console.error('[foglio-ore] conversione PDF fallita:', e)
+    let pdf: Buffer | null = null
+    let pdfUrl: string | null = null
+    let hrUrl: string | null = null
+    try {
+      pdf = await ru.pdfDocumentoDipendente(gc, xlsx.id)
+      const doc = await ru.caricaDocumentoDipendente(gc, spId, `${base}.pdf`, pdf, 'application/pdf')
+      pdfUrl = doc.url
+    } catch (e) {
+      if (primoTentativo && isAccessoNegato(e)) throw e
+      // Il PDF e' importante ma non deve far fallire la validazione: senza,
+      // la mail parte con il solo link al foglio.
+      console.error('[foglio-ore] conversione PDF fallita:', e)
+    }
+
+    // Copia HR: solo il definitivo, solo il PDF. Se il PDF non c'e' si mette
+    // l'xlsx, perche' meglio il formato sbagliato che il buco.
+    if (opts.copiaHr) {
+      try {
+        const doc = await ru.caricaDocumentoInCartella(
+          gc,
+          cartellaHr(anno, mese),
+          pdf ? `${base}.pdf` : `${base}.xlsx`,
+          pdf ?? buffer,
+          pdf ? 'application/pdf' : CT_XLSX,
+        )
+        hrUrl = doc.url
+      } catch (e) {
+        if (primoTentativo && isAccessoNegato(e)) throw e
+        // La conferma della persona non si perde per una copia mancata: resta
+        // quella nella cartella personale, e il cruscotto mostra il buco.
+        console.error('[foglio-ore] copia nella cartella HR fallita:', e)
+      }
+    }
+
+    return { xlsxUrl: xlsx.url, pdfUrl, hrUrl, pdf }
   }
 
-  // Copia HR: solo il definitivo, solo il PDF. Se il PDF non c'e' si mette
-  // l'xlsx, perche' meglio il formato sbagliato che il buco.
-  if (opts.copiaHr) {
+  if (gRU) {
     try {
-      const doc = await ru.caricaDocumentoInCartella(
-        gc,
-        cartellaHr(anno, mese),
-        pdf ? `${base}.pdf` : `${base}.xlsx`,
-        pdf ?? buffer,
-        pdf ? 'application/pdf' : CT_XLSX,
-      )
-      hrUrl = doc.url
+      return await archivia(gRU, true)
     } catch (e) {
-      // La conferma della persona non si perde per una copia mancata: resta
-      // quella nella cartella personale, e il cruscotto mostra il buco.
-      console.error('[foglio-ore] copia nella cartella HR fallita:', e)
+      const riprovabile = isAccessoNegato(e) || e instanceof DipendenteFuoriAnagrafica
+      if (!riprovabile) throw e
+      console.warn(
+        `[foglio-ore] ${gRU.identita} non archivia sul sito RU (${
+          e instanceof Error ? e.name : 'errore'
+        }): si riprova con l'identita' dell'applicazione`,
+      )
     }
   }
-
-  return { xlsxUrl: xlsx.url, pdfUrl, hrUrl, pdf }
+  return await archivia(graphApplicativo(), false)
 }
