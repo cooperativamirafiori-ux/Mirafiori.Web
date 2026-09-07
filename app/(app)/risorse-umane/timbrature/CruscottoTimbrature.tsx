@@ -17,8 +17,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { CompilaDaProfilo } from '@/components/timbrature/CompilaDaProfilo'
 import { VariazioniOrario } from './_componenti/VariazioniOrario'
+import { ElencoFogli } from './_componenti/ElencoFogli'
+import { BadgeStato } from './_componenti/BadgeStato'
 import {
-  ETICHETTA_STATO,
   type StatoDipendenteMese,
   type StatoMese,
   type Timbratura,
@@ -31,16 +32,7 @@ import {
 
 import { RiepilogoMese } from '@/app/(app)/timbrature/_componenti/RiepilogoMese'
 import { GiorniMese } from '@/app/(app)/timbrature/_componenti/GiorniMese'
-import { MESI, oreLabel, pad, scostClasse, segno } from '@/app/(app)/timbrature/_componenti/mese'
-
-/** Colore del badge di stato: deve dire a colpo d'occhio dove si e' fermi. */
-const STILE_STATO: Record<StatoMese, string> = {
-  aperto: 'bg-gray-100 text-gray-500',
-  da_validare: 'bg-amber-100 text-amber-800',
-  validato: 'bg-sky-100 text-sky-800',
-  confermato: 'bg-emerald-100 text-emerald-700',
-  contestato: 'bg-orange-100 text-orange-800',
-}
+import { MESI } from '@/app/(app)/timbrature/_componenti/mese'
 
 interface Dettaglio {
   dipendente: {
@@ -338,6 +330,16 @@ export default function CruscottoTimbrature() {
 
   const statoDettaglio: StatoMese = dettaglio?.chiusura?.stato ?? 'aperto'
   const modificabile = statoDettaglio === 'aperto' || statoDettaglio === 'da_validare' || statoDettaglio === 'contestato'
+  /**
+   * Chiusura anticipata dalla scheda, non solo dall'elenco.
+   *
+   * Serve a chi valida dal telefono: la scheda e' l'unico posto dove ci si
+   * gira comodi, e il "Chiudi e valida" di un mese completo esisteva solo
+   * nella riga dell'elenco.
+   */
+  const anticipabileDettaglio =
+    statoDettaglio === 'aperto' &&
+    !!righe.find((r) => r.dipendenteId === dettaglio?.dipendente.id)?.completo
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -431,123 +433,22 @@ export default function CruscottoTimbrature() {
         {loading ? (
           <div className="text-center text-gray-400 py-10">Caricamento…</div>
         ) : (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <table className="w-full text-sm">
-              {/*
-                Poche colonne di proposito: l'elenco serve a scegliere chi
-                aprire, non a leggere i numeri. Settimane, giorni incompleti,
-                flessibilita' e giustificativi stanno nella scheda che si apre
-                con "Controlla", dove c'e' lo spazio per mostrarli davvero.
-              */}
-              <thead className="bg-gray-50 text-gray-500">
-                <tr>
-                  <th className="text-left px-4 py-2 font-semibold">Dipendente</th>
-                  <th className="text-right px-3 py-2 font-semibold">Lavorate / attese</th>
-                  <th className="text-center px-3 py-2 font-semibold">Stato</th>
-                  <th className="px-3 py-2"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {righeOrdinate.map((s) => {
-                  const visto = visionati.has(s.dipendenteId)
-                  /*
-                   * Un mese ancora aperto si valida se non ha piu' giornate
-                   * scoperte: e' la chiusura anticipata, il caso "sono in ferie
-                   * dal 20 al 31, il foglio e' finito". Con dei buchi il tasto
-                   * resta spento, e non c'e' scappatoia nemmeno per le HR: un
-                   * foglio ore incompleto non si chiude.
-                   */
-                  const anticipabile = s.stato === 'aperto' && s.completo
-                  const puoValidare = s.stato === 'da_validare' || s.stato === 'contestato' || anticipabile
-                  return (
-                    <tr key={s.dipendenteId} className="hover:bg-gray-50">
-                      <td className="px-4 py-2.5">
-                        <div className="font-medium text-gray-800">
-                          {s.cognomeNome}
-                          {s.disattivato && (
-                            <span
-                              title="Non più abilitato alle timbrature: compare per permettere la chiusura dell'ultimo mese"
-                              className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 align-middle"
-                            >
-                              non più attivo
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-gray-400">{s.email}</div>
-                      </td>
-                      <td className="text-right px-3 whitespace-nowrap">
-                        <span className="text-gray-800">{oreLabel(s.oreLavorate)}</span>
-                        <span className="text-gray-400">/{oreLabel(s.oreAttese)}</span>
-                        <span
-                          className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${scostClasse(s.scostamento)}`}
-                          title="Scostamento fra ore coperte e ore attese dell'intero mese"
-                        >
-                          {segno(s.scostamento)}
-                        </span>
-                      </td>
-                      <td className="text-center px-3">
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STILE_STATO[s.stato]}`}>
-                          {ETICHETTA_STATO[s.stato]}
-                        </span>
-                        {s.stato === 'validato' && s.giorniInAttesa != null && (
-                          <div className="text-[10px] text-gray-400 mt-0.5">da {s.giorniInAttesa} gg</div>
-                        )}
-                        {s.confermatoForzato && (
-                          <div className="text-[10px] text-gray-400 mt-0.5">senza riscontro</div>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-right whitespace-nowrap">
-                        <button onClick={() => apriDettaglio(s.dipendenteId)} className="text-brand-cyan-dark font-semibold hover:underline mr-3">
-                          Controlla
-                        </button>
-                        {s.filePdfUrl && (
-                          <a href={s.filePdfUrl} target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:underline mr-3">PDF</a>
-                        )}
-                        {s.fileUrl && (
-                          <a href={s.fileUrl} target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:underline mr-3">Excel</a>
-                        )}
-                        {puoValidare && (
-                          <button
-                            onClick={() => valida(s.dipendenteId, s.cognomeNome, anticipabile)}
-                            disabled={azione || !visto}
-                            title={
-                              !visto
-                                ? 'Apri “Controlla” prima di validare'
-                                : anticipabile
-                                  ? 'Il mese è completo: si può chiudere senza aspettare la scadenza'
-                                  : ''
-                            }
-                            className="text-white bg-primary disabled:bg-gray-300 rounded-lg px-3 py-1.5 font-semibold"
-                          >
-                            {anticipabile ? 'Chiudi e valida' : 'Valida'}
-                          </button>
-                        )}
-                        {s.stato === 'validato' && (
-                          <button onClick={() => forza(s.dipendenteId, s.cognomeNome)} disabled={azione} className="text-amber-600 font-semibold hover:underline">
-                            Chiudi senza risposta
-                          </button>
-                        )}
-                        {isHr && (s.stato === 'confermato' || s.stato === 'validato') && (
-                          <button onClick={() => riapri(s.dipendenteId)} disabled={azione} className="ml-3 text-gray-500 font-semibold hover:underline">
-                            Riapri
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-                {righe.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="text-center text-gray-400 py-8">
-                      {isHr
-                        ? 'Nessun dipendente abilitato. Spunta "Timbratura attiva" sulle schede in Risorse Umane, poi premi "Sincronizza da anagrafica".'
-                        : 'Nessun collaboratore assegnato: in anagrafica nessuno ti indica come referente del foglio ore.'}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          /*
+            Poche informazioni di proposito: l'elenco serve a scegliere chi
+            aprire, non a leggere i numeri. Settimane, giorni incompleti,
+            flessibilita' e giustificativi stanno nella scheda che si apre con
+            "Controlla", dove c'e' lo spazio per mostrarli davvero.
+          */
+          <ElencoFogli
+            righe={righeOrdinate}
+            isHr={isHr}
+            azione={azione}
+            visionati={visionati}
+            onControlla={apriDettaglio}
+            onValida={valida}
+            onForza={forza}
+            onRiapri={riapri}
+          />
         )}
       </div>
 
@@ -562,9 +463,7 @@ export default function CruscottoTimbrature() {
             <p className="text-xs text-gray-400 mb-3">{MESI[mese - 1]} {anno} · {dettaglio.dipendente.email}</p>
 
             <div className="mb-4">
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STILE_STATO[statoDettaglio]}`}>
-                {ETICHETTA_STATO[statoDettaglio]}
-              </span>
+              <BadgeStato stato={statoDettaglio} />
               {dettaglio.chiusura?.validatoDa && (
                 <span className="text-xs text-gray-400 ml-2">validato da {dettaglio.chiusura.validatoDa}</span>
               )}
@@ -772,10 +671,19 @@ export default function CruscottoTimbrature() {
                   ✓ Valida il foglio ore e invia al dipendente
                 </button>
               )}
-              {statoDettaglio === 'aperto' && (
+              {anticipabileDettaglio && (
+                <button
+                  onClick={() => valida(dettaglio.dipendente.id, dettaglio.dipendente.cognomeNome, true)}
+                  disabled={azione}
+                  className="w-full py-3 rounded-lg bg-primary text-white font-bold disabled:opacity-50"
+                >
+                  ✓ Il mese è completo: chiudi e valida
+                </button>
+              )}
+              {statoDettaglio === 'aperto' && !anticipabileDettaglio && (
                 <div className="rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 text-xs text-gray-500">
                   Il mese è ancora aperto alla compilazione: si valida quando la finestra dei tre giorni è
-                  scaduta.
+                  scaduta, o prima se non resta nessuna giornata scoperta.
                 </div>
               )}
               {statoDettaglio === 'validato' && (
@@ -802,15 +710,6 @@ export default function CruscottoTimbrature() {
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-function Mini({ label, value, rosso }: { label: string; value: string; rosso?: boolean }) {
-  return (
-    <div className="bg-gray-50 rounded-lg py-2 text-center">
-      <div className={`font-bold ${rosso ? 'text-red-600' : 'text-gray-800'}`}>{value}</div>
-      <div className="text-[11px] text-gray-500">{label}</div>
     </div>
   )
 }

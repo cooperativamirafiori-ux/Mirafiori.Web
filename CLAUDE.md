@@ -27,6 +27,14 @@ Cartella del progetto: `web/` (la radice del repo git è `web/`, non la cartella
    il manuale solo se non esiste alternativa.
 4. **Automatizzare.** Se un'operazione va fatta più di una volta, diventa uno script in `scripts/`.
 5. **File oltre ~500 righe = segnale di spezzarlo.** `npm run mappa` li elenca in cima al report.
+5-bis. **Ogni schermata deve essere USABILE da telefono**, non solo leggibile (7 set 2026). I
+   responsabili di struttura girano fra le sedi col solo telefono: se un comando non si raggiunge
+   da mobile, per loro quella funzione non esiste — e dallo schermo grande sembra tutto a posto.
+   In pratica: **niente `<table>` per elenchi con azioni** (righe impilate sotto i 640px, distese
+   da `sm:` in su — il modello e' `app/(app)/risorse-umane/timbrature/_componenti/ElencoFogli.tsx`);
+   i gruppi di comandi vanno a capo con `flex-wrap` invece di uscire; mai `overflow-x-auto` come
+   rimedio, l'azione principale non si raggiunge scorrendo di lato; l'azione principale sta anche
+   nella scheda di dettaglio, non solo nella riga dell'elenco. Si prova a 375px.
 6. **Non si scava negli interni di un altro modulo** (vedi § Convenzioni).
 7. **Prima di proporre un push: `npx tsc --noEmit`.** L'app non ha test automatici, il compilatore
    è la rete di sicurezza — e con `strict: true` copre molto. Questo lo lancia Claude.
