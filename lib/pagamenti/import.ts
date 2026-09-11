@@ -248,6 +248,13 @@ export async function importaScadenzario(
 
     const cambiataData = vecchia.data_scadenza !== r.dataScadenza
     const cambiatoImporto = Math.abs(Number(vecchia.importo) - r.importo) > 0.004
+    // ⚠️ Anche la famiglia va confrontata. Quando abbiamo spostato PagoPA, MAV
+    // e RAV dagli addebiti automatici alle code (01/09/2026), le 34 righe già
+    // in archivio sono rimaste dov'erano: data e importo non erano cambiati,
+    // quindi l'import le saltava come «invariate» e nessun reimport le avrebbe
+    // mai riclassificate. Una regola che cambia deve poter raggiungere anche
+    // ciò che è già dentro.
+    const cambiataFamiglia = vecchia.famiglia_modalita !== r.famiglia
     const giaChiusa = vecchia.stato === 'pagata' || vecchia.stato === 'stornata'
 
     // Il senso unico, sulle righe già in archivio: il gestionale può chiudere
@@ -257,7 +264,7 @@ export async function importaScadenzario(
       chiuseDaGestionale++
     }
 
-    if (!cambiataData && !cambiatoImporto) {
+    if (!cambiataData && !cambiatoImporto && !cambiataFamiglia) {
       daToccare.push(vecchia.id)
       invariate++
       continue
@@ -271,6 +278,9 @@ export async function importaScadenzario(
         ? `importo ${Number(vecchia.importo).toFixed(2)} → ${r.importo.toFixed(2)}`
         : null,
       cambiataData ? `scadenza ${vecchia.data_scadenza} → ${r.dataScadenza}` : null,
+      cambiataFamiglia
+        ? `modalità riclassificata: ${vecchia.famiglia_modalita} → ${r.famiglia}`
+        : null,
       chiusa ? 'già chiusa in app: lo stato non è stato toccato' : null,
     ]
       .filter(Boolean)
