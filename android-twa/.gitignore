@@ -1,0 +1,16 @@
+# progetto Android rigenerato da `bubblewrap update`: si versiona solo twa-manifest.json
+app/
+gradle/
+gradlew
+gradlew.bat
+build.gradle
+settings.gradle
+gradle.properties
+local.properties
+store_icon.png
+*.apk
+*.aab
+*.keystore
+*.jks
+.gradle/
+build/

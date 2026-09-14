@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.cooperativamirafiori.web",
+      "sha256_cert_fingerprints": [
+        "B7:8A:84:41:EF:C0:8E:01:48:D4:72:49:8D:4B:1B:8E:61:DA:28:7A:3D:5C:FD:CF:25:F9:48:5D:54:EE:D1:77"
+      ]
+    }
+  }
+]
