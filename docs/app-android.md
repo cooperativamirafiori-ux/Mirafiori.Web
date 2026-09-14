@@ -43,7 +43,7 @@ File coinvolti:
 |---|---|
 | `app/manifest.ts` | nome, icone, colori, `start_url`. **È la fonte**: Bubblewrap legge questo |
 | `public/icona-*.png` | icone 192/512 + maskable, generate dal logo (solo il lettering: a 48px il logo intero è illeggibile) |
-| `public/.well-known/assetlinks.json` | l'impronta della chiave di firma |
+| `public/assetlinks.json` | l'impronta della chiave di firma; `next.config.mjs` lo riscrive su `/.well-known/assetlinks.json` |
 | `android-twa/twa-manifest.json` | la configurazione dell'app Android. Il resto del progetto Android si rigenera, non si versiona |
 | `.vercelignore` | tiene `android-twa/` fuori dal deploy |
 
@@ -69,6 +69,10 @@ L'APK firmato esce in `android-twa/app-release-signed.apk`.
 
 ## Trappole già pagate
 
+- **`public/.well-known/` non funziona.** Next non serve le cartelle che iniziano con un
+  punto dentro `public/`: il file restituiva 404 in produzione mentre il manifest, lì
+  accanto, andava. Il file sta in `public/assetlinks.json` e la rotta `/.well-known/…`
+  arriva da un `rewrites()` in `next.config.mjs`.
 - **La chiave di firma non si perde e non si rigenera.** Un APK firmato con una chiave
   diversa Android lo considera un'altra app: non si aggiorna, va disinstallato e
   reinstallato (e il giorno del Play Store sarebbe un problema serio). Sta in

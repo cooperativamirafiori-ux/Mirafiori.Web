@@ -15,6 +15,15 @@ const nextConfig = {
       './lib/templates/scheda-socio/**',
     ],
   },
+  // Android chiede gli asset links esattamente su /.well-known/assetlinks.json, ma Next
+  // NON serve le cartelle che iniziano con un punto dentro public/ (provato: 404).
+  // Quindi il file sta in public/assetlinks.json e qui si riscrive la rotta.
+  // Vedi docs/app-android.md.
+  async rewrites() {
+    return [
+      { source: '/.well-known/assetlinks.json', destination: '/assetlinks.json' },
+    ]
+  },
 }
 
 export default nextConfig
