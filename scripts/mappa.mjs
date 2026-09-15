@@ -109,13 +109,28 @@ const AREE = [
       'lib/calendar', 'scripts/provision-software',
     ],
   },
+  {
+    nome: 'Amministrazione · Password',
+    prefissi: [
+      'app/(app)/amministrazione/password', 'app/api/password', 'lib/password',
+      'types/password', 'scripts/provision-password', 'docs/gestione-password',
+    ],
+  },
   { nome: 'Amministrazione (hub)', prefissi: ['app/(app)/amministrazione'] },
   {
     nome: 'Controllo di gestione · Flussi fatture',
     prefissi: [
       'app/(app)/controllo-gestione', 'app/api/pagamenti', 'lib/pagamenti',
       'types/pagamenti', 'supabase/pagamenti', 'docs/flussi-fatture',
-      'docs/controllo-di-gestione',
+      'docs/controllo-di-gestione', 'supabase/uscite_manuali', 'docs/uscite-senza-fattura',
+    ],
+  },
+  {
+    nome: 'Controllo di gestione · Registro',
+    prefissi: [
+      'lib/gestione', 'types/gestione', 'supabase/gestione_schema',
+      'docs/registro-fondamenta', 'scripts/sync-centri-costo-supabase',
+      'scripts/travaso-costi-registro',
     ],
   },
   {
