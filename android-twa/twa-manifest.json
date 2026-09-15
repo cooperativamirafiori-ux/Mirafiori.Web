@@ -4,7 +4,6 @@
   "name": "Mirafiori Web",
   "launcherName": "Mirafiori Web",
   "display": "standalone",
-  "orientation": "portrait",
   "themeColor": "#3860B2",
   "themeColorDark": "#3860B2",
   "navigationColor": "#3860B2",
@@ -22,18 +21,24 @@
     "alias": "mirafiori"
   },
   "appVersionName": "1.0.0",
-  "appVersionCode": 1,
+  "appVersionCode": 2,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://mirafiori-web.vercel.app/manifest.webmanifest",
   "fallbackType": "customtabs",
   "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
   "fullScopeUrl": "https://mirafiori-web.vercel.app/",
   "minSdkVersion": 21,
+  "orientation": "portrait",
+  "fingerprints": [],
   "additionalTrustedOrigins": [],
   "retainedBundles": [],
+  "displayOverride": [],
   "appVersion": "1.0.0"
 }

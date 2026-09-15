@@ -8,7 +8,9 @@ settings.gradle
 gradle.properties
 local.properties
 store_icon.png
+manifest-checksum.txt
 *.apk
+*.apk.idsig
 *.aab
 *.keystore
 *.jks
