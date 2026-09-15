@@ -6,7 +6,8 @@
  * piu' rimediare da sola e la correzione deve passare dal responsabile.
  *
  * Volutamente stretto: guarda solo i giorni che si chiudono entro domani, cosi'
- * la mail arriva quando serve davvero e non diventa rumore quotidiano.
+ * la mail arriva quando serve davvero e non diventa rumore quotidiano. Chi ha
+ * la spunta "Non timbra" resta fuori: non e' lui a compilare il foglio.
  *
  * Sicurezza: Bearer CRON_SECRET, se impostato.
  */
@@ -52,6 +53,10 @@ export async function GET(req: NextRequest) {
 
     for (const dip of dipendenti) {
       if (!dip.email) continue
+      // Chi non timbra non deve fare niente: il suo foglio lo riempie il
+      // responsabile con "Compila il mese". Sollecitarlo sarebbe una mail a chi
+      // non puo' rispondere (stessa regola del cron sollecito-timbrature).
+      if (dip.nonTimbra) continue
       const [riepilogo, righe] = await Promise.all([
         riepilogoPeriodo(dip.id, from, oggi),
         listTimbrature(dip.id, from, oggi),
