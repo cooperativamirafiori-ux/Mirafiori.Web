@@ -94,6 +94,34 @@ tavolo con la password a schermo.
 ricorda di darsi da solo. Si conta dall'ultima modifica, o dall'inserimento se
 la password non è mai stata cambiata.
 
+**Le categorie si filtrano con bottoni colorati, non con una tendina**
+(18 set 2026). L'archivio si apre per guardare *un gruppo* — «le password del
+WiFi», «quelle delle banche» — non per filtrare una tabella riga per riga: con
+la tendina servivano tre gesti e non si vedeva quali categorie esistessero
+davvero. I bottoni (`_componenti/FiltriCategoria.tsx`) mostrano **solo le
+categorie che hanno voci**, col conteggio accanto, e si spengono ripremendoli.
+
+Ogni categoria ha un colore fisso, lo stesso sul bottone e sulla pillola della
+card. La tabella dei colori sta in `_componenti/colori.ts` e **non** in
+`types/password.ts` per un motivo pratico: `tailwind.config.ts` scansiona solo
+`app/`, `components/` e `pages/`, quindi le classi scritte sotto `types/`
+verrebbero eliminate dalla build e i bottoni uscirebbero bianchi — con `tsc`
+verde e nessun errore a runtime.
+
+**Aggiungere una categoria richiede tre passaggi**, o qualcosa resta indietro
+in silenzio:
+
+1. `CATEGORIE_PASSWORD` in `types/password.ts` (l'ordine è quello dei bottoni);
+2. la voce in `_componenti/colori.ts`, altrimenti esce grigia;
+3. `node scripts/provision-password.mjs`, che allinea le scelte della colonna
+   `Categoria` su SharePoint. Saltarlo fa comparire la categoria nella tendina
+   del form e fa **rifiutare il salvataggio** dalla colonna choice.
+
+Il passo 3 aggiunge solo le scelte mancanti, partendo da quelle già presenti:
+una categoria creata a mano su SharePoint non viene cancellata. Le voci che su
+SharePoint hanno una categoria fuori elenco restano raggiungibili — compaiono in
+fondo ai bottoni, in grigio.
+
 ---
 
 ## Rimasto fuori, di proposito

@@ -15,6 +15,7 @@
 
 import { Pill } from '@/components/ui/Pill'
 import { giorniDa, passwordVecchia, type VocePassword } from '@/types/password'
+import { stileCategoria } from './colori'
 
 const dataIt = (d?: string) =>
   d ? new Date(`${d}T00:00:00`).toLocaleDateString('it-IT') : '—'
@@ -48,7 +49,10 @@ export function SchedaVoce({
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="font-bold text-gray-800 break-words">{voce.nome}</h3>
-            {voce.categoria && <Pill text={voce.categoria} />}
+            {/* Stesso colore del bottone di filtro: il gruppo si riconosce a colpo d'occhio. */}
+            {voce.categoria && (
+              <Pill text={voce.categoria} cls={stileCategoria(voce.categoria).pill} />
+            )}
             {vecchia && (
               <Pill
                 text={giorni != null ? `Da cambiare · ${Math.floor(giorni / 30)} mesi` : 'Da cambiare'}

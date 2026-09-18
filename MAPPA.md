@@ -1,9 +1,9 @@
 # MAPPA — indice generato di Mirafiori Web
 
-> Generato da `npm run mappa` il 2026-09-15. **Non modificare a mano**: le decisioni e le
+> Generato da `npm run mappa` il 2026-09-18. **Non modificare a mano**: le decisioni e le
 > convenzioni stanno in `CLAUDE.md`, qui c'è solo la fotografia dei file.
 
-**388 file · 72.404 righe totali.**
+**391 file · 72.888 righe totali.**
 
 ## ⚠️ File oltre 500 righe — da spezzare
 
@@ -27,7 +27,7 @@
 
 ### Timbrature · Foglio ore
 
-_60 file · 10492 righe_
+_60 file · 10497 righe_
 
 - `app/(app)/risorse-umane/timbrature/_componenti/BadgeStato.tsx` (26 righe)
 - `app/(app)/risorse-umane/timbrature/_componenti/ElencoFogli.tsx` (172 righe)
@@ -45,7 +45,7 @@ _60 file · 10492 righe_
 - `app/(app)/timbrature/validazione/page.tsx` (29 righe)
 - `app/api/cron/promemoria-ore/route.ts` (90 righe)
 - `app/api/cron/sollecito-timbrature/route.ts` (206 righe)
-- `app/api/cron/timbrature-alert/route.ts` (89 righe)
+- `app/api/cron/timbrature-alert/route.ts` (94 righe)
 - `app/api/foglio-ore/[token]/route.ts` (62 righe)
 - `app/api/timbrature/[id]/route.ts` (44 righe)
 - `app/api/timbrature/assenza/route.ts` (122 righe)
@@ -304,17 +304,19 @@ _9 file · 1674 righe_
 
 ### Amministrazione · Password
 
-_9 file · 1329 righe_
+_11 file · 1600 righe_
 
-- `app/(app)/amministrazione/password/_componenti/SchedaVoce.tsx` (194 righe)
-- `app/(app)/amministrazione/password/GestionePassword.tsx` (348 righe)
+- `app/(app)/amministrazione/password/_componenti/colori.ts` (98 righe)
+- `app/(app)/amministrazione/password/_componenti/FiltriCategoria.tsx` (90 righe)
+- `app/(app)/amministrazione/password/_componenti/SchedaVoce.tsx` (198 righe)
+- `app/(app)/amministrazione/password/GestionePassword.tsx` (346 righe)
 - `app/(app)/amministrazione/password/page.tsx` (58 righe)
 - `app/api/password/[id]/route.ts` (106 righe)
 - `app/api/password/route.ts` (72 righe)
-- `docs/gestione-password.md` (109 righe)
+- `docs/gestione-password.md` (137 righe)
 - `lib/password/data.ts` (187 righe) — esporta: getVociPassword, getVocePassword, parseInputPassword, creaVocePassword, aggiornaVocePassword, eliminaVocePassword
-- `scripts/provision-password.mjs` (167 righe)
-- `types/password.ts` (88 righe)
+- `scripts/provision-password.mjs` (199 righe)
+- `types/password.ts` (109 righe)
 
 ### Amministrazione (hub)
 
@@ -556,6 +558,7 @@ in `scripts/mappa.mjs` e a `CLAUDE.md`.
 - `docs/assistenza-it.md` (107 righe)
 - `docs/cda-planner.md` (150 righe)
 - `docs/centri-di-costo-piano.md` (178 righe)
+- `docs/fatturazione-attiva-piano.md` (208 righe)
 - `docs/it-dispositivi-piano.md` (316 righe)
 - `lib/assistenza/allegati.ts` (119 righe)
 - `lib/assistenza/data.ts` (289 righe)

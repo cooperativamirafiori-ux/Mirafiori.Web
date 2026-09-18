@@ -39,7 +39,9 @@ const CATEGORIE = [
   'Posta e domini',
   'Sito e social',
   'Software',
+  'Strutture',
   'Utenze',
+  'WiFi',
   'Altro',
 ]
 
@@ -133,19 +135,49 @@ async function main() {
   finale(created.id, created.webUrl)
 }
 
-/** Aggiunge alla lista esistente le sole colonne mancanti (idempotente) */
+/**
+ * Allinea la lista esistente: colonne mancanti + scelte mancanti di Categoria.
+ *
+ * Le scelte vanno riallineate a parte perché aggiungere una categoria in
+ * `types/password.ts` non tocca SharePoint: l'app mostrerebbe "WiFi" nella
+ * tendina, e il salvataggio verrebbe rifiutato dalla colonna choice. Il PATCH
+ * sostituisce l'elenco completo, quindi si parte da quello che c'è già e si
+ * aggiunge solo il mancante — così una categoria creata a mano su SharePoint
+ * non viene cancellata da questo script.
+ */
 async function ensureColumns(token, site, listId) {
-  const cols = await graph(token, 'GET', `/sites/${site}/lists/${listId}/columns?$select=name&$top=200`)
+  const cols = await graph(
+    token,
+    'GET',
+    `/sites/${site}/lists/${listId}/columns?$select=id,name,choice&$top=200`,
+  )
   const present = new Set((cols.value || []).map((c) => c.name))
   const mancanti = COLUMNS.filter((c) => !present.has(c.name))
   if (!mancanti.length) {
     console.log('✓ Tutte le colonne sono già presenti.')
-    return
   }
   for (const col of mancanti) {
     await graph(token, 'POST', `/sites/${site}/lists/${listId}/columns`, col)
     console.log(`  + colonna aggiunta: ${col.name}`)
   }
+
+  await ensureCategorie(token, site, listId, cols.value || [])
+}
+
+/** Aggiunge alla colonna Categoria le sole scelte mancanti (idempotente) */
+async function ensureCategorie(token, site, listId, colonne) {
+  const cat = colonne.find((c) => c.name === 'Categoria')
+  if (!cat) return // appena creata da ensureColumns: ha già tutte le scelte
+  const attuali = cat.choice?.choices || []
+  const nuove = CATEGORIE.filter((c) => !attuali.includes(c))
+  if (!nuove.length) {
+    console.log('✓ Le categorie su SharePoint sono già allineate.')
+    return
+  }
+  await graph(token, 'PATCH', `/sites/${site}/lists/${listId}/columns/${cat.id}`, {
+    choice: { choices: [...attuali, ...nuove], displayAs: 'dropDownMenu' },
+  })
+  console.log(`  + categorie aggiunte: ${nuove.join(', ')}`)
 }
 
 function finale(id, webUrl) {

@@ -25,10 +25,12 @@ import { Kpi } from '@/components/ui/Kpi'
 import {
   CATEGORIE_PASSWORD,
   GIORNI_PASSWORD_VECCHIA,
+  categoriaDi,
   passwordVecchia,
   type VocePassword,
 } from '@/types/password'
 import { SchedaVoce } from './_componenti/SchedaVoce'
+import { FiltriCategoria } from './_componenti/FiltriCategoria'
 
 /** Dopo quanti millisecondi un valore mostrato si richiude da solo. */
 const RICHIUDI_DOPO = 30_000
@@ -101,7 +103,8 @@ export function GestionePassword({ iniziali }: { iniziali: VocePassword[] }) {
   const visibili = useMemo(() => {
     const q = cerca.trim().toLowerCase()
     return lista.filter((v) => {
-      if (filtroCat && v.categoria !== filtroCat) return false
+      // `categoriaDi`: le voci senza categoria stanno sotto "Altro", come nei conteggi.
+      if (filtroCat && categoriaDi(v) !== filtroCat) return false
       if (!q) return true
       // Si cerca su quello che si ricorda: il nome, l'utente, il sito, le note.
       // Mai sulla password: digitarla nel campo di ricerca la metterebbe a schermo.
@@ -216,20 +219,13 @@ export function GestionePassword({ iniziali }: { iniziali: VocePassword[] }) {
             segnaposto="nome, utente, sito…"
           />
         </div>
-        <div className="w-full sm:w-52">
-          <Campo
-            etichetta="Categoria"
-            tipo="choice"
-            valore={filtroCat}
-            onChange={setFiltroCat}
-            scelte={CATEGORIE_PASSWORD}
-            vuoto="Tutte"
-          />
-        </div>
         <button onClick={apriNuova} className={`${BTN_PRIMARIO} w-full sm:w-auto`}>
           + Nuova voce
         </button>
       </div>
+
+      {/* Categorie: bottoni colorati, non una tendina. Vedi FiltriCategoria. */}
+      <FiltriCategoria lista={lista} filtro={filtroCat} onFiltro={setFiltroCat} />
 
       <Banner tono="errore">{errore}</Banner>
 
@@ -238,7 +234,9 @@ export function GestionePassword({ iniziali }: { iniziali: VocePassword[] }) {
         <Vuoto>
           {lista.length === 0
             ? 'Nessuna credenziale in archivio. Aggiungi la prima voce.'
-            : 'Nessuna voce corrisponde alla ricerca.'}
+            : filtroCat && cerca.trim()
+              ? `Nessuna voce in “${filtroCat}” corrisponde alla ricerca.`
+              : 'Nessuna voce corrisponde alla ricerca.'}
         </Vuoto>
       ) : (
         <div className="space-y-3">

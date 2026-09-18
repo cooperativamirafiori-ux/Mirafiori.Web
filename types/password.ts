@@ -14,6 +14,13 @@
  * non cambierebbe di una riga. Vedi `docs/gestione-password.md`.
  */
 
+/**
+ * Le categorie dell'archivio. **L'ordine è quello dei bottoni di filtro**, e
+ * ogni categoria ha un colore fisso in `app/(app)/amministrazione/password/
+ * _componenti/colori.ts`: aggiungendone una qui, va aggiunta anche là (altrimenti
+ * esce grigia) e in `scripts/provision-password.mjs`, che allinea le scelte della
+ * colonna su SharePoint.
+ */
 export const CATEGORIE_PASSWORD = [
   'Banche e pagamenti',
   'Enti e portali PA',
@@ -21,10 +28,24 @@ export const CATEGORIE_PASSWORD = [
   'Posta e domini',
   'Sito e social',
   'Software',
+  'Strutture',
   'Utenze',
+  'WiFi',
   'Altro',
 ] as const
 export type CategoriaPassword = (typeof CATEGORIE_PASSWORD)[number]
+
+/**
+ * Categoria di una voce, con il ripiego su "Altro".
+ *
+ * Una voce senza categoria esiste (il campo non è obbligatorio) e deve comunque
+ * finire sotto un bottone, altrimenti sparisce da ogni filtro e la si ritrova
+ * solo con la ricerca. Conteggio e filtro devono usare questa stessa funzione,
+ * o i numeri sui bottoni non corrisponderebbero alle voci mostrate.
+ */
+export function categoriaDi(v: { categoria: string }): string {
+  return v.categoria || 'Altro'
+}
 
 /**
  * Dopo quanti giorni una password viene segnalata come "da cambiare".
