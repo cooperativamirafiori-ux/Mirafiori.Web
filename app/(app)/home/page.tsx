@@ -112,7 +112,7 @@ export default async function HomePage() {
         {/* Servizi */}
         <Sezione titolo="Servizi">
           <FunzioneCard
-            href="https://amazingmirafiori.netlify.app/"
+            href="https://amazing-mirafiori.vercel.app/"
             emoji="✨"
             accent="cyan"
             titolo="Amazing"
