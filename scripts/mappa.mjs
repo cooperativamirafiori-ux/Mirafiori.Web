@@ -66,6 +66,7 @@ const AREE = [
       'app/(app)/richiesta-fattura', 'app/api/fatture', 'lib/fatture',
       'app/api/clienti', 'lib/clienti',
       'scripts/provision-fatture', 'scripts/provision-clienti', 'scripts/import-clienti',
+      'scripts/aggiorna-comuni', 'types/comuni',
       'docs/richiesta-fattura',
     ],
   },

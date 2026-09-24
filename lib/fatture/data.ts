@@ -239,3 +239,43 @@ export async function getRichiesteFatturaDi(email: string): Promise<RichiestaFat
   const e = email.toLowerCase()
   return tutte.filter((r) => r.richiedente.toLowerCase() === e)
 }
+
+/**
+ * I centri di costo usati di recente da una persona, dal più recente, senza
+ * doppioni (al massimo `max`).
+ *
+ * Serve a non far scegliere il servizio a chi compila: chi lavora in Locanda
+ * manda richieste per la Locanda, e il modulo parte già da lì. Si legge dalla
+ * lista stessa invece che dall'anagrafica del personale perché è il dato più
+ * vero — cosa quella persona ha chiesto davvero — e perché l'anagrafica RU vive
+ * su un altro sito con un'altra autenticazione.
+ *
+ * Legge solo tre colonne. Se la lettura fallisce si torna un elenco vuoto: il
+ * modulo chiederà il servizio, niente di più.
+ */
+export async function getCentriRecentiDi(email: string, max = 3): Promise<string[]> {
+  try {
+    const res = await graphGet<{ value: any[] }>(
+      `${listBase()}?$select=id,fields&$expand=fields($select=Title,Richiedente,CentroCosto)&$top=5000`,
+      PREFER_NON_INDEXED,
+    )
+    const e = email.toLowerCase()
+    const mie = (res.value ?? [])
+      .map((i) => i.fields ?? {})
+      .filter((f) => String(f.Richiedente ?? '').toLowerCase() === e && f.CentroCosto)
+      .sort(
+        (a, b) =>
+          (progressivoDaNumeroFattura(b.Title) ?? 0) - (progressivoDaNumeroFattura(a.Title) ?? 0),
+      )
+    const visti: string[] = []
+    for (const f of mie) {
+      const cc = String(f.CentroCosto).trim()
+      if (cc && !visti.includes(cc)) visti.push(cc)
+      if (visti.length >= max) break
+    }
+    return visti
+  } catch (err) {
+    console.warn('[fatture] centri recenti non letti', err)
+    return []
+  }
+}

@@ -153,6 +153,47 @@ export function partitaIvaValida(p: string): boolean {
   return (10 - (somma % 10)) % 10 === Number(s[10])
 }
 
+/**
+ * Carattere di controllo del codice fiscale di una persona (16 caratteri).
+ *
+ * **Non blocca l'invio**: il modulo lo usa per un avviso («ricontrolla»), non
+ * come errore. Provato sull'anagrafica importata: 176 su 179 lo superano, e i
+ * 3 che non lo superano sono clienti veri, già fatturati, con ogni probabilità
+ * scritti male in archivio. Bloccare vorrebbe dire non poterli più fatturare
+ * finché qualcuno non corregge la scheda.
+ */
+export function codiceFiscaleValido(cf: string): boolean {
+  const s = (cf ?? '').replace(/\s/g, '').toUpperCase()
+  if (!/^[A-Z0-9]{16}$/.test(s)) return false
+  const DISPARI = [1, 0, 5, 7, 9, 13, 15, 17, 19, 21, 2, 4, 18, 20, 11, 3, 6, 8, 12, 14, 16, 10, 22, 25, 24, 23]
+  const valore = (c: string) => (c >= '0' && c <= '9' ? Number(c) : c.charCodeAt(0) - 65)
+  let somma = 0
+  for (let i = 0; i < 15; i++) {
+    const c = s[i]
+    // Nelle posizioni dispari (1ª, 3ª…) cifre e lettere hanno la stessa tabella:
+    // la cifra n vale come la n-esima lettera.
+    somma += i % 2 === 0 ? DISPARI[valore(c)] : valore(c)
+  }
+  return String.fromCharCode(65 + (somma % 26)) === s[15]
+}
+
+/** Messaggi quando manca un dato del cliente: detti come a voce, non «campo obbligatorio». */
+export const MANCA_SOGGETTO: Record<CampoSoggetto, string> = {
+  cognome: 'Scrivi il cognome',
+  nome: 'Scrivi il nome',
+  ragioneSociale: "Scrivi il nome dell'azienda o dell'ente",
+  partitaIva: 'Scrivi la partita IVA',
+  codiceFiscale: 'Scrivi il codice fiscale',
+}
+
+/**
+ * true se per questo cliente serve il canale della fattura elettronica (codice
+ * destinatario o PEC): chi ha partita IVA e gli enti, se italiani.
+ */
+export function chiedeCanaleSdi(r: { tipoSoggetto: TipoSoggetto | ''; nazionalita: Nazionalita | '' }): boolean {
+  return Boolean(r.tipoSoggetto) && r.tipoSoggetto !== 'Privato' && r.nazionalita !== 'Estera'
+}
+
 // ============================================================
 // Forma dei dati
 // ============================================================
@@ -326,6 +367,19 @@ export function regimeDi(centroCosto: string): Regime {
   const noto = REGIMI_NOTI[normalizza(centroCosto)]
   if (noto) return { ...noto, daChiedere: false }
   return { aliquota: null, lordo: true, daChiedere: true }
+}
+
+/**
+ * Le descrizioni più frequenti di ogni servizio, da toccare invece di scrivere.
+ * Si aggiungono qui, come i regimi IVA: stessa chiave (nome del centro di costo
+ * in minuscolo). Toccarne una riempie la descrizione, che resta modificabile.
+ */
+const DESCRIZIONI_RAPIDE: Record<string, readonly string[]> = {
+  locanda: ['Pranzo', 'Cena', 'Evento', 'Catering'],
+}
+
+export function descrizioniRapide(centroCosto: string): readonly string[] {
+  return DESCRIZIONI_RAPIDE[normalizza(centroCosto)] ?? []
 }
 
 /** Etichetta del campo importo: è lei a dire cosa scrivere, non una nota a parte. */
@@ -550,20 +604,20 @@ export function validaRichiesta(r: NuovaRichiestaFatturaInput): Record<string, s
   const e: Record<string, string> = {}
   const vuoto = (v: string) => !String(v ?? '').trim()
 
-  if (vuoto(r.centroCosto)) e.centroCosto = 'Indica il centro di costo'
-  if (!r.tipoSoggetto) e.tipoSoggetto = 'Scegli la tipologia di soggetto'
+  if (vuoto(r.centroCosto)) e.centroCosto = 'Scegli il servizio'
+  if (!r.tipoSoggetto) e.tipoSoggetto = "Dicci se il cliente è una persona o un'azienda"
   if (!r.nazionalita) e.nazionalita = 'Indica la nazionalità'
 
   if (r.tipoSoggetto) {
     for (const campo of CAMPI_PER_TIPO[r.tipoSoggetto]) {
       if (CAMPI_SOGGETTO_FACOLTATIVI.has(campo)) continue
-      if (vuoto(r[campo])) e[campo] = `${ETICHETTE_SOGGETTO[campo]} obbligatorio`
+      if (vuoto(r[campo])) e[campo] = MANCA_SOGGETTO[campo]
     }
     // La partita IVA non è obbligatoria, ma una risposta sì: o la si scrive, o
     // si dichiara che il soggetto non ce l'ha.
     if (CAMPI_PER_TIPO[r.tipoSoggetto].includes('partitaIva')) {
       if (vuoto(r.partitaIva) && !r.senzaPartitaIva) {
-        e.partitaIva = 'Scrivi la partita IVA, oppure spunta «non ha partita IVA»'
+        e.partitaIva = 'Scrivi la partita IVA, oppure tocca «Non ha la partita IVA»'
       }
     }
   }
@@ -584,9 +638,9 @@ export function validaRichiesta(r: NuovaRichiestaFatturaInput): Record<string, s
     }
   }
 
-  if (vuoto(r.indirizzo)) e.indirizzo = 'Indica via e numero civico'
-  if (vuoto(r.citta)) e.citta = 'Indica la città'
-  if (vuoto(r.nazione)) e.nazione = 'Indica la nazione'
+  if (vuoto(r.indirizzo)) e.indirizzo = 'Scrivi la via e il numero'
+  if (vuoto(r.citta)) e.citta = 'Scrivi il comune'
+  if (vuoto(r.nazione)) e.nazione = 'Scegli il paese'
   // Nazione e nazionalità sono due campi distinti perché l'ufficio vuole la
   // dichiarazione esplicita, ma non possono contraddirsi: un cliente in Italia
   // con nazionalità Estera è un errore di compilazione, non un caso di frontiera.
@@ -596,9 +650,9 @@ export function validaRichiesta(r: NuovaRichiestaFatturaInput): Record<string, s
       : 'Hai indicato nazionalità Estera ma la nazione è Italia'
   }
   if (italiano) {
-    if (vuoto(r.cap)) e.cap = 'Indica il CAP'
+    if (vuoto(r.cap)) e.cap = 'Scrivi il CAP'
     else if (!/^\d{5}$/.test(r.cap.trim())) e.cap = 'Il CAP italiano ha 5 cifre'
-    if (vuoto(r.provincia)) e.provincia = 'Indica la provincia'
+    if (vuoto(r.provincia)) e.provincia = 'Scrivi la provincia (due lettere, es. TO)'
   }
 
   // Email facoltativa: molti clienti la fattura la ritirano di persona o la
@@ -614,12 +668,22 @@ export function validaRichiesta(r: NuovaRichiestaFatturaInput): Record<string, s
     e.codiceSdi = 'Il codice destinatario ha 7 caratteri (6 per la PA)'
   }
 
-  if (vuoto(r.descrizione)) e.descrizione = 'Descrivi cosa va fatturato'
-  if (vuoto(r.dataPrestazione)) e.dataPrestazione = 'Indica la data della prestazione'
+  // Chi ha partita IVA, e ogni ente, riceve la fattura elettronica da un canale
+  // suo: il codice destinatario o la PEC. Almeno uno dei due è obbligatorio
+  // (decisione del 24 settembre 2026). Non vale per i privati, che la ricevono
+  // nel cassetto fiscale, né per i soggetti esteri, che fuori dall'Italia lo
+  // SDI non ce l'hanno. Il codice 0000000 conta come risposta: in archivio è
+  // la scelta che l'ufficio ha già fatto per quel cliente.
+  if (chiedeCanaleSdi(r) && vuoto(r.codiceSdi) && vuoto(r.pec)) {
+    e.codiceSdi = 'Serve il codice destinatario oppure la PEC: chiedili al cliente'
+  }
+
+  if (vuoto(r.descrizione)) e.descrizione = 'Scrivi cosa ha comprato il cliente'
+  if (vuoto(r.dataPrestazione)) e.dataPrestazione = 'Scegli il giorno'
 
   const importo = Number(String(r.importo).replace(',', '.'))
-  if (vuoto(r.importo)) e.importo = "Indica l'importo"
-  else if (!Number.isFinite(importo) || importo <= 0) e.importo = 'Importo non valido'
+  if (vuoto(r.importo)) e.importo = 'Scrivi quanto costa'
+  else if (!Number.isFinite(importo) || importo <= 0) e.importo = 'Scrivi un numero, per esempio 25,50'
 
   // Il riferimento alla fattura da rettificare **non** è obbligatorio: spesso
   // chi chiede la nota non ha il numero sotto mano, e pretenderlo bloccherebbe
@@ -635,7 +699,7 @@ export function validaRichiesta(r: NuovaRichiestaFatturaInput): Record<string, s
   }
 
   if (r.incassato) {
-    if (vuoto(r.mezzoPagamento)) e.mezzoPagamento = 'Indica come è stato pagato'
+    if (vuoto(r.mezzoPagamento)) e.mezzoPagamento = 'Scegli come ha pagato'
     if (vuoto(r.dataIncasso)) e.dataIncasso = "Indica la data dell'incasso"
   }
 

@@ -24,6 +24,16 @@ export const inputCls =
   'w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-cyan'
 export const labelCls = 'block text-xs font-semibold text-gray-600 mb-1'
 
+/**
+ * Misura grande: testo a 16 px (sotto quella soglia iPhone ingrandisce la pagina
+ * appena si tocca il campo), campo più alto, messaggi più leggibili. Nata per il
+ * modulo Richiesta Fattura, che usano anche persone anziane o con qualche
+ * difficoltà: è la stessa grafica, solo più grande.
+ */
+const inputGrandeCls =
+  'w-full border border-gray-300 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-brand-cyan'
+const labelGrandeCls = 'block text-sm font-semibold text-gray-700 mb-1.5'
+
 export type TipoCampo =
   | 'text'
   | 'textarea'
@@ -66,6 +76,8 @@ export function Campo({
   maxLength,
   vuoto = '—',
   senzaVuoto,
+  grande,
+  inputMode,
 }: {
   etichetta: string
   valore: string
@@ -95,11 +107,15 @@ export function Campo({
    * "Documento da emettere", che parte da «Fattura» e ha «Fattura» fra le scelte).
    */
   senzaVuoto?: boolean
+  /** Misura grande: vedi `inputGrandeCls`. */
+  grande?: boolean
+  /** La tastiera da aprire sul telefono: `numeric` per CAP e codici, `decimal` per gli importi. */
+  inputMode?: 'text' | 'numeric' | 'decimal' | 'email' | 'tel'
 }) {
   const cambia = (v: string) => onChange(maiuscolo ? v.toUpperCase() : v)
 
   const classi = [
-    inputCls,
+    grande ? inputGrandeCls : inputCls,
     errore ? 'border-red-400 focus:ring-red-300' : '',
     disabilitato ? 'bg-gray-50 text-gray-500' : '',
     maiuscolo ? 'uppercase' : '',
@@ -109,7 +125,7 @@ export function Campo({
 
   return (
     <label className="block">
-      <span className={labelCls}>
+      <span className={grande ? labelGrandeCls : labelCls}>
         {etichetta}
         {obbligatorio && <span className="text-red-500 ml-0.5">*</span>}
       </span>
@@ -145,14 +161,19 @@ export function Campo({
           onChange={(e) => cambia(e.target.value)}
           disabled={disabilitato}
           placeholder={segnaposto}
+          inputMode={inputMode}
           className={classi}
         />
       )}
 
       {errore ? (
-        <span className="block text-xs text-red-600 mt-1">{errore}</span>
+        <span className={`block text-red-600 mt-1 ${grande ? 'text-sm font-medium' : 'text-xs'}`}>
+          {errore}
+        </span>
       ) : aiuto ? (
-        <span className="block text-xs text-gray-400 mt-1">{aiuto}</span>
+        <span className={`block mt-1 ${grande ? 'text-sm text-gray-500' : 'text-xs text-gray-400'}`}>
+          {aiuto}
+        </span>
       ) : null}
     </label>
   )

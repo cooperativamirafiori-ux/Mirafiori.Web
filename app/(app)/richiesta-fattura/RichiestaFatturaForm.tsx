@@ -1,169 +1,259 @@
 'use client'
 
 /**
- * Form di richiesta fattura.
+ * Modulo di richiesta fattura, a passi.
  *
- * Tre cose meritano una nota, perché non si capiscono leggendo il JSX:
+ * **Per chi è pensato.** Lo usano anche persone anziane o con qualche
+ * difficoltà (decisione del 24 settembre 2026, «semplice per tutti»): una
+ * domanda per schermata, bottoni grandi, parole di tutti i giorni, e il meno
+ * possibile da scrivere — il servizio si ricorda, il giorno si tocca, CAP e
+ * provincia arrivano dal comune, nome e sede di un'azienda dalla partita IVA.
  *
- * 1. **Quali campi compaiono non è deciso qui.** La tipologia di soggetto
- *    pilota l'elenco `CAMPI_PER_TIPO` in `types/fatture.ts`, che è lo stesso
- *    che usa l'API per validare. Aggiungere un campo a una tipologia si fa là,
- *    una volta sola, e le due parti non possono divergere.
+ * **Cosa NON è cambiato.** Quello che parte verso `/api/fatture` è la stessa
+ * `NuovaRichiestaFatturaInput` di prima, pulita da `pulisciCampiNascosti` e
+ * controllata da `validaRichiesta`, entrambe in types/fatture.ts e condivise
+ * con l'API. Lista SharePoint, mail ad Andrea e anagrafica clienti non si sono
+ * accorte di niente. I passi (`_componenti/passi.ts`) decidono solo *dove*
+ * mostrare ogni errore.
  *
- * 2. **Il centro di costo cambia forma da sé.** Finché la lista SharePoint dei
- *    centri di costo non esiste, `centriDiCosto` arriva vuoto e il campo è di
- *    testo libero; il giorno in cui la lista c'è diventa un menu a tendina
- *    senza toccare questo file.
- *
- * 3. **La ricerca cliente sta in `_componenti/RicercaCliente`**, che lavora in
- *    locale sull'indice arrivato col caricamento della pagina. Qui si vede solo
- *    cosa succede quando un cliente viene scelto: i campi si compilano e si
- *    tiene da parte com'erano in archivio, per poter dire cosa è stato corretto.
+ * Questo file tiene lo stato e la navigazione; ogni passo sta in `_componenti/`.
  */
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Campo, inputCls, labelCls } from '@/components/ui/Campo'
 import { Banner } from '@/components/ui/Banner'
-import { RicercaCliente } from './_componenti/RicercaCliente'
-import { CosaFatturare } from './_componenti/CosaFatturare'
 import {
-  CAMPI_PER_TIPO,
-  CAMPI_SOGGETTO_FACOLTATIVI,
-  ETICHETTE_SOGGETTO,
-  NAZIONALITA,
-  TIPI_SOGGETTO,
-  chiedeCondominio,
   pulisciCampiNascosti,
   richiestaVuota,
   validaRichiesta,
-  type CampoSoggetto,
   type NuovaRichiestaFatturaInput,
+  type TipoSoggetto,
 } from '@/types/fatture'
-import { NAZIONI, type Cliente, type ClienteIndice } from '@/types/clienti'
+import type { Cliente, ClienteIndice } from '@/types/clienti'
+import {
+  PASSI_CLIENTE,
+  elencoPassi,
+  erroriDelPasso,
+  primoPassoConErrore,
+  type Passo,
+} from './_componenti/passi'
+import { cancellaBozza, leggiBozza, salvaBozza, type Bozza } from './_componenti/bozza'
+import { PassoServizio } from './_componenti/PassoServizio'
+import { CosaFatturare } from './_componenti/CosaFatturare'
+import { PassoQuando } from './_componenti/PassoQuando'
+import { PassoCliente } from './_componenti/PassoCliente'
+import { PassoDati } from './_componenti/PassoDati'
+import { PassoIndirizzo } from './_componenti/PassoIndirizzo'
+import { PassoRecapiti } from './_componenti/PassoRecapiti'
+import { Riepilogo } from './_componenti/Riepilogo'
 
-/** Campi che vanno scritti in maiuscolo: sono codici, non parole. */
-const MAIUSCOLI: Partial<Record<CampoSoggetto, boolean>> = { codiceFiscale: true }
+const NOMI: Record<Passo, string> = {
+  servizio: 'Il servizio',
+  cosa: 'Cosa',
+  quando: 'Quando',
+  cliente: 'Il cliente',
+  dati: 'I dati del cliente',
+  indirizzo: "L'indirizzo",
+  recapiti: 'I contatti',
+  riepilogo: 'Controlla e invia',
+}
 
-/** I campi dell'anagrafica: se cambiano dopo aver scelto un cliente, la scheda si aggiorna. */
-const CAMPI_ANAGRAFICI: ReadonlyArray<keyof NuovaRichiestaFatturaInput> = [
+/** I campi del cliente: si svuotano quando si stacca un cliente preso dall'archivio. */
+const CAMPI_CLIENTE = [
   'cognome', 'nome', 'ragioneSociale', 'partitaIva', 'codiceFiscale',
-  'indirizzo', 'cap', 'citta', 'provincia', 'nazione',
-  'telefono', 'email', 'pec', 'codiceSdi',
-]
+  'indirizzo', 'cap', 'citta', 'provincia', 'telefono', 'email', 'pec', 'codiceSdi',
+] as const
+
+/** Una bozza vale la pena di essere ripresa solo se c'è scritto qualcosa di vero. */
+const haContenuto = (f: NuovaRichiestaFatturaInput) =>
+  Boolean(f.importo || f.descrizione.trim() || f.tipoSoggetto || f.cognome || f.ragioneSociale)
+
+/** Errori che non sono campi della richiesta ma risposte mancanti del modulo. */
+function erroriDelModulo(pagatoRisposto: boolean): Record<string, string> {
+  return pagatoRisposto ? {} : { incassato: 'Dicci se il cliente ha già pagato' }
+}
 
 export function RichiestaFatturaForm({
   centriDiCosto,
+  centriRecenti,
   clienti,
   richiedente,
   richiedenteNome,
 }: {
   centriDiCosto: string[]
+  /** I servizi delle ultime richieste di chi compila: il primo diventa quello di partenza. */
+  centriRecenti: string[]
   clienti: ClienteIndice[]
   richiedente: string
   richiedenteNome: string
 }) {
   const router = useRouter()
-  const [form, setForm] = useState<NuovaRichiestaFatturaInput>(richiestaVuota())
+  const partenza = (): NuovaRichiestaFatturaInput => ({
+    ...richiestaVuota(),
+    centroCosto: centriRecenti[0] ?? '',
+  })
+
+  const [form, setForm] = useState<NuovaRichiestaFatturaInput>(partenza)
+  const [chiediServizio, setChiediServizio] = useState(!centriRecenti.length)
+  const [passo, setPasso] = useState<Passo>(centriRecenti.length ? 'cosa' : 'servizio')
+  const [daRiepilogo, setDaRiepilogo] = useState(false)
+  const [pagatoRisposto, setPagatoRisposto] = useState(false)
+  const [scelto, setScelto] = useState<{ nome: string } | null>(null)
   const [errori, setErrori] = useState<Record<string, string>>({})
   const [errore, setErrore] = useState('')
-  const [fatto, setFatto] = useState('')
   const [invio, setInvio] = useState(false)
+  const [fatto, setFatto] = useState<{ numero: string; cliente: string } | null>(null)
+  const [bozza, setBozza] = useState<Bozza | null>(null)
+  const titolo = useRef<HTMLDivElement>(null)
 
-  /** Il cliente scelto e i suoi dati come stavano in archivio, per dire cosa è cambiato. */
-  const [scelto, setScelto] = useState<{ nome: string; base: Record<string, string> } | null>(null)
-  /** Cambiando questo numero la casella di ricerca si rimonta, e quindi si svuota. */
-  const [generazione, setGenerazione] = useState(0)
+  const passi = useMemo(() => elencoPassi(chiediServizio), [chiediServizio])
 
-  const set = <K extends keyof NuovaRichiestaFatturaInput>(
-    k: K,
-    v: NuovaRichiestaFatturaInput[K],
-  ) => {
-    setForm((f) => ({ ...f, [k]: v }))
-    // L'errore di un campo sparisce appena lo si corregge: lasciarlo acceso
-    // mentre si scrive fa sembrare rotto un campo che ormai è a posto.
-    setErrori((e) => (e[k as string] ? { ...e, [k as string]: '' } : e))
+  // «Manca qualcosa» sparisce da sé quando l'ultimo campo rosso è stato sistemato.
+  const restanoErrori = Object.values(errori).some(Boolean)
+  useEffect(() => {
+    if (!restanoErrori) setErrore((m) => (m.startsWith('Manca qualcosa') ? '' : m))
+  }, [restanoErrori])
+  const indice = Math.max(0, passi.indexOf(passo))
+
+  // ---------- bozza ----------
+  useEffect(() => {
+    const b = leggiBozza(richiedente)
+    if (b && haContenuto(b.form)) setBozza(b)
+  }, [richiedente])
+
+  useEffect(() => {
+    // Finché c'è una bozza vecchia in attesa di risposta non la si sovrascrive.
+    if (fatto || bozza || !haContenuto(form)) return
+    salvaBozza(richiedente, { form, passo, scelto, pagatoRisposto, chiediServizio })
+  }, [form, passo, scelto, pagatoRisposto, chiediServizio, fatto, bozza, richiedente])
+
+  function riprendi(b: Bozza) {
+    setForm({ ...richiestaVuota(), ...b.form })
+    setChiediServizio(b.chiediServizio)
+    setPagatoRisposto(b.pagatoRisposto)
+    setScelto(b.scelto)
+    setBozza(null)
+    vaiA(b.passo)
   }
 
-  /** La nazionalità segue la nazione: sono due campi, ma non possono contraddirsi. */
-  const cambiaNazione = (codice: string) =>
-    setForm((f) => ({
-      ...f,
-      nazione: codice,
-      nazionalita: codice === 'IT' ? 'Italiana' : 'Estera',
-    }))
+  // ---------- modifiche ----------
+  const set = <K extends keyof NuovaRichiestaFatturaInput>(k: K, v: NuovaRichiestaFatturaInput[K]) => {
+    setForm((f) => ({ ...f, [k]: v }))
+    // L'errore di un campo sparisce appena lo si tocca: lasciarlo acceso mentre
+    // si scrive fa sembrare sbagliato un campo che ormai è a posto.
+    setErrori((e) => (e[k as string] ? { ...e, [k as string]: '' } : e))
+  }
+  const aggiorna = (parte: Partial<NuovaRichiestaFatturaInput>) => {
+    setForm((f) => ({ ...f, ...parte }))
+    setErrori((e) => {
+      const n = { ...e }
+      for (const k of Object.keys(parte)) delete n[k]
+      return n
+    })
+  }
 
-  const tipo = form.tipoSoggetto
-  const campiSoggetto = useMemo(() => (tipo ? CAMPI_PER_TIPO[tipo] : []), [tipo])
-  const italiano = form.nazionalita === 'Italiana'
-
-  /** Campi dell'anagrafica toccati a mano dopo aver scelto un cliente. */
-  const modificati = useMemo(() => {
-    if (!scelto) return []
-    return CAMPI_ANAGRAFICI.filter((k) => String(form[k] ?? '') !== String(scelto.base[k] ?? ''))
-  }, [form, scelto])
-
-  /** Cliente scelto in archivio: si compilano i campi e si ricorda com'erano. */
-  function compilaDa(cl: Cliente) {
+  function vaiA(p: Passo) {
+    setPasso(p)
     setErrore('')
-    // Solo i campi dell'anagrafica: centro di costo, importo, descrizione e
-    // data restano quelli che l'utente ha già scritto.
-    const dati: Record<string, string> = {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    // Il fuoco torna in cima: chi usa il lettore di schermo sente il passo nuovo.
+    setTimeout(() => titolo.current?.focus({ preventScroll: true }), 50)
+  }
+
+  /** Il cliente scelto dall'archivio: si compila tutto e si salta dove manca qualcosa. */
+  function scegliCliente(cl: Cliente) {
+    const nazione = cl.nazione || 'IT'
+    const nuovo: NuovaRichiestaFatturaInput = {
+      ...form,
+      clienteId: cl.spItemId,
+      tipoSoggetto: cl.tipoSoggetto || form.tipoSoggetto,
       cognome: cl.cognome,
       nome: cl.nome,
-      // Per un privato la denominazione in archivio è "COGNOME NOME": non è
-      // una ragione sociale, e il modulo non la chiede.
+      // Per un privato la denominazione in archivio è "COGNOME NOME": non è una
+      // ragione sociale, e il modulo non la chiede.
       ragioneSociale: cl.tipoSoggetto === 'Privato' ? '' : cl.denominazione,
       partitaIva: cl.partitaIva,
+      senzaPartitaIva: false,
       codiceFiscale: cl.codiceFiscale,
       indirizzo: cl.indirizzo,
       cap: cl.cap,
       citta: cl.comune,
       provincia: cl.provincia,
-      nazione: cl.nazione || 'IT',
+      nazione,
+      nazionalita: nazione === 'IT' ? 'Italiana' : 'Estera',
       telefono: cl.telefono || cl.cellulare,
       email: cl.email,
       pec: cl.pec,
       codiceSdi: cl.codiceSdi,
     }
-
-    setForm((f) => ({
-      ...f,
-      ...dati,
-      clienteId: cl.spItemId,
-      tipoSoggetto: cl.tipoSoggetto || f.tipoSoggetto,
-      nazionalita: (cl.nazione || 'IT') === 'IT' ? 'Italiana' : 'Estera',
-    }))
-    setScelto({ nome: cl.denominazione, base: dati })
-    setErrori({})
+    setForm(nuovo)
+    setScelto({ nome: cl.denominazione })
+    setErrore('')
+    const tutti = validaRichiesta(pulisciCampiNascosti(nuovo))
+    const manca = primoPassoConErrore(tutti, PASSI_CLIENTE)
+    setErrori(manca ? erroriDelPasso(tutti, manca) : {})
+    vaiA(manca ?? 'riepilogo')
+    if (manca) setErrore('Questo cliente è in archivio, ma manca qualche dato: completalo qui.')
   }
 
-  /** Stacca il cliente scelto lasciando i dati: serve per "come lui, ma è un altro". */
   function scollega() {
     setScelto(null)
-    set('clienteId', '')
+    setForm((f) => {
+      const n = { ...f, clienteId: '', tipoSoggetto: '' as const, senzaPartitaIva: false, condominio: false }
+      for (const k of CAMPI_CLIENTE) n[k] = ''
+      return n
+    })
   }
 
-  function azzera() {
-    setForm(richiestaVuota())
-    setScelto(null)
+  /** Nome e sede trovati dalla partita IVA, dopo che chi compila ha toccato «Usa questi dati». */
+  function datiDaPartitaIva(d: { denominazione: string; indirizzo: string; cap: string; citta: string; provincia: string }) {
+    aggiorna({
+      ragioneSociale: d.denominazione,
+      ...(d.indirizzo && { indirizzo: d.indirizzo }),
+      ...(d.cap && { cap: d.cap }),
+      ...(d.citta && { citta: d.citta }),
+      ...(d.provincia && { provincia: d.provincia }),
+      nazione: 'IT',
+      nazionalita: 'Italiana',
+      ...(form.tipoSoggetto === 'Soggetto diverso da persona fisica' &&
+        !form.codiceFiscale && { codiceFiscale: form.partitaIva }),
+    })
+  }
+
+  // ---------- navigazione ----------
+  function avanti() {
+    if (passo === 'riepilogo') return invia()
+    const tutti = { ...validaRichiesta(pulisciCampiNascosti(form)), ...erroriDelModulo(pagatoRisposto) }
+    const delPasso = erroriDelPasso(tutti, passo)
+    if (Object.keys(delPasso).length) {
+      setErrori(delPasso)
+      setErrore('Manca qualcosa: guarda le parti in rosso.')
+      return
+    }
     setErrori({})
-    setGenerazione((n) => n + 1)
+    if (passo === 'servizio') setChiediServizio(false)
+    const prossimo = daRiepilogo ? 'riepilogo' : passi[indice + 1] ?? 'riepilogo'
+    if (prossimo === 'riepilogo') setDaRiepilogo(false)
+    vaiA(prossimo === 'cosa' && passo === 'servizio' ? 'cosa' : prossimo)
   }
 
-  async function invia(e: React.FormEvent) {
-    e.preventDefault()
-    setErrore('')
-    setFatto('')
+  function indietro() {
+    if (indice === 0) return router.push('/home')
+    setErrori({})
+    vaiA(passi[indice - 1])
+  }
 
-    // Prima si buttano i valori dei campi che non sono più chiesti (un campo che
-    // scompare dallo schermo non si svuota da sé), poi si valida quello che
-    // parte davvero. Vedi § pulisciCampiNascosti.
+  async function invia() {
+    setErrore('')
+    // Prima si buttano i valori dei campi non più chiesti, poi si valida quello
+    // che parte davvero. Vedi § pulisciCampiNascosti.
     const dati = pulisciCampiNascosti(form)
     const trovati = validaRichiesta(dati)
-    if (Object.keys(trovati).length) {
-      setErrori(trovati)
-      setErrore('Controlla i campi segnati in rosso.')
+    const dove = primoPassoConErrore(trovati, passi)
+    if (dove) {
+      setErrori(erroriDelPasso(trovati, dove))
+      vaiA(dove)
+      setErrore('Manca qualcosa: guarda le parti in rosso.')
       return
     }
 
@@ -176,297 +266,214 @@ export function RichiestaFatturaForm({
       })
       const data = await res.json()
       if (!res.ok) {
-        if (data.errori) setErrori(data.errori)
-        throw new Error(data.error ?? 'Errore invio')
+        const lato = primoPassoConErrore(data.errori ?? {}, passi)
+        if (lato) {
+          setErrori(erroriDelPasso(data.errori, lato))
+          vaiA(lato)
+          setErrore('Manca qualcosa: guarda le parti in rosso.')
+          return
+        }
+        throw new Error(data.error ?? 'Invio non riuscito')
       }
-      const anagrafica =
-        data.cliente?.esito === 'creato'
-          ? ' Il cliente è stato aggiunto all’anagrafica.'
-          : data.cliente?.cambiati
-            ? ' La scheda del cliente è stata aggiornata.'
-            : ''
-      azzera()
-      setFatto(
-        `Richiesta ${data.numero} inviata. Il riepilogo è partito a chi emette la fattura, con te in copia.${anagrafica}`,
-      )
+      cancellaBozza(richiedente)
+      setFatto({
+        numero: data.numero,
+        cliente:
+          data.cliente?.esito === 'creato'
+            ? 'Il cliente è stato aggiunto all’archivio.'
+            : data.cliente?.cambiati
+              ? 'La scheda del cliente è stata aggiornata.'
+              : '',
+      })
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (err: any) {
-      setErrore(err.message)
+      setErrore(`${err.message}. Riprova tra poco: i dati restano qui.`)
     } finally {
       setInvio(false)
     }
   }
 
-  return (
-    <form onSubmit={invia} className="space-y-5">
-      <Banner tono="ok">{fatto}</Banner>
-      <Banner tono="errore">{errore}</Banner>
+  function ricomincia() {
+    cancellaBozza(richiedente)
+    setForm(partenza())
+    setChiediServizio(!centriRecenti.length)
+    setPagatoRisposto(false)
+    setScelto(null)
+    setErrori({})
+    setFatto(null)
+    setBozza(null)
+    vaiA(centriRecenti.length ? 'cosa' : 'servizio')
+  }
 
-      {/* ---------- Chi chiede e per cosa ---------- */}
-      <Riquadro
-        titolo="Richiesta"
-        nota="Il centro di costo serve a sapere a quale attività imputare la fattura."
-      >
-        {centriDiCosto.length > 0 ? (
-          <Campo
-            etichetta="Centro di costo"
-            tipo="choice"
-            scelte={centriDiCosto}
-            valore={form.centroCosto}
-            onChange={(v) => set('centroCosto', v)}
-            obbligatorio
-            errore={errori.centroCosto}
-            vuoto="— Scegli —"
-          />
-        ) : (
-          <Campo
-            etichetta="Centro di costo"
-            valore={form.centroCosto}
-            onChange={(v) => set('centroCosto', v)}
-            obbligatorio
-            errore={errori.centroCosto}
-            segnaposto="Es. Locanda"
-            aiuto="Per ora si scrive a mano: l'elenco ufficiale dei centri di costo è in preparazione."
-          />
-        )}
-
+  // ---------- schermate ----------
+  if (fatto) {
+    return (
+      <div className="space-y-6 rounded-2xl border border-gray-100 bg-white p-6 text-center shadow-sm">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+          <svg viewBox="0 0 24 24" className="h-9 w-9" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+            <path d="M5 12.5l4.5 4.5L19 7.5" />
+          </svg>
+        </div>
         <div>
-          <span className={labelCls}>Richiesta fatta da</span>
-          <div className={`${inputCls} bg-gray-50 text-gray-500`}>
-            {richiedenteNome ? `${richiedenteNome} — ${richiedente}` : richiedente}
-          </div>
-          <span className="block text-xs text-gray-400 mt-1">
-            Preso dal tuo accesso: riceverai una copia della richiesta.
-          </span>
-        </div>
-      </Riquadro>
-
-      {/* ---------- Cosa fatturare ---------- */}
-      <Riquadro titolo="Cosa va fatturato">
-        <CosaFatturare valori={form} errori={errori} set={set} />
-      </Riquadro>
-
-      {/* ---------- Chi va intestata ---------- */}
-      <Riquadro
-        titolo="A chi va intestata"
-        nota="Cerca il cliente in archivio: se c'è, i dati si compilano da soli. Se è nuovo, verrà salvato."
-      >
-        <RicercaCliente
-          key={generazione}
-          clienti={clienti}
-          scelto={scelto?.nome ?? null}
-          modificati={modificati.length}
-          mostraStato={Boolean(form.tipoSoggetto)}
-          onScegli={compilaDa}
-          onScollega={scollega}
-          onErrore={setErrore}
-        />
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Campo
-            etichetta="Tipologia di soggetto"
-            tipo="choice"
-            scelte={TIPI_SOGGETTO}
-            valore={form.tipoSoggetto}
-            onChange={(v) => set('tipoSoggetto', v as NuovaRichiestaFatturaInput['tipoSoggetto'])}
-            obbligatorio
-            errore={errori.tipoSoggetto}
-            vuoto="— Scegli —"
-          />
-          <Campo
-            etichetta="Nazionalità"
-            tipo="choice"
-            scelte={NAZIONALITA}
-            valore={form.nazionalita}
-            onChange={(v) => set('nazionalita', v as NuovaRichiestaFatturaInput['nazionalita'])}
-            obbligatorio
-            errore={errori.nazionalita}
-            vuoto="— Scegli —"
-            aiuto="Si imposta da sé in base alla nazione"
-          />
-        </div>
-
-        {!tipo ? (
-          <p className="text-sm text-gray-400">
-            Scegli la tipologia per vedere i dati da compilare.
+          <h2 className="text-2xl font-bold text-gray-900">Fatto!</h2>
+          <p className="mt-2 text-lg text-gray-700">
+            La richiesta <strong>{fatto.numero}</strong> è partita. Ti arriva una copia per mail.
           </p>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {campiSoggetto.map((c) => (
-                <Campo
-                  key={c}
-                  etichetta={ETICHETTE_SOGGETTO[c]}
-                  valore={form[c]}
-                  onChange={(v) => set(c, v)}
-                  obbligatorio={!CAMPI_SOGGETTO_FACOLTATIVI.has(c)}
-                  errore={errori[c]}
-                  maiuscolo={MAIUSCOLI[c]}
-                  disabilitato={c === 'partitaIva' && form.senzaPartitaIva}
-                />
-              ))}
-            </div>
+          {fatto.cliente && <p className="mt-1 text-base text-gray-500">{fatto.cliente}</p>}
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <button type="button" onClick={ricomincia} className="min-h-[56px] flex-1 rounded-2xl bg-primary px-5 text-lg font-semibold text-white">
+            Fai un&apos;altra richiesta
+          </button>
+          <button type="button" onClick={() => router.push('/home')} className="min-h-[56px] flex-1 rounded-2xl border-2 border-gray-300 px-5 text-lg font-semibold text-gray-700">
+            Torna alla Home
+          </button>
+        </div>
+      </div>
+    )
+  }
 
-            {campiSoggetto.includes('partitaIva') && (
-              /* Non è un campo in più per pignoleria: "l'ho lasciata vuota" e
-                 "non ce l'ha" sono due cose diverse, e chi fattura deve saperlo. */
-              <label className="flex items-center gap-2 text-sm text-gray-700">
-                <input
-                  type="checkbox"
-                  checked={form.senzaPartitaIva}
-                  onChange={(e) => {
-                    set('senzaPartitaIva', e.target.checked)
-                    if (e.target.checked) set('partitaIva', '')
-                  }}
-                  className="w-4 h-4 rounded border-gray-300 text-brand-cyan focus:ring-brand-cyan"
-                />
-                Questo soggetto non ha partita IVA
-              </label>
-            )}
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        avanti()
+      }}
+      className="space-y-5 pb-4"
+    >
+      {bozza && (
+        <div className="space-y-3 rounded-2xl border-2 border-amber-200 bg-amber-50 p-4">
+          <p className="text-base text-amber-900">
+            Hai una richiesta lasciata a metà. Vuoi continuare da dove eri rimasto?
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={() => riprendi(bozza)} className="min-h-[48px] rounded-xl bg-amber-600 px-5 text-base font-semibold text-white">
+              Sì, continua
+            </button>
+            <button type="button" onClick={ricomincia} className="min-h-[48px] rounded-xl border-2 border-amber-300 px-5 text-base font-semibold text-amber-900">
+              No, ricomincia
+            </button>
+          </div>
+        </div>
+      )}
 
-            {chiedeCondominio(tipo) && (
-              /* Il kit non ha un campo booleano: ce n'è uno solo in tutta
-                 l'app, farne un componente adesso sarebbe indovinare. */
-              <label className="flex items-center gap-2 text-sm text-gray-700">
-                <input
-                  type="checkbox"
-                  checked={form.condominio}
-                  onChange={(e) => set('condominio', e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-brand-cyan focus:ring-brand-cyan"
-                />
-                Si tratta di un condominio
-              </label>
-            )}
-          </>
+      <div ref={titolo} tabIndex={-1} className="outline-none" aria-live="polite">
+        <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+          Passo {indice + 1} di {passi.length} · {NOMI[passo]}
+        </p>
+        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-200" aria-hidden>
+          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${((indice + 1) / passi.length) * 100}%` }} />
+        </div>
+      </div>
+
+      <Banner tono="errore">{errore && <span className="text-base">{errore}</span>}</Banner>
+
+      <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        {passo === 'servizio' && (
+          <PassoServizio
+            valore={form.centroCosto}
+            errore={errori.centroCosto}
+            recenti={centriRecenti}
+            centriDiCosto={centriDiCosto}
+            onScegli={(v) => set('centroCosto', v)}
+          />
         )}
-      </Riquadro>
+        {passo === 'cosa' && (
+          <CosaFatturare
+            valori={form}
+            errori={errori}
+            set={set}
+            onCambiaServizio={() => {
+              setChiediServizio(true)
+              vaiA('servizio')
+            }}
+          />
+        )}
+        {passo === 'quando' && (
+          <PassoQuando
+            valori={form}
+            errori={errori}
+            set={set}
+            pagatoRisposto={pagatoRisposto}
+            onRispostaPagato={(p) => {
+              setPagatoRisposto(true)
+              aggiorna({
+                incassato: p,
+                ...(p && !form.dataIncasso && { dataIncasso: form.dataPrestazione }),
+              })
+            }}
+          />
+        )}
+        {passo === 'cliente' && (
+          <PassoCliente
+            valori={form}
+            errori={errori}
+            clienti={clienti}
+            scelto={scelto?.nome ?? null}
+            onTipo={(t: TipoSoggetto | '') => set('tipoSoggetto', t)}
+            onScegliCliente={scegliCliente}
+            onScollega={scollega}
+            onErrore={setErrore}
+          />
+        )}
+        {passo === 'dati' && (
+          <PassoDati
+            valori={form}
+            errori={errori}
+            set={set}
+            clienti={clienti}
+            onScegliCliente={scegliCliente}
+            onDatiVies={datiDaPartitaIva}
+          />
+        )}
+        {passo === 'indirizzo' && (
+          <PassoIndirizzo
+            valori={form}
+            errori={errori}
+            set={set}
+            onNazione={(codice) =>
+              aggiorna({ nazione: codice, nazionalita: codice === 'IT' ? 'Italiana' : 'Estera' })
+            }
+          />
+        )}
+        {passo === 'recapiti' && <PassoRecapiti valori={form} errori={errori} set={set} />}
+        {passo === 'riepilogo' && (
+          <Riepilogo
+            valori={form}
+            set={set}
+            scelto={scelto?.nome ?? null}
+            onCorreggi={(p) => {
+              setDaRiepilogo(true)
+              vaiA(p)
+            }}
+          />
+        )}
+      </section>
 
-      {/* ---------- Recapiti ---------- */}
-      <Riquadro titolo="Indirizzo e recapiti">
-        <Campo
-          etichetta="Indirizzo di residenza"
-          valore={form.indirizzo}
-          onChange={(v) => set('indirizzo', v)}
-          obbligatorio
-          errore={errori.indirizzo}
-          segnaposto="Via e numero civico"
-        />
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Campo
-            etichetta="CAP"
-            valore={form.cap}
-            onChange={(v) => set('cap', v)}
-            obbligatorio={italiano}
-            errore={errori.cap}
-            maxLength={10}
-          />
-          <Campo
-            etichetta="Città"
-            valore={form.citta}
-            onChange={(v) => set('citta', v)}
-            obbligatorio
-            errore={errori.citta}
-          />
-          <Campo
-            etichetta="Provincia"
-            valore={form.provincia}
-            onChange={(v) => set('provincia', v)}
-            obbligatorio={italiano}
-            errore={errori.provincia}
-            maiuscolo
-            maxLength={4}
-            segnaposto="TO"
-          />
-          <Campo
-            etichetta="Nazione"
-            tipo="choice"
-            scelte={NAZIONI}
-            valore={form.nazione}
-            onChange={cambiaNazione}
-            obbligatorio
-            errore={errori.nazione}
-            vuoto="— Scegli —"
-          />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Campo
-            etichetta="Telefono"
-            tipo="tel"
-            valore={form.telefono}
-            onChange={(v) => set('telefono', v)}
-            errore={errori.telefono}
-          />
-          <Campo
-            etichetta="Email"
-            tipo="email"
-            valore={form.email}
-            onChange={(v) => set('email', v)}
-            errore={errori.email}
-          />
-          <Campo
-            etichetta="PEC"
-            tipo="email"
-            valore={form.pec}
-            onChange={(v) => set('pec', v)}
-            errore={errori.pec}
-            aiuto="Se il cliente ce l'ha"
-          />
-        </div>
-        <Campo
-          etichetta="Codice destinatario (SDI)"
-          valore={form.codiceSdi}
-          onChange={(v) => set('codiceSdi', v)}
-          errore={errori.codiceSdi}
-          maiuscolo
-          maxLength={7}
-          aiuto="Facoltativo — 7 caratteri, 6 per la pubblica amministrazione"
-        />
-        <Campo
-          etichetta="Note per chi emette la fattura"
-          tipo="textarea"
-          righe={2}
-          valore={form.note}
-          onChange={(v) => set('note', v)}
-          segnaposto="Facoltativo"
-        />
-      </Riquadro>
+      <p className="text-sm text-gray-500">
+        Richiesta fatta da {richiedenteNome || richiedente}. Riceverai una copia per mail.
+      </p>
 
-      <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={() => router.push('/home')}
-          className="flex-1 border border-gray-300 text-gray-600 py-2.5 rounded-xl text-sm hover:bg-gray-50"
-        >
-          Annulla
-        </button>
-        <button
-          type="submit"
-          disabled={invio}
-          className="flex-1 bg-brand-cyan-dark text-white py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 hover:opacity-90"
-        >
-          {invio ? 'Invio…' : 'Invia richiesta'}
-        </button>
+      {/* I due tasti restano in fondo allo schermo mentre si scorre: sul telefono
+          non si deve cercarli sotto la tastiera. */}
+      <div className="sticky bottom-0 -mx-4 border-t border-gray-200 bg-gray-50/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={indietro}
+            className="min-h-[56px] flex-1 rounded-2xl border-2 border-gray-300 bg-white px-4 text-lg font-semibold text-gray-700"
+          >
+            {indice === 0 ? 'Annulla' : 'Indietro'}
+          </button>
+          <button
+            type="submit"
+            disabled={invio}
+            className="min-h-[56px] flex-[2] rounded-2xl bg-primary px-4 text-lg font-semibold text-white disabled:opacity-60"
+          >
+            {passo === 'riepilogo' ? (invio ? 'Invio…' : 'Invia la richiesta') : daRiepilogo ? 'Torna al riepilogo' : 'Avanti'}
+          </button>
+        </div>
       </div>
     </form>
-  )
-}
-
-function Riquadro({
-  titolo,
-  nota,
-  children,
-}: {
-  titolo: string
-  nota?: string
-  children: React.ReactNode
-}) {
-  return (
-    <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4">
-      <div>
-        <h2 className="font-bold text-gray-800">{titolo}</h2>
-        {nota && <p className="text-sm text-gray-500 mt-0.5">{nota}</p>}
-      </div>
-      {children}
-    </section>
   )
 }

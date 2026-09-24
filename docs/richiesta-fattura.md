@@ -262,7 +262,12 @@ leggibili anche se un centro di costo viene poi rinominato o eliminato.
 | Cosa | File |
 |---|---|
 | Campi per tipologia, validazione, regime IVA, scorporo, giorni di ritardo | `types/fatture.ts` — **fonte di verità unica**, la usano sia il form sia l'API |
-| Importo, IVA, documento, incasso a schermo | `app/(app)/richiesta-fattura/_componenti/CosaFatturare.tsx` |
+| I passi e di chi è ogni campo | `app/(app)/richiesta-fattura/_componenti/passi.ts` |
+| Un file per passo | `_componenti/PassoServizio` `CosaFatturare` `PassoQuando` `PassoCliente` `PassoDati` `PassoIndirizzo` `PassoRecapiti` `Riepilogo` |
+| Bottoni grandi e domande | `_componenti/Bottoni.tsx` |
+| Bozza nel browser | `_componenti/bozza.ts` |
+| Partita IVA → VIES | `lib/clienti/vies.ts` + `app/api/clienti/partita-iva/[numero]/` |
+| Comuni, CAP, provincia | `types/comuni.ts` + `public/comuni.json` |
 | Ricerca cliente | `app/(app)/richiesta-fattura/_componenti/RicercaCliente.tsx` |
 | Lettura/scrittura SharePoint, numerazione `RF-0001` | `lib/fatture/data.ts` |
 | Testo della mail di riepilogo | `lib/fatture/notifiche.ts` |
@@ -273,6 +278,89 @@ leggibili anche se un centro di costo viene poi rinominato o eliminato.
 
 Aggiungere o togliere un campo a una tipologia si fa in `CAMPI_PER_TIPO` (`types/fatture.ts`), una
 volta sola: il form lo mostra e l'API lo pretende, senza che le due parti possano divergere.
+
+## Il modulo a passi (24 settembre 2026)
+
+Il modulo lo usano anche **persone anziane o con qualche difficoltà**. Decisione di Dennis: «semplice
+per tutti» — non una versione facile accanto a quella completa, ma un modulo solo, perché chi non
+ha difficoltà ci mette comunque meno tempo.
+
+**Quello che parte non è cambiato.** Il corpo inviato a `/api/fatture` è la stessa
+`NuovaRichiestaFatturaInput`, con le stesse chiavi, pulita da `pulisciCampiNascosti` e controllata
+da `validaRichiesta`. Lista SharePoint, mail ad Andrea e anagrafica clienti sono le stesse.
+
+### Com'è fatto
+
+Una domanda per schermata, bottoni alti almeno 56 px, testo a 16 px, i tasti Indietro/Avanti
+sempre in fondo allo schermo:
+
+| Passo | Cosa chiede | Cosa fa da solo |
+|---|---|---|
+| Il servizio | solo se chi compila non ha mai mandato richieste, o tocca «Cambia» | parte dal servizio dell'ultima richiesta di quella persona (`getCentriRecentiDi`) |
+| Cosa | cosa ha comprato, quanto ha pagato | voci da toccare per servizio (`descrizioniRapide`: per la Locanda Pranzo, Cena, Evento, Catering); scorporo IVA dove il regime è noto |
+| Quando | Oggi / Ieri / Un altro giorno; ha già pagato? come? | la data dell'incasso segue quella del servizio |
+| Il cliente | lo cerca in archivio; se è nuovo: una persona o un'azienda? ha la partita IVA? | con un cliente in archivio completo si salta dritti al riepilogo |
+| I dati | nome, codici | scritta la partita IVA cerca in archivio e poi su VIES, e propone nome e sede; il CF di un ente si copia dalla partita IVA con un tocco |
+| L'indirizzo | è in Italia? via, comune | provincia e CAP dal comune |
+| I contatti | codice destinatario o PEC (vedi sotto), email, telefono | — |
+| Controlla e invia | una frase riassuntiva, «Correggi» accanto a ogni parte, note | — |
+
+La «tipologia di soggetto» non compare più come parola: si chiede con due domande (persona o
+azienda? ha la partita IVA?) e il valore salvato è lo stesso di prima.
+
+**La validazione non si è spostata.** `_componenti/passi.ts` dice solo di quale passo è ogni campo:
+«Avanti» mostra gli errori del passo, e un errore arrivato dal server riporta alla schermata giusta.
+I messaggi di errore sono stati riscritti come si direbbe a voce («Scrivi il cognome», non «Cognome
+obbligatorio») direttamente in `validaRichiesta`, così valgono anche per l'API.
+
+**La bozza** si salva nel browser mentre si compila (una per persona, dura tre giorni): se squilla il
+telefono a metà, riaprendo il modulo compare «Continua da dove eri rimasto».
+
+### Codice destinatario o PEC: almeno uno, per chi ha partita IVA e per gli enti
+
+Decisione del 24 settembre 2026. Prima erano entrambi facoltativi. Ora `validaRichiesta` pretende
+almeno uno dei due quando il cliente **ha partita IVA o è un ente, ed è italiano**
+(`chiedeCanaleSdi`). Non si chiede ai privati, che ricevono la fattura nel cassetto fiscale (codice
+`0000000`), né agli esteri, che lo SDI non ce l'hanno.
+
+Il codice `0000000` conta come risposta valida: in archivio ce l'hanno 153 clienti, ed è una scelta
+che l'ufficio ha già fatto per loro.
+
+**Blocca l'invio**, di proposito. Nell'anagrafica importata sono 28 i clienti con partita IVA o enti
+senza né codice né PEC (6 persone con P.IVA, 22 enti): per loro la prossima richiesta si fermerà al
+passo dei contatti finché il dato non viene chiesto al cliente. Il passo lo spiega e dice dove il
+cliente lo trova. Il secondo passo del lavoro (il link o QR code da mandare al cliente perché scriva
+i dati da sé) nasce anche per questo caso.
+
+### Il codice fiscale: solo un avviso
+
+`codiceFiscaleValido()` controlla il carattere finale del codice fiscale delle persone. Nel modulo è
+un **avviso**, non un blocco: provato sull'anagrafica, 176 codici su 179 lo superano, e i 3 che non lo
+superano sono clienti veri già fatturati, con ogni probabilità scritti male in archivio. Bloccare
+vorrebbe dire non poterli più fatturare finché qualcuno non corregge la scheda.
+
+### Partita IVA → nome e sede (VIES)
+
+`GET /api/clienti/partita-iva/[numero]` chiede al servizio europeo VIES (gratuito, della Commissione)
+nome e sede di un'azienda italiana. È una **proposta**: il modulo mostra cosa ha trovato e chi
+compila tocca «Usa questi dati». Se VIES non risponde (succede: è la rete dei singoli Stati) il
+modulo non dice niente e si scrive a mano. Prima di VIES si guarda in archivio, così non si crea un
+doppione.
+
+### I comuni
+
+`public/comuni.json` (7.904 comuni, sigla e CAP; 250 KB, 65 KB compresso) si scarica una volta quando
+si apre il passo dell'indirizzo. Si rigenera con
+
+```bash
+node scripts/aggiorna-comuni.mjs
+```
+
+una volta l'anno basta. Fonte: dati ISTAT, dal progetto `matteocontrini/comuni-json`.
+
+Le città hanno decine di CAP (Torino 36, Roma 82): lì il modulo non sceglie, dice l'intervallo e
+avvisa se il CAP scritto non è del comune. Anche questo è un avviso: l'elenco può essere indietro.
+I comuni con lo stesso nome in province diverse vengono proposti tutti, senza indovinare.
 
 ## Cosa non c'è (per ora)
 
