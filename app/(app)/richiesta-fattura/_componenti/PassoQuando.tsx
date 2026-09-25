@@ -25,7 +25,7 @@ import {
   puntualita,
   type NuovaRichiestaFatturaInput,
 } from '@/types/fatture'
-import { BottoniScelta, Domanda, Link } from './Bottoni'
+import { BottoniScelta, Domanda, Link } from '@/components/ui/Bottoni'
 
 type Set = <K extends keyof NuovaRichiestaFatturaInput>(k: K, v: NuovaRichiestaFatturaInput[K]) => void
 

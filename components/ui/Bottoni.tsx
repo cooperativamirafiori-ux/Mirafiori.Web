@@ -1,11 +1,11 @@
 'use client'
 
 /**
- * I mattoncini del modulo a passi: la domanda e i bottoni grandi per rispondere.
+ * La domanda e i bottoni grandi per rispondere.
  *
- * Stanno qui e non nel kit perché oggi li usa solo questo modulo: se un'altra
- * sezione vorrà la stessa forma «una domanda, due o tre bottoni», si spostano
- * in `components/ui/` allora (stessa regola del kit: prima l'uso, poi il pezzo).
+ * Nati per il modulo a passi della Richiesta Fattura, spostati nel kit il
+ * 25 set 2026 quando è servita la stessa forma al modulo pubblico del nuovo
+ * cliente (`app/nuovo-cliente/`).
  *
  * I bottoni sono alti almeno 56 px e col testo a 16 px: si toccano col pollice
  * anche con la mano che trema, e si leggono senza occhiali. Il colore è il blu

@@ -25,7 +25,7 @@ import {
   regimeDi,
   type NuovaRichiestaFatturaInput,
 } from '@/types/fatture'
-import { BottoniScelta, Domanda, Link, Scorciatoie } from './Bottoni'
+import { BottoniScelta, Domanda, Link, Scorciatoie } from '@/components/ui/Bottoni'
 
 export const euro = (n: number) =>
   new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(n)

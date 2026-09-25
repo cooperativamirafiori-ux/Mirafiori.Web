@@ -4,8 +4,9 @@ export const config = {
   matcher: [
     // Protegge tutte le route tranne login, api/auth, le route pubbliche della
     // notula (upload tokenizzato del prestatore) e della conferma consegna degli
-    // acquisti (link tokenizzato nella mail), il cron, gli assets statici e i
+    // acquisti (link tokenizzato nella mail), il modulo pubblico del nuovo cliente
+    // (QR alla cassa) con la sua informativa privacy, il cron, gli assets statici e i
     // file con estensione (es. /logo-mirafiori.png) — questi ultimi via `.*\..*`
-    '/((?!api/auth|api/notula|notula|api/consegna|consegna|api/cron|api/docusign|_next/static|_next/image|favicon.ico|login|.*\\..*).*)',
+    '/((?!api/auth|api/notula|notula|api/consegna|consegna|api/cron|api/docusign|api/nuovo-cliente|nuovo-cliente|privacy|_next/static|_next/image|favicon.ico|login|.*\\..*).*)',
   ],
 }

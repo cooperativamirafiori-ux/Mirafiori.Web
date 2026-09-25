@@ -18,7 +18,7 @@ import { useState } from 'react'
 import { Banner } from '@/components/ui/Banner'
 import type { NuovaRichiestaFatturaInput, TipoSoggetto } from '@/types/fatture'
 import type { Cliente, ClienteIndice } from '@/types/clienti'
-import { BottoniScelta, Domanda, Link } from './Bottoni'
+import { BottoniScelta, Domanda, Link } from '@/components/ui/Bottoni'
 import { RicercaCliente } from './RicercaCliente'
 
 type Chi = '' | 'persona' | 'azienda'

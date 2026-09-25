@@ -18,7 +18,7 @@ import { useState } from 'react'
 import { Campo } from '@/components/ui/Campo'
 import { Banner } from '@/components/ui/Banner'
 import { chiedeCanaleSdi, type NuovaRichiestaFatturaInput } from '@/types/fatture'
-import { Domanda, Link } from './Bottoni'
+import { Domanda, Link } from '@/components/ui/Bottoni'
 
 type Set = <K extends keyof NuovaRichiestaFatturaInput>(k: K, v: NuovaRichiestaFatturaInput[K]) => void
 

@@ -15,7 +15,7 @@ import {
   type NuovaRichiestaFatturaInput,
   descriviMezzo,
 } from '@/types/fatture'
-import { Domanda, Link } from './Bottoni'
+import { Domanda, Link } from '@/components/ui/Bottoni'
 import { euro } from './CosaFatturare'
 import type { Passo } from './passi'
 

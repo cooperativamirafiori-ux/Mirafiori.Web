@@ -20,7 +20,7 @@ import { Campo } from '@/components/ui/Campo'
 import { NAZIONI } from '@/types/clienti'
 import { cercaComuni, descriviCap, trovaComune, type Comune } from '@/types/comuni'
 import type { NuovaRichiestaFatturaInput } from '@/types/fatture'
-import { BottoniScelta, Domanda } from './Bottoni'
+import { BottoniScelta, Domanda } from '@/components/ui/Bottoni'
 
 type Set = <K extends keyof NuovaRichiestaFatturaInput>(k: K, v: NuovaRichiestaFatturaInput[K]) => void
 

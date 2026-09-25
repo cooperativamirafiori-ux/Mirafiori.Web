@@ -28,7 +28,7 @@ import {
   type NuovaRichiestaFatturaInput,
 } from '@/types/fatture'
 import type { Cliente, ClienteIndice } from '@/types/clienti'
-import { Domanda, Link, Spunta } from './Bottoni'
+import { Domanda, Link, Spunta } from '@/components/ui/Bottoni'
 import { caricaScheda } from './RicercaCliente'
 
 type Set = <K extends keyof NuovaRichiestaFatturaInput>(k: K, v: NuovaRichiestaFatturaInput[K]) => void

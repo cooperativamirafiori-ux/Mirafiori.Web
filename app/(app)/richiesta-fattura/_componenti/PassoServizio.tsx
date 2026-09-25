@@ -12,7 +12,7 @@
  */
 
 import { Campo } from '@/components/ui/Campo'
-import { BottoniScelta, Domanda } from './Bottoni'
+import { BottoniScelta, Domanda } from '@/components/ui/Bottoni'
 
 export function PassoServizio({
   valore,
