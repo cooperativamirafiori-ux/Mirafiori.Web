@@ -39,7 +39,7 @@ const CAMPI_DEL_PASSO: Record<Passo, readonly Chiave[]> = {
     'tipoDocumento',
     'riferimentoDocumento',
   ],
-  quando: ['dataPrestazione', 'incassato', 'mezzoPagamento', 'dataIncasso'],
+  quando: ['dataPrestazione', 'incassato', 'mezzoPagamento', 'mezzoPagamentoAltro', 'dataIncasso'],
   cliente: ['tipoSoggetto'],
   dati: ['cognome', 'nome', 'ragioneSociale', 'partitaIva', 'senzaPartitaIva', 'codiceFiscale', 'condominio'],
   // La nazionalità si ricava dalla nazione, e la nazione si sceglie qui.

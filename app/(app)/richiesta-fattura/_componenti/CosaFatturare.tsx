@@ -37,11 +37,14 @@ export function CosaFatturare({
   errori,
   set,
   onCambiaServizio,
+  preimpostato = false,
 }: {
   valori: NuovaRichiestaFatturaInput
   errori: Record<string, string>
   set: Set
   onCambiaServizio: () => void
+  /** Il servizio viene dall'ultima richiesta, non l'ha scelto ora: va messo in vista. */
+  preimpostato?: boolean
 }) {
   const regime = regimeDi(valori.centroCosto)
   const iva = calcoloIva(valori)
@@ -56,12 +59,34 @@ export function CosaFatturare({
 
   return (
     <div className="space-y-7">
-      <div className="flex flex-wrap items-center gap-x-3 rounded-2xl bg-gray-50 px-4 py-2 text-base text-gray-700">
-        <span>
-          Servizio: <strong>{valori.centroCosto}</strong>
-        </span>
-        <Link onClick={onCambiaServizio}>Cambia</Link>
-      </div>
+      {preimpostato ? (
+        // Il servizio proposto dall'ultima richiesta è comodo ma pericoloso: chi
+        // stavolta fattura per un altro servizio rischia di non accorgersene.
+        // Per questo arancione e con un bottone vero, non un link grigio.
+        <div className="rounded-2xl border-2 border-orange-400 bg-orange-50 p-4">
+          <p className="text-sm font-semibold uppercase tracking-wide text-orange-700">
+            Controlla il servizio
+          </p>
+          <p className="mt-1 text-xl font-bold text-orange-900">{valori.centroCosto}</p>
+          <p className="mt-1 text-base text-orange-800">
+            È quello della tua ultima richiesta. Se questa fattura è per un altro servizio, cambialo.
+          </p>
+          <button
+            type="button"
+            onClick={onCambiaServizio}
+            className="mt-3 min-h-[44px] w-full rounded-xl bg-orange-500 px-4 text-base font-semibold text-white active:bg-orange-600 sm:w-auto"
+          >
+            Cambia servizio
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-x-3 rounded-2xl bg-gray-50 px-4 py-2 text-base text-gray-700">
+          <span>
+            Servizio: <strong>{valori.centroCosto}</strong>
+          </span>
+          <Link onClick={onCambiaServizio}>Cambia</Link>
+        </div>
+      )}
 
       <Domanda
         titolo="Cosa ha comprato il cliente?"

@@ -17,6 +17,7 @@ import { sendEmail, BOX, RIGA, TABELLA } from '@/lib/core/mailer'
 import {
   GIORNI_EMISSIONE,
   calcoloIva,
+  descriviMezzo,
   chiedeCondominio,
   intestatario,
   puntualita,
@@ -136,7 +137,7 @@ export async function notificaRichiestaFattura(
     RIGA(
       'Pagamento',
       r.incassato
-        ? `già incassato — ${r.mezzoPagamento}${r.dataIncasso ? ` il ${giorno(r.dataIncasso)}` : ''}`
+        ? `già incassato — ${descriviMezzo(r)}${r.dataIncasso ? ` il ${giorno(r.dataIncasso)}` : ''}`
         : 'DA INCASSARE',
     ) +
     RIGA('Centro di costo', r.centroCosto) +

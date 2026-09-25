@@ -20,6 +20,7 @@ import { Banner } from '@/components/ui/Banner'
 import {
   GIORNI_EMISSIONE,
   MEZZI_PAGAMENTO,
+  MEZZO_ALTRO,
   oggi,
   puntualita,
   type NuovaRichiestaFatturaInput,
@@ -131,6 +132,16 @@ export function PassoQuando({
             onScegli={(v) => set('mezzoPagamento', v)}
             errore={errori.mezzoPagamento}
           />
+          {valori.mezzoPagamento === MEZZO_ALTRO && (
+            <Campo
+              grande
+              etichetta="Come ha pagato?"
+              valore={valori.mezzoPagamentoAltro}
+              onChange={(v) => set('mezzoPagamentoAltro', v)}
+              segnaposto="Es. buono pasto, PayPal"
+              errore={errori.mezzoPagamentoAltro}
+            />
+          )}
           {!incassoDiverso ? (
             <Link onClick={() => setIncassoDiverso(true)}>Ha pagato in un altro giorno?</Link>
           ) : (

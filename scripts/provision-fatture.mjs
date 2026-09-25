@@ -33,7 +33,7 @@ const TIPI_SOGGETTO = [
 ]
 const NAZIONALITA = ['Italiana', 'Estera']
 const TIPI_DOCUMENTO = ['Fattura', 'Nota di credito', 'Nota di debito']
-const MEZZI_PAGAMENTO = ['Contanti', 'Bancomat o carta', 'Bonifico', 'Assegno', 'Altro']
+const MEZZI_PAGAMENTO = ['Contanti', 'Bancomat o carta', 'Bonifico', 'Satispay', 'Altro']
 
 // I `name` DEVONO coincidere con quelli usati in lib/fatture/data.ts.
 // Il Title della lista contiene il numero della richiesta (RF-0001).
@@ -85,6 +85,8 @@ const COLUMNS = [
 
   { name: 'Incassato', boolean: {} },
   { name: 'MezzoPagamento', choice: { choices: MEZZI_PAGAMENTO, displayAs: 'dropDownMenu' } },
+  // Il mezzo scritto a mano quando MezzoPagamento è "Altro".
+  { name: 'MezzoPagamentoAltro', text: {} },
   { name: 'DataIncasso', dateTime: { format: 'dateOnly', displayAs: 'standard' } },
   // Giorni fra prestazione e richiesta: serve a vedere a colpo d'occhio, dalla
   // lista, quali servizi mandano le richieste in ritardo.
@@ -171,8 +173,23 @@ async function main() {
 
 /** Aggiunge alla lista esistente le sole colonne mancanti (idempotente) */
 async function ensureColumns(token, site, listId) {
-  const cols = await graph(token, 'GET', `/sites/${site}/lists/${listId}/columns?$select=name&$top=200`)
+  const cols = await graph(token, 'GET', `/sites/${site}/lists/${listId}/columns?$select=id,name,choice&$top=200`)
   const present = new Set((cols.value || []).map((c) => c.name))
+
+  // Colonne a scelta già presenti: le scelte si allineano a quelle di questo
+  // file, comprese quelle tolte (es. 'Assegno', tolto il 25 set 2026).
+  for (const col of COLUMNS.filter((c) => c.choice)) {
+    const sp = (cols.value || []).find((c) => c.name === col.name)
+    if (!sp?.choice) continue
+    const attuali = sp.choice.choices || []
+    const volute = col.choice.choices
+    if (attuali.length === volute.length && attuali.every((c, i) => c === volute[i])) continue
+    await graph(token, 'PATCH', `/sites/${site}/lists/${listId}/columns/${sp.id}`, {
+      choice: { ...sp.choice, choices: volute },
+    })
+    console.log(`  ~ ${col.name}: scelte ora ${volute.join(', ')}`)
+  }
+
   const mancanti = COLUMNS.filter((c) => !present.has(c.name))
   if (!mancanti.length) {
     console.log('✓ Tutte le colonne sono già presenti.')

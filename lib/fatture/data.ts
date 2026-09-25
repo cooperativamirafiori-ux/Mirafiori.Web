@@ -39,7 +39,7 @@ const CAMPI =
   'CodiceFiscale,Indirizzo,Cap,' +
   'Citta,Provincia,Nazione,Telefono,Email,Pec,CodiceSdi,ClienteId,Descrizione,Importo,' +
   'DataPrestazione,TipoDocumento,RiferimentoDocumento,NaturaImporto,Aliquota,' +
-  'ArticoloEsclusione,Imponibile,Iva,Incassato,MezzoPagamento,DataIncasso,GiorniRitardo,' +
+  'ArticoloEsclusione,Imponibile,Iva,Incassato,MezzoPagamento,MezzoPagamentoAltro,DataIncasso,GiorniRitardo,' +
   'Note,Created)'
 
 function mapRichiesta(item: any): RichiestaFattura {
@@ -79,6 +79,7 @@ function mapRichiesta(item: any): RichiestaFattura {
     articoloEsclusione: f.ArticoloEsclusione ?? '',
     incassato: Boolean(f.Incassato),
     mezzoPagamento: f.MezzoPagamento ?? '',
+    mezzoPagamentoAltro: f.MezzoPagamentoAltro ?? '',
     dataIncasso: String(f.DataIncasso ?? '').slice(0, 10),
     note: f.Note ?? '',
     creato: f.Created ?? undefined,
@@ -184,6 +185,7 @@ export async function creaRichiestaFattura(
 
       Incassato: Boolean(input.incassato),
       MezzoPagamento: input.incassato ? t(input.mezzoPagamento) : '',
+      MezzoPagamentoAltro: input.incassato ? t(input.mezzoPagamentoAltro) : '',
 
       Note: t(input.note),
     }

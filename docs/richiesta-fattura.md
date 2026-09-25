@@ -222,7 +222,7 @@ quali servizi mandano le richieste tardi.
 ### Pagamento
 
 Spunta «la prestazione è già stata pagata»; se sì, compaiono il mezzo (contanti, bancomat o carta,
-bonifico, assegno, altro) e la data dell'incasso, proposta uguale alla data della prestazione. Se non
+bonifico, Satispay, altro — con «altro» il mezzo si scrive a mano) e la data dell'incasso, proposta uguale alla data della prestazione. Se non
 è stata pagata, la mail lo scrive in maiuscolo: `DA INCASSARE`.
 
 Attenzione a non confondere questo con il campo **Tipo Pagamento dell'anagrafica Clienti**: quello è

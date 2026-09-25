@@ -383,6 +383,7 @@ export function RichiestaFatturaForm({
             valori={form}
             errori={errori}
             set={set}
+            preimpostato={!chiediServizio}
             onCambiaServizio={() => {
               setChiediServizio(true)
               vaiA('servizio')

@@ -35,9 +35,18 @@ export const MEZZI_PAGAMENTO = [
   'Contanti',
   'Bancomat o carta',
   'Bonifico',
-  'Assegno',
+  'Satispay',
   'Altro',
 ] as const
+
+/** Con «Altro» il mezzo va scritto a mano: da solo non dice niente a chi incassa. */
+export const MEZZO_ALTRO = 'Altro'
+
+/** Il mezzo di pagamento come va letto: con «Altro» si mostra quello che è stato scritto. */
+export function descriviMezzo(r: { mezzoPagamento: string; mezzoPagamentoAltro?: string }): string {
+  const altro = (r.mezzoPagamentoAltro ?? '').trim()
+  return r.mezzoPagamento === MEZZO_ALTRO && altro ? `Altro: ${altro}` : r.mezzoPagamento
+}
 
 export const NATURE_IMPORTO = ['Totale (IVA compresa)', 'Imponibile (IVA esclusa)'] as const
 export type NaturaImporto = (typeof NATURE_IMPORTO)[number]
@@ -259,6 +268,8 @@ export interface NuovaRichiestaFatturaInput {
 
   incassato: boolean
   mezzoPagamento: string
+  /** Il mezzo scritto a mano: obbligatorio quando `mezzoPagamento` è «Altro». */
+  mezzoPagamentoAltro: string
   dataIncasso: string
 
   note: string
@@ -310,6 +321,7 @@ export function richiestaVuota(): NuovaRichiestaFatturaInput {
     articoloEsclusione: '',
     incassato: false,
     mezzoPagamento: '',
+    mezzoPagamentoAltro: '',
     dataIncasso: '',
     note: '',
   }
@@ -351,6 +363,7 @@ export interface Regime {
 const REGIMI_NOTI: Record<string, { aliquota: number; lordo: boolean }> = {
   // La Locanda incassa alla cassa: quello che si scrive è il totale pagato.
   locanda: { aliquota: 10, lordo: true },
+  'la locanda nel parco': { aliquota: 10, lordo: true },
 }
 
 /** Confronto tollerante: minuscole, senza accenti, spazi normalizzati. */
@@ -376,6 +389,7 @@ export function regimeDi(centroCosto: string): Regime {
  */
 const DESCRIZIONI_RAPIDE: Record<string, readonly string[]> = {
   locanda: ['Pranzo', 'Cena', 'Evento', 'Catering'],
+  'la locanda nel parco': ['Pranzo', 'Cena', 'Evento', 'Catering'],
 }
 
 export function descrizioniRapide(centroCosto: string): readonly string[] {
@@ -556,6 +570,7 @@ export function pulisciCampiNascosti(
     p.mezzoPagamento = ''
     p.dataIncasso = ''
   }
+  if (p.mezzoPagamento !== MEZZO_ALTRO) p.mezzoPagamentoAltro = ''
 
   // Campi anagrafici che la tipologia scelta non prevede. Senza questo, chi
   // passa da "persona fisica con partita IVA" a "privato" si porterebbe dietro
@@ -700,6 +715,8 @@ export function validaRichiesta(r: NuovaRichiestaFatturaInput): Record<string, s
 
   if (r.incassato) {
     if (vuoto(r.mezzoPagamento)) e.mezzoPagamento = 'Scegli come ha pagato'
+    else if (r.mezzoPagamento === MEZZO_ALTRO && vuoto(r.mezzoPagamentoAltro))
+      e.mezzoPagamentoAltro = 'Scrivi come ha pagato'
     if (vuoto(r.dataIncasso)) e.dataIncasso = "Indica la data dell'incasso"
   }
 

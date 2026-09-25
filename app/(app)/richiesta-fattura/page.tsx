@@ -3,7 +3,7 @@ import { auth } from '@/lib/core/auth'
 import { Header } from '@/components/ui/Header'
 import { Banner } from '@/components/ui/Banner'
 import { fattureConfigurato, getCentriRecentiDi } from '@/lib/fatture/data'
-import { getCentriDiCosto } from '@/lib/fatture/centri-di-costo'
+import { allineaAiCentri, getCentriDiCosto } from '@/lib/fatture/centri-di-costo'
 import { getIndiceClienti } from '@/lib/clienti/data'
 import { RichiestaFatturaForm } from './RichiestaFatturaForm'
 
@@ -38,7 +38,7 @@ export default async function RichiestaFatturaPage() {
         ) : (
           <RichiestaFatturaForm
             centriDiCosto={centri}
-            centriRecenti={recenti}
+            centriRecenti={allineaAiCentri(recenti, centri)}
             clienti={clienti}
             richiedente={session.user.email}
             richiedenteNome={session.user.name ?? ''}

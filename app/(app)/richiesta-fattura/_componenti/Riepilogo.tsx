@@ -13,6 +13,7 @@ import {
   chiedeCanaleSdi,
   intestatario,
   type NuovaRichiestaFatturaInput,
+  descriviMezzo,
 } from '@/types/fatture'
 import { Domanda, Link } from './Bottoni'
 import { euro } from './CosaFatturare'
@@ -90,7 +91,7 @@ export function Riepilogo({
         {[
           dataLunga(valori.dataPrestazione),
           valori.incassato
-            ? `Pagato: ${valori.mezzoPagamento}${valori.dataIncasso !== valori.dataPrestazione ? `, ${dataLunga(valori.dataIncasso)}` : ''}`
+            ? `Pagato: ${descriviMezzo(valori)}${valori.dataIncasso !== valori.dataPrestazione ? `, ${dataLunga(valori.dataIncasso)}` : ''}`
             : 'Da pagare',
         ]}
       </Sezione>
