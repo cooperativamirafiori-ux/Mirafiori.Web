@@ -32,10 +32,12 @@ export default async function ContoQontoPage({ params }: { params: Promise<{ id:
 
   const { id } = await params
 
+  let tutti: ContoQonto[] = []
   let visibili: ContoQonto[] = []
   let errore = ''
   try {
-    visibili = contiVisibili(await getContiQonto(), accesso)
+    tutti = await getContiQonto()
+    visibili = contiVisibili(tutti, accesso)
   } catch (e) {
     console.error('[qonto] conti:', e)
     errore = 'Qonto non risponde in questo momento. Riprova fra qualche minuto.'
@@ -47,7 +49,7 @@ export default async function ContoQontoPage({ params }: { params: Promise<{ id:
   let movimenti: MovimentoQonto[] = []
   if (conto) {
     try {
-      movimenti = await getMovimentiQonto(conto.id)
+      movimenti = await getMovimentiQonto(conto.id, tutti)
     } catch (e) {
       console.error('[qonto] movimenti:', e)
       errore = 'Il saldo c’è, ma i movimenti non si sono potuti leggere. Riprova fra qualche minuto.'
@@ -140,8 +142,8 @@ function Riga({ m }: { m: MovimentoQonto }) {
         )}
         <div className="flex flex-wrap gap-1.5 mt-1.5">
           {m.stato === 'pending' && <Pill text="In attesa" tono="ambra" />}
+          {m.giroconto && <Pill text="Giroconto" tono="azzurro" />}
           {m.conAllegato && <Pill text="Scontrino" tono="verde" />}
-          {!m.conAllegato && m.allegatoObbligatorio && <Pill text="Manca lo scontrino" tono="rosso" />}
         </div>
       </div>
       <p className={`font-semibold whitespace-nowrap ${entrata ? 'text-emerald-700' : 'text-gray-800'}`}>

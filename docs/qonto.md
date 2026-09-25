@@ -41,6 +41,19 @@ revisione da parte di Qonto), redirect `http://localhost:3737/callback`.
 | `scripts/coordinatori-centri-costo.mjs` | elenco coordinatori; nomina/toglie (`--cc cc18 --email … --apply`); la prima volta sistema la colonna ("Coordinatori", più persone) |
 | `scripts/qonto-oauth-login.mjs` | login OAuth dal Mac (ogni 90 giorni, o dopo aver rigenerato il client secret) |
 | `scripts/provision-qonto-sottoconti.mjs` | crea/rinomina i sottoconti dai centri di costo attivi (dry-run di default) |
+| `scripts/qonto-diagnosi.mjs cc18` | risposta grezza di Qonto per un conto e i suoi ultimi movimenti, con la chiave dell'app |
+| `scripts/qonto-env-vercel.mjs` | copia `QONTO_LOGIN`/`QONTO_SECRET` da `.env.local` su Vercel (production, development) |
+
+## Trappole trovate
+
+- `GET /v2/bank_accounts` manda `balance` come **stringa** (`"51.0"`), `/v2/organization` come numero:
+  si leggono sempre i **centesimi** (`balance_cents`, `amount_cents`).
+- **Nessun avviso "manca lo scontrino"** (deciso da Dennis, 25/09/2026): molte spese hanno una
+  fattura che arriva per altra via, e l'avviso sarebbe falso. Si mostra solo l'etichetta verde
+  "Scontrino" quando un allegato c'è. (Qonto, fra l'altro, segna `attachment_required: true` anche
+  su entrate e ricariche.)
+- I giroconti si riconoscono dall'IBAN della controparte (`income`/`transfer.counterparty_account_number`)
+  confrontato con i conti nostri; la controparte grezza è la ragione sociale lunga della cooperativa.
 
 ## Da fare
 

@@ -34,4 +34,6 @@ export interface MovimentoQonto {
   conAllegato: boolean
   allegatoObbligatorio: boolean
   carta: string | null
+  /** Movimento fra due conti nostri (ricarica di un sottoconto): nessun fatto economico. */
+  giroconto: boolean
 }
