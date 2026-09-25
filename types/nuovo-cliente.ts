@@ -124,6 +124,12 @@ export function validaNuovoCliente(c: NuovoClienteInput): Record<string, string>
     const chiave = k === 'nazionalita' ? 'nazione' : k
     e[chiave] = MESSAGGI_AL_CLIENTE[chiave]?.(v) ?? v
   }
+  // Qui, a differenza della Richiesta Fattura, email e telefono sono
+  // obbligatori (decisione di Dennis, 25 set 2026): li scrive il cliente
+  // stesso, non chi sta alla cassa, quindi non c'è il rischio del dato inventato.
+  if (!c.email.trim()) e.email = 'Scrivi la tua email'
+  if (!c.telefono.trim()) e.telefono = 'Scrivi il tuo numero di telefono'
+  else if (c.telefono.replace(/[^\d]/g, '').length < 6) e.telefono = 'Numero di telefono non valido'
   return e
 }
 

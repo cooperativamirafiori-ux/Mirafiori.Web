@@ -438,15 +438,14 @@ export function NuovoClienteForm({ apertaIl }: { apertaIl: number }) {
                 italia && (
                   <p className="text-base text-gray-600">
                     La fattura elettronica la trovi nel tuo cassetto fiscale sul sito dell’Agenzia delle Entrate.
-                    Se vuoi, lasciaci anche la mail.
                   </p>
                 )
               )}
               <div data-campo="email">
-                <Campo grande tipo="email" etichetta="Email (facoltativa)" valore={dati.email} onChange={(v) => set('email', v.trim())} errore={errori.email} />
+                <Campo grande tipo="email" etichetta="Email" valore={dati.email} onChange={(v) => set('email', v.trim())} errore={errori.email} />
               </div>
               <div data-campo="telefono">
-                <Campo grande tipo="tel" etichetta="Telefono (facoltativo)" valore={dati.telefono} onChange={(v) => set('telefono', v)} errore={errori.telefono} inputMode="tel" />
+                <Campo grande tipo="tel" etichetta="Telefono" valore={dati.telefono} onChange={(v) => set('telefono', v)} errore={errori.telefono} inputMode="tel" />
               </div>
             </div>
           </Sezione>
