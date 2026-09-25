@@ -118,6 +118,15 @@ const AREE = [
     ],
   },
   { nome: 'Amministrazione (hub)', prefissi: ['app/(app)/amministrazione'] },
+  // Prima dei Flussi fatture: il loro prefisso app/(app)/controllo-gestione
+  // prenderebbe anche le pagine Qonto, e vince la prima area che combacia.
+  {
+    nome: 'Controllo di gestione · Qonto',
+    prefissi: [
+      'app/(app)/controllo-gestione/qonto', 'lib/qonto', 'types/qonto', 'docs/qonto',
+      'scripts/_qonto', 'scripts/qonto-', 'scripts/provision-qonto', 'scripts/coordinatori-centri-costo',
+    ],
+  },
   {
     nome: 'Controllo di gestione · Flussi fatture',
     prefissi: [

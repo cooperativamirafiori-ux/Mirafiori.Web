@@ -18,53 +18,36 @@
  *   node scripts/provision-qonto-sottoconti.mjs --salta cc2,cc23 # esclude dei CC
  *
  * Idempotente: un sottoconto il cui nome inizia già con "<codice> ·" non si ricrea.
- * NON chiude e NON rinomina niente.
+ * I sottoconti aperti prima dello script (nomi liberi: "CER Giulia", "Amb. Nord"…)
+ * stanno in PREESISTENTI: vengono RINOMINATI nel formato "<codice> · <nome>",
+ * non duplicati — conservano IBAN, carte e movimenti. NON chiude mai niente.
  *
  * Richiede in .env.local (o nell'ambiente):
+ *   OAuth (web/.qonto-oauth.json, da scripts/qonto-oauth-login.mjs) oppure
  *   QONTO_LOGIN, QONTO_SECRET        (chiave API generata da un owner/admin)
  *   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY   (legge lo specchio centro_di_costo)
  */
 
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
-import { randomUUID } from 'node:crypto'
+import { loadEnvLocal, qonto, modoAccesso } from './_qonto.mjs'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
 const APPLY = process.argv.includes('--apply')
 const iSalta = process.argv.indexOf('--salta')
 const SALTA = new Set(
   iSalta > -1 ? (process.argv[iSalta + 1] || '').split(',').map((s) => s.trim()).filter(Boolean) : [],
 )
-const QONTO = 'https://thirdparty.qonto.com/v2'
 const SEP = ' · '
 
-function loadEnvLocal() {
-  try {
-    const raw = readFileSync(join(__dirname, '..', '.env.local'), 'utf8')
-    for (const line of raw.split('\n')) {
-      const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/)
-      if (!m) continue
-      if (!process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '')
-    }
-  } catch {
-    // .env.local assente: si presume env già impostate
-  }
-}
-
-async function qonto(method, path, body) {
-  const headers = {
-    Authorization: `${process.env.QONTO_LOGIN}:${process.env.QONTO_SECRET}`,
-    Accept: 'application/json',
-  }
-  if (body) {
-    headers['Content-Type'] = 'application/json'
-    headers['X-Qonto-Idempotency-Key'] = randomUUID()
-  }
-  const res = await fetch(QONTO + path, { method, headers, body: body ? JSON.stringify(body) : undefined })
-  const txt = await res.text()
-  if (!res.ok) throw new Error(`Qonto ${method} ${path} → ${res.status}: ${txt}`)
-  return txt ? JSON.parse(txt) : null
+/**
+ * Sottoconti aperti a mano prima dello script → codice del centro di costo.
+ * Il confronto è sul nome esatto che hanno su Qonto oggi.
+ */
+const PREESISTENTI = {
+  'Amb. Nord': 'cc15',
+  'Amb. Sud': 'cc16',
+  'Casa Artemisia': 'cc5',
+  'CER Giulia': 'cc14',
+  'Condominio Solidale': 'cc18',
+  'CRP Cosmica': 'cc9',
 }
 
 async function centriDiCosto() {
@@ -79,10 +62,11 @@ async function centriDiCosto() {
 
 async function main() {
   loadEnvLocal()
-  for (const k of ['QONTO_LOGIN', 'QONTO_SECRET', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']) {
+  for (const k of ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']) {
     if (!process.env[k]) throw new Error(`Manca ${k} in .env.local`)
   }
 
+  console.log(`Accesso a Qonto via ${await modoAccesso()}\n`)
   const [cc, conti] = await Promise.all([centriDiCosto(), qonto('GET', '/bank_accounts?per_page=100')])
   const esistenti = conti.bank_accounts || []
   const perCodice = new Map()
@@ -90,31 +74,62 @@ async function main() {
     const m = (a.name || '').match(/^(cc\d+)\s·/)
     if (m) perCodice.set(m[1], a)
   }
+  const daRinominare = new Map()
+  for (const a of esistenti) {
+    const codice = PREESISTENTI[(a.name || '').trim()]
+    if (codice && !perCodice.has(codice)) daRinominare.set(codice, a)
+  }
 
   console.log(`Conti già su Qonto: ${esistenti.length}`)
   for (const a of esistenti) console.log(`  ${a.main ? '★' : ' '} ${a.name}  ${a.iban || ''}`)
   console.log(`\nCentri di costo attivi: ${cc.length}${SALTA.size ? ` (esclusi: ${[...SALTA].join(', ')})` : ''}\n`)
 
   const daCreare = []
+  const rinomine = []
   for (const c of cc) {
     const nome = `${c.codice}${SEP}${c.nome}`
     if (SALTA.has(c.codice)) console.log(`  salto   ${nome}`)
     else if (perCodice.has(c.codice)) console.log(`  c'è già ${perCodice.get(c.codice).name}`)
-    else {
+    else if (daRinominare.has(c.codice)) {
+      console.log(`  RINOMINO "${daRinominare.get(c.codice).name}" → ${nome}`)
+      rinomine.push({ conto: daRinominare.get(c.codice), nome })
+    } else {
       console.log(`  CREO    ${nome}`)
       daCreare.push(nome)
     }
   }
 
-  if (!daCreare.length) return console.log('\nNiente da creare.')
-  if (!APPLY) return console.log(`\n${daCreare.length} sottoconti da creare. Rilancia con --apply per crearli.`)
+  const liberi = 30 - esistenti.length
+  console.log(`\nDa rinominare: ${rinomine.length} · da creare: ${daCreare.length} · posti liberi sul piano Business: ${liberi}`)
+  if (daCreare.length > liberi) throw new Error(`Servirebbero ${daCreare.length} sottoconti nuovi ma ne restano ${liberi}: niente è stato toccato.`)
+  if (!daCreare.length && !rinomine.length) return console.log('Niente da fare.')
+  if (!APPLY) return console.log('Rilancia con --apply per applicare.')
+
+  // La rinomina via API key risponde 401 "OAuth2 authentication is required here"
+  // (24/09/2026), nonostante la documentazione dica il contrario. Se succede non
+  // ci si ferma: si stampa l'elenco da rinominare a mano e si passa alle creazioni.
+  const aMano = []
+  for (const { conto, nome } of rinomine) {
+    try {
+      await qonto('PATCH', `/bank_accounts/${conto.id}`, { bank_account: { name: nome } })
+      console.log(`  ✓ rinominato ${nome}  ${conto.iban || ''}`)
+    } catch (e) {
+      if (!/→ 401/.test(e.message)) throw e
+      aMano.push({ conto, nome })
+    }
+  }
+  if (aMano.length) {
+    console.log(`\n⚠️  Qonto non permette di rinominare con la chiave API. Rinominali a mano nella web app:`)
+    for (const { conto, nome } of aMano) console.log(`     "${conto.name}"  →  ${nome}`)
+    console.log('')
+  }
 
   for (const nome of daCreare) {
     const r = await qonto('POST', '/bank_accounts', { bank_account: { name: nome } })
     const a = r.bank_account || r
     console.log(`  ✓ ${nome}  ${a.iban || ''}`)
   }
-  console.log(`\nCreati ${daCreare.length} sottoconti.`)
+  console.log(`\nRinominati ${rinomine.length - aMano.length}, da rinominare a mano ${aMano.length}, creati ${daCreare.length}.`)
 }
 
 main().catch((e) => {

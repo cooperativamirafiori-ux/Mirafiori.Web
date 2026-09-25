@@ -2,6 +2,7 @@ import { auth } from '@/lib/core/auth'
 import Link from 'next/link'
 import { LogoutButton } from '@/components/ui/LogoutButton'
 import { puoEntrareControlloGestione, puoRichiedereManutenzione } from '@/lib/core/permessi'
+import { accessoQonto, puoVedereQonto } from '@/lib/qonto/accesso'
 
 export default async function HomePage() {
   const session = await auth()
@@ -23,7 +24,11 @@ export default async function HomePage() {
 
   // Il Controllo di Gestione non ha un permesso proprio: si entra se se ne ha
   // almeno uno dei suoi, e dentro si vede solo la parte che quello apre.
-  const puoControlloGestione = puoEntrareControlloGestione(session?.user?.permessi)
+  // I coordinatori di un centro di costo entrano anche senza permessi, per
+  // vedere il conto Qonto del loro servizio.
+  const puoControlloGestione =
+    puoEntrareControlloGestione(session?.user?.permessi) ||
+    puoVedereQonto(await accessoQonto(session?.user))
 
   const mostraRiservata = puoRisorseUmane || puoAmministrare || puoIT || puoControlloGestione
 

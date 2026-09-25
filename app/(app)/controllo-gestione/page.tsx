@@ -5,6 +5,9 @@
  * suoi, e dentro si vedono solo le card che il proprio permesso apre. È il
  * motivo per cui domani un coordinatore potrà guardare il cruscotto del suo
  * centro di costo senza che nessuno debba ricordarsi di togliergli le fatture.
+ *
+ * I coordinatori entrano anche senza alcun permesso: la scheda Qonto si apre
+ * a chi è nominato sulla lista Centri di Costo (lib/qonto/accesso.ts).
  */
 
 import { auth } from '@/lib/core/auth'
@@ -12,13 +15,17 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Header } from '@/components/ui/Header'
 import { puoEntrareControlloGestione, puoVedereFlussiFatture } from '@/lib/core/permessi'
+import { accessoQonto, puoVedereQonto } from '@/lib/qonto/accesso'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ControlloGestionePage() {
   const session = await auth()
   const permessi = session?.user?.permessi
-  if (!puoEntrareControlloGestione(permessi)) redirect('/home')
+  // Si entra anche senza permessi, se si è coordinatori di un centro di costo:
+  // dentro si vede solo la scheda Qonto, col conto del proprio servizio.
+  const qonto = puoVedereQonto(await accessoQonto(session?.user))
+  if (!puoEntrareControlloGestione(permessi) && !qonto) redirect('/home')
 
   const flussi = puoVedereFlussiFatture(permessi)
 
@@ -34,6 +41,14 @@ export default async function ControlloGestionePage() {
         </p>
 
         <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {qonto && (
+            <Card
+              href="/controllo-gestione/qonto"
+              emoji="🏦"
+              titolo="Qonto"
+              testo="Saldo e ultimi movimenti dei conti dei servizi"
+            />
+          )}
           {flussi && (
             <Card
               href="/controllo-gestione/flussi-fatture"
@@ -44,7 +59,7 @@ export default async function ControlloGestionePage() {
           )}
         </section>
 
-        {!flussi && (
+        {!flussi && !qonto && (
           <p className="text-sm text-gray-500 border border-dashed border-gray-300 rounded-xl px-4 py-6 text-center">
             I cruscotti dei costi non sono ancora attivi. Arriveranno qui.
           </p>

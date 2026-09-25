@@ -56,8 +56,10 @@ const COLUMNS = [
   // timbrature su Supabase, dove l'id numerico di SharePoint non ha senso.
   { name: 'Codice', text: {}, indexed: true },
   { name: 'Area', choice: { choices: AREE, displayAs: 'dropDownMenu' } },
-  // Volutamente vuota: i responsabili si assegnano dopo, dall'interfaccia SP.
-  { name: 'Responsabile', personOrGroup: { allowMultipleSelection: false } },
+  // Nome visibile "Coordinatori", più persone ammesse (25/09/2026): si nominano
+  // con scripts/coordinatori-centri-costo.mjs, che sistema anche la colonna su
+  // una lista già creata. Il nome interno resta Responsabile.
+  { name: 'Responsabile', displayName: 'Coordinatori', personOrGroup: { allowMultipleSelection: true } },
   // Un centro di costo non si cancella mai — lo storico dei costi lo referenzia.
   // Quando non serve più si mette Attivo = No e sparisce dai menù.
   { name: 'Attivo', boolean: {} },

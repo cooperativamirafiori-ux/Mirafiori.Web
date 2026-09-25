@@ -24,3 +24,6 @@ next-env.d.ts
 # vercel
 .vercel
 .env*
+
+# token OAuth Qonto (script locali)
+.qonto-oauth.json
