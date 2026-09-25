@@ -36,6 +36,11 @@ export interface RigaFile {
   fornitore: string
   tipoDocumento: TipoDocumento
   dataScadenza: string // ISO
+  /**
+   * Vero quando il gestionale non porta la scadenza e `dataScadenza` è la
+   * data della fattura (pagamento a vista). Serve a dirlo sulla riga.
+   */
+  scadenzaPresunta: boolean
   /** Netto da pagare. Già col segno giusto: negativo sulle note di credito. */
   importo: number
   modalita: string | null
@@ -289,7 +294,8 @@ export async function leggiScadenzario(buffer: ArrayBuffer): Promise<EsitoLettur
 
     const protocolloNumero = testo(val(celle, 'protocolloNumero'))
     const protocolloData = aData(val(celle, 'protocolloData'))
-    const dataScadenza = aData(val(celle, 'dataScadenza'))
+    const scadenzaLetta = aData(val(celle, 'dataScadenza'))
+    const dataFornitore = aData(val(celle, 'dataFornitore'))
     const importoLetto = aNumero(val(celle, 'importo'))
     const fornitore = testo(val(celle, 'fornitore'))
 
@@ -297,10 +303,13 @@ export async function leggiScadenzario(buffer: ArrayBuffer): Promise<EsitoLettur
       scarti.push({ riga: r + 1, motivo: 'protocollo del documento assente' })
       continue
     }
-    if (!dataScadenza) {
-      scarti.push({ riga: r + 1, motivo: 'data di scadenza assente' })
-      continue
-    }
+    // ⚠️ Una fattura senza scadenza NON si scarta (segnalato da Dennis il
+    // 25/09/2026: prima finiva fra gli scarti e non entrava nell'app). Senza
+    // termine indicato la fattura è pagabile a vista: vale la data della
+    // fattura del fornitore, altrimenti quella del protocollo. Così entra in
+    // coda già scaduta — che è la verità — e la riga dice perché.
+    const dataScadenza = scadenzaLetta ?? dataFornitore ?? protocolloData
+    const scadenzaPresunta = !scadenzaLetta
     if (importoLetto == null) {
       scarti.push({ riga: r + 1, motivo: 'importo non leggibile' })
       continue
@@ -322,12 +331,13 @@ export async function leggiScadenzario(buffer: ArrayBuffer): Promise<EsitoLettur
       protocolloSuffisso: testo(val(celle, 'protocolloSuffisso')),
       protocolloData,
       numeroFornitore: testo(val(celle, 'numeroFornitore')) || null,
-      dataFornitore: aData(val(celle, 'dataFornitore')),
+      dataFornitore,
       piva: testo(val(celle, 'piva')) || null,
       codiceFiscale: testo(val(celle, 'codiceFiscale')) || null,
       fornitore: fornitore || '(fornitore non indicato)',
       tipoDocumento: isNota ? 'nota_credito' : 'fattura',
       dataScadenza,
+      scadenzaPresunta,
       importo,
       modalita,
       famiglia: famigliaDi(modalita),

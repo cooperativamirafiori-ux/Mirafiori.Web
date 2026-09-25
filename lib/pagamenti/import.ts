@@ -118,6 +118,9 @@ function assegnaPosizioni(righe: RigaFile[]): Array<RigaFile & { posizione: numb
   return out
 }
 
+/** Detta sulla riga in app quando la scadenza è la data della fattura. */
+const SENZA_SCADENZA = 'senza scadenza nel gestionale: vale la data della fattura'
+
 const chiaveDocumento = (r: RigaFile) =>
   `${r.protocolloNumero}|${r.protocolloSuffisso}|${r.protocolloData}`
 
@@ -175,6 +178,13 @@ export async function importaScadenzario(
   const righe = assegnaPosizioni(lettura.righe)
 
   for (const motivo of riassumi(lettura.scarti.map((s) => s.motivo))) avvisi.push(motivo)
+  const presunte = righe.filter((r) => r.scadenzaPresunta).length
+  if (presunte > 0) {
+    avvisi.push(
+      `${presunte} scadenze senza data nel gestionale: importate con la data della fattura ` +
+        `(pagamento a vista).`,
+    )
+  }
 
   // --- 1. Le fatture: si creano quelle che mancano.
   // Tutto a blocchi, mai una query per riga: il file ne porta duemila e una
@@ -233,6 +243,7 @@ export async function importaScadenzario(
         soglia_applicata: soglia,
         import_id: importId,
         vista_il: adesso,
+        segnalazione: r.scadenzaPresunta ? SENZA_SCADENZA : null,
         ...(stato === 'pagata'
           ? {
               data_pagamento: chiusaDalFile ? dataDalFile : r.dataScadenza,
@@ -282,6 +293,7 @@ export async function importaScadenzario(
         ? `modalità riclassificata: ${vecchia.famiglia_modalita} → ${r.famiglia}`
         : null,
       chiusa ? 'già chiusa in app: lo stato non è stato toccato' : null,
+      r.scadenzaPresunta ? SENZA_SCADENZA : null,
     ]
       .filter(Boolean)
       .join('; ')
