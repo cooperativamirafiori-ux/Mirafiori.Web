@@ -167,6 +167,9 @@ export interface RigaScadenza {
    * Dice da quale sottoconto Qonto parte il bonifico.
    */
   cc: string | null
+  /** Richiesta di bonifico su Qonto: in volo, in attesa di approvazione, esito. */
+  qontoStato: 'invio' | 'pending' | 'approved' | 'declined' | 'canceled' | null
+  qontoInviataIl: string | null
 }
 
 export type MotivoVerifica = 'senza_modalita' | 'primo_import'

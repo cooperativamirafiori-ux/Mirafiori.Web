@@ -7,8 +7,10 @@
  * dei due token è già morto. OAuth resta agli script che scrivono (sottoconti,
  * giroconti), lanciati dal Mac: `scripts/_qonto.mjs`.
  *
- * Il client espone solo GET di proposito: se un giorno l'app dovrà scrivere su
- * Qonto, sarà una scelta da fare apertamente, non una funzione già pronta.
+ * Il client espone solo GET di proposito. L'unica scrittura dell'app su Qonto
+ * sono le richieste di bonifico (26/09/2026), che Qonto accetta solo con
+ * OAuth: stanno in oauth.ts + bonifici.ts, con il token in Supabase e il
+ * rinnovo a turno. Il denaro si muove solo dopo l'approvazione nell'app Qonto.
  *
  * Freschezza: ogni risposta vale 60 secondi (cache dei dati di Next). Chi apre
  * la pagina vede Qonto com'era al massimo un minuto fa, e due coordinatori che

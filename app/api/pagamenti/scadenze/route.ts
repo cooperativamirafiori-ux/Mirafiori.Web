@@ -19,6 +19,21 @@ import {
   ultimoImport,
 } from '@/lib/pagamenti/data'
 import { getCentriDiCosto } from '@/lib/centri-costo/data'
+import { sincronizzaQonto } from '@/lib/qonto/bonifici'
+import { qontoOAuthConfigurato } from '@/lib/qonto/oauth'
+
+// Chi apre la pagina vede le richieste Qonto approvate già come pagate, senza
+// aspettare la notte. Al massimo una volta al minuto per istanza.
+let ultimaSync = 0
+async function forseSincronizza() {
+  if (!qontoOAuthConfigurato() || Date.now() - ultimaSync < 60_000) return
+  ultimaSync = Date.now()
+  try {
+    await sincronizzaQonto()
+  } catch (e) {
+    console.error('[scadenze] sincronizzazione Qonto', e)
+  }
+}
 
 export const dynamic = 'force-dynamic'
 
@@ -26,6 +41,7 @@ export async function GET() {
   const g = await guardLettura()
   if (g.error) return g.error
   try {
+    await forseSincronizza()
     const [daVerificare, daApprovare, daPagare, automatiche, tot, anzianita, ultimo, cdc] = await Promise.all([
       listaScadenze(['da_verificare']),
       listaScadenze(['da_approvare']),

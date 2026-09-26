@@ -125,6 +125,7 @@ const AREE = [
     prefissi: [
       'app/(app)/controllo-gestione/qonto', 'lib/qonto', 'types/qonto', 'docs/qonto',
       'scripts/_qonto', 'scripts/qonto-', 'scripts/provision-qonto', 'scripts/coordinatori-centri-costo',
+      'supabase/qonto_bonifici', 'app/api/pagamenti/scadenze/qonto',
     ],
   },
   {

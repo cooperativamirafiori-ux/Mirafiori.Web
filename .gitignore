@@ -27,3 +27,4 @@ next-env.d.ts
 
 # token OAuth Qonto (script locali)
 .qonto-oauth.json
+.qonto-oauth.json.*

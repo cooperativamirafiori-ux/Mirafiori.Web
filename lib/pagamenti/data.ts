@@ -28,7 +28,7 @@ const CAMPI = `
   id, posizione, data_scadenza, importo, modalita, famiglia_modalita, stimata,
   stato, data_pagamento, pagata_da, pagata_il, origine_pagamento, approvata_da, approvata_il,
   alert, segnalazione, scomparsa, creata_il,
-  oggetto, natura, origine, inserita_da, note, iban, motivo_verifica, blocco,
+  oggetto, natura, origine, inserita_da, note, iban, motivo_verifica, blocco, qonto_stato, qonto_inviata_il,
   fattura_passiva (
     id, fornitore, piva, numero_fornitore, data_fornitore, tipo_documento,
     protocollo_numero, protocollo_suffisso, protocollo_data, file_sdi_url, pdf_url, cc_codice
@@ -62,6 +62,8 @@ interface Row {
   iban: string | null
   motivo_verifica: string | null
   blocco: string | null
+  qonto_stato: string | null
+  qonto_inviata_il: string | null
   /** Nulla sulle righe inserite a mano: il join è esterno. */
   fattura_passiva: {
     id: string
@@ -132,6 +134,8 @@ function aRiga(r: Row, oggi: string): RigaScadenza {
     fileSdiUrl: f?.file_sdi_url ?? null,
     pdfUrl: f?.pdf_url ?? null,
     cc: f?.cc_codice ?? null,
+    qontoStato: (r.qonto_stato as RigaScadenza['qontoStato']) ?? null,
+    qontoInviataIl: r.qonto_inviata_il,
   }
 }
 

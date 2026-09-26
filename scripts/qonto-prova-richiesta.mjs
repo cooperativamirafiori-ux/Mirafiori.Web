@@ -7,23 +7,26 @@
  * chiave API, la approva Claudia nell'app Qonto. Se la chiave risultasse a
  * nome di Claudia, lei non potrebbe approvare le proprie richieste.
  *
- * Usa SEMPRE la chiave API (come farà l'app), anche se c'è .qonto-oauth.json.
+ * Di default usa la chiave API. Con --oauth crea la richiesta con il token
+ * OAuth di .qonto-oauth.json (la chiave API risponde 401: Qonto la vuole OAuth).
  *
  * Uso (dalla cartella web/):
  *   node scripts/qonto-prova-richiesta.mjs cc18          # mostra soltanto: persone, conti, cosa creerebbe
  *   node scripts/qonto-prova-richiesta.mjs cc18 --crea   # crea davvero una richiesta di 0,01 € dal
  *                                                         # sottoconto cc18 al conto principale
+ *   node scripts/qonto-prova-richiesta.mjs cc18 --crea --oauth   # idem, con OAuth
  *
  * La richiesta di prova non sposta denaro finché nessuno la approva: va
  * RIFIUTATA su Qonto. (Se anche venisse approvata, è 1 centesimo fra due conti nostri.)
  */
 
 import { randomUUID } from 'node:crypto'
-import { loadEnvLocal } from './_qonto.mjs'
+import { loadEnvLocal, qonto } from './_qonto.mjs'
 
 loadEnvLocal()
 const cc = (process.argv[2] || '').toLowerCase()
 const CREA = process.argv.includes('--crea')
+const OAUTH_ = process.argv.includes('--oauth')
 if (!/^cc\d+$/.test(cc)) {
   console.error('Indica il centro di costo del sottoconto da cui far partire la prova, es. cc18')
   process.exit(1)
@@ -89,11 +92,22 @@ if (!CREA) {
   process.exit(0)
 }
 
-const r = await chiama('POST', '/requests/multi_transfers', corpo, { 'X-Qonto-Idempotency-Key': randomUUID() })
+let r
+if (OAUTH_) {
+  try {
+    r = { ok: true, status: 200, j: await qonto('POST', '/requests/multi_transfers', corpo) }
+  } catch (e) {
+    r = { ok: false, status: '—', j: String(e.message ?? e) }
+  }
+} else {
+  r = await chiama('POST', '/requests/multi_transfers', corpo, { 'X-Qonto-Idempotency-Key': randomUUID() })
+}
 console.log(`\n=== RISPOSTA QONTO: ${r.status} ===`)
 if (!r.ok) {
   console.log(JSON.stringify(r.j, null, 2))
-  console.log('\n✗ La chiave API NON può creare richieste di bonifico. Servirà OAuth lato server.')
+  console.log(OAUTH_
+    ? '\n✗ Neanche con OAuth. Se dice "scope": il permesso request_transfers.write va attivato sul Developer Portal e rifatto il login.'
+    : '\n✗ La chiave API NON può creare richieste di bonifico. Riprova con --oauth.')
   process.exit(1)
 }
 const req = r.j.request_multi_transfer ?? r.j

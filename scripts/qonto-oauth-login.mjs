@@ -27,7 +27,7 @@ const { QONTO_CLIENT_ID, QONTO_CLIENT_SECRET } = process.env
 const REDIRECT = process.env.QONTO_REDIRECT_URI || 'http://localhost:3737/callback'
 const SCOPES =
   process.env.QONTO_SCOPES ||
-  'offline_access organization.read bank_account.write internal_transfer.write attachment.read'
+  'offline_access organization.read bank_account.write internal_transfer.write attachment.read attachment.write request_transfers.write'
 
 if (!QONTO_CLIENT_ID || !QONTO_CLIENT_SECRET) {
   console.error('ERRORE: mancano QONTO_CLIENT_ID / QONTO_CLIENT_SECRET in .env.local')

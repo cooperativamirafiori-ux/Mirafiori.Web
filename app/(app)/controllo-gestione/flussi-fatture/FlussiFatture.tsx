@@ -226,6 +226,44 @@ export function FlussiFatture({
     setUltimaVerifica(null)
   }
 
+  /**
+   * Crea su Qonto le richieste di bonifico. Il denaro non si muove finché
+   * qualcuno non le approva nell'app Qonto: qui si dice chiaramente.
+   */
+  async function inviaQonto() {
+    const ids = selezionate.map((r) => r.id)
+    if (ids.length === 0) return
+    setInCorso(true)
+    setErrore('')
+    setMessaggio('')
+    try {
+      const res = await fetch('/api/pagamenti/scadenze/qonto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      })
+      const j = await res.json()
+      if (!res.ok) throw new Error(j.error ?? 'Invio non riuscito')
+      const richieste: Array<{ conto: string; bonifici: number; totale: number }> = j.richieste ?? []
+      const ignorate: Array<{ motivo: string }> = j.ignorate ?? []
+      const parti = richieste.map((r) => `${r.conto}: ${r.bonifici} (${euroEsatto(r.totale)})`)
+      setMessaggio(
+        (j.inviate > 0
+          ? `Inviate a Qonto ${j.inviate} ${j.inviate === 1 ? 'fattura' : 'fatture'} — ${parti.join(' · ')}. Ora vanno approvate nell’app Qonto.`
+          : 'Nessuna fattura inviata.') +
+          (ignorate.length > 0
+            ? ` ${ignorate.length} non ${ignorate.length === 1 ? 'partita' : 'partite'}: ${[...new Set(ignorate.map((x) => x.motivo))].slice(0, 3).join('; ')}`
+            : ''),
+      )
+      setScelte(new Set())
+      await carica()
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : 'Invio non riuscito')
+    } finally {
+      setInCorso(false)
+    }
+  }
+
   async function approvaSelezione() {
     const ids = selezionate.map((r) => r.id)
     if (ids.length === 0) return
@@ -435,9 +473,18 @@ export function FlussiFatture({
           <button
             onClick={paga}
             disabled={inCorso}
-            className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            className="rounded-xl border border-emerald-600 px-4 py-2 text-sm font-semibold text-emerald-700 disabled:opacity-50"
+            title="Pagate fuori dall'app: registra solo il pagamento"
           >
             Segna come pagate ({scelte.size})
+          </button>
+          <button
+            onClick={() => void inviaQonto()}
+            disabled={inCorso}
+            className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            title="Crea le richieste di bonifico su Qonto, dal sottoconto del servizio. Partono solo dopo l'approvazione su Qonto."
+          >
+            Invia a Qonto ({scelte.size})
           </button>
         </BarraAzioni>
       )}
@@ -553,6 +600,11 @@ function Riga({
           {r.stato === 'da_verificare' && r.motivoVerifica === 'primo_import' && (
             <Pill text="forse già pagata" tono="ambra" />
           )}
+          {(r.qontoStato === 'pending' || r.qontoStato === 'invio') && (
+            <Pill text="su Qonto · da approvare" tono="azzurro" dot="bg-cyan-500" />
+          )}
+          {r.qontoStato === 'declined' && <Pill text="rifiutata su Qonto" tono="rosso" />}
+          {r.qontoStato === 'canceled' && <Pill text="annullata su Qonto" tono="ambra" />}
           {r.blocco === 'iban_mancante' && <Pill text="manca l’IBAN" tono="rosso" dot="bg-red-500" />}
           {r.blocco === 'iban_cambiato' && <Pill text="IBAN cambiato" tono="rosso" dot="bg-red-500" />}
           {r.approvataDa && r.stato === 'da_pagare' && <Pill text="approvata" tono="verde" />}
