@@ -18,6 +18,7 @@ import {
   scadutoPerAnzianita,
   ultimoImport,
 } from '@/lib/pagamenti/data'
+import { getCentriDiCosto } from '@/lib/centri-costo/data'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,7 +26,7 @@ export async function GET() {
   const g = await guardLettura()
   if (g.error) return g.error
   try {
-    const [daVerificare, daApprovare, daPagare, automatiche, tot, anzianita, ultimo] = await Promise.all([
+    const [daVerificare, daApprovare, daPagare, automatiche, tot, anzianita, ultimo, cdc] = await Promise.all([
       listaScadenze(['da_verificare']),
       listaScadenze(['da_approvare']),
       listaScadenze(['da_pagare']),
@@ -33,6 +34,7 @@ export async function GET() {
       totali(),
       scadutoPerAnzianita(),
       ultimoImport(),
+      getCentriDiCosto(),
     ])
     return NextResponse.json({
       daVerificare,
@@ -42,6 +44,8 @@ export async function GET() {
       totali: tot,
       anzianita,
       ultimoImport: ultimo,
+      // Per il servizio su ogni riga: codice minuscolo (come in fattura_passiva) e nome.
+      centri: cdc.filter((c) => c.codice).map((c) => ({ codice: c.codice.toLowerCase(), nome: c.nome })),
       permessi: g.permessi,
     })
   } catch (e) {

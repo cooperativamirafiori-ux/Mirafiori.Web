@@ -27,6 +27,7 @@ import { Vuoto } from '@/components/ui/Vuoto'
 import { StatoDati, ImportaSdi } from './Testata'
 import { NuovaUscita } from './NuovaUscita'
 import { IbanRiga } from './IbanRiga'
+import { ServizioRiga, type Centro } from './ServizioRiga'
 import type { EsitoVerifica, RicevutaImport, RigaScadenza, TotaliCoda } from '@/types/pagamenti'
 
 type Coda = 'da_verificare' | 'da_pagare' | 'da_approvare' | 'automatiche'
@@ -39,6 +40,7 @@ interface Dati {
   totali: TotaliCoda
   anzianita: Array<{ fascia: string; righe: number; importo: number }>
   ultimoImport: RicevutaImport | null
+  centri: Centro[]
 }
 
 const euro = (n: number) =>
@@ -397,6 +399,7 @@ export function FlussiFatture({
                 }
                 puoPagare={puoPagare}
                 onAggiornato={carica}
+                centri={dati?.centri ?? []}
                 onToggle={() =>
                   setScelte((s) => {
                     const n = new Set(s)
@@ -505,6 +508,7 @@ function Riga({
   onElimina,
   puoPagare,
   onAggiornato,
+  centri,
 }: {
   r: RigaScadenza
   scelta: boolean
@@ -512,6 +516,7 @@ function Riga({
   onToggle: () => void
   puoPagare: boolean
   onAggiornato: () => Promise<void>
+  centri: Centro[]
   /** Solo sulle righe inserite a mano e non ancora pagate. */
   onElimina?: () => void
 }) {
@@ -573,6 +578,15 @@ function Riga({
           <p className="text-xs text-gray-400 mt-0.5">in attesa da {r.giorniAttesa} giorni</p>
         )}
         {r.segnalazione && <p className="text-xs text-amber-700 mt-0.5">{r.segnalazione}</p>}
+        {r.fatturaId && (
+          <ServizioRiga
+            fatturaId={r.fatturaId}
+            cc={r.cc}
+            centri={centri}
+            modificabile={puoPagare}
+            onFatto={onAggiornato}
+          />
+        )}
         {r.famiglia === 'bonifico' && r.stato !== 'pagata' && (
           <IbanRiga r={r} puoConfermare={puoPagare} onFatto={onAggiornato} />
         )}

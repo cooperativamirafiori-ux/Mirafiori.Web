@@ -9,13 +9,28 @@
  *  - chi ha segnato per sbaglio **libera da solo**, finché la fattura non è
  *    stata pagata dopo la sua scelta. Dopo, solo il Controllo di Gestione.
  *
- * Chi può cosa: le stesse regole della scheda Qonto (lib/qonto/accesso.ts).
- * Il coordinatore segna solo sui suoi centri di costo; il permesso
- * "Controllo di Gestione" vede tutto e segna/libera su qualunque centro.
+ * Chi può cosa (`accessoAssegnazione`):
+ *  - coordinatore di un centro di costo → segna solo sui suoi centri;
+ *  - permesso "Controllo di Gestione" o "Pagamenti" → vede tutto, segna,
+ *    libera e sposta su qualunque centro. Chi paga deve poterlo fare: è il
+ *    servizio a dire da quale sottoconto Qonto parte il bonifico.
  */
 
 import { supabase } from '@/lib/core/supabase'
+import { getCentriCoordinati } from '@/lib/centri-costo/data'
+import { AREA_CONTROLLO_GESTIONE, AREA_PAGAMENTI } from '@/types/pagamenti'
 import type { AccessoQonto } from '@/lib/qonto/accesso'
+
+export async function accessoAssegnazione(
+  user: { email?: string | null; permessi?: string[] } | undefined | null,
+): Promise<AccessoQonto> {
+  if (!user?.email) return { tutti: false, codici: [] }
+  const p = user.permessi ?? []
+  if (p.includes(AREA_CONTROLLO_GESTIONE) || p.includes(AREA_PAGAMENTI)) return { tutti: true, codici: [] }
+  return { tutti: false, codici: await getCentriCoordinati(user.email) }
+}
+
+export const puoAssegnare = (a: AccessoQonto) => a.tutti || a.codici.length > 0
 
 export interface FatturaDaSegnare {
   id: string
@@ -193,4 +208,23 @@ export async function libera(ids: string[], a: AccessoQonto): Promise<EsitoLiber
     liberate++
   }
   return { liberate, ignorate }
+}
+
+/**
+ * Mette una fattura su un centro di costo, o la toglie (cc = null), qualunque
+ * sia lo stato. Solo per chi vede tutto (CdG, Pagamenti): è la correzione, non
+ * la scelta del coordinatore. Vale anche per le fatture arrivate dall'Excel.
+ */
+export async function sposta(id: string, cc: string | null, email: string, a: AccessoQonto): Promise<void> {
+  if (!a.tutti) throw new Error('Serve il permesso Controllo di Gestione o Pagamenti')
+  const codice = cc?.trim().toLowerCase() || null
+  const { error } = await supabase()
+    .from('fattura_passiva')
+    .update(
+      codice
+        ? { cc_codice: codice, cc_rivendicata_da: email, cc_rivendicata_il: new Date().toISOString() }
+        : { cc_codice: null, cc_rivendicata_da: null, cc_rivendicata_il: null },
+    )
+    .eq('id', id)
+  if (error) throw new Error(`Assegnazione: ${error.message}`)
 }

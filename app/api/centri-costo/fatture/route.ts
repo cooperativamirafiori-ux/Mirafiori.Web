@@ -4,15 +4,15 @@
  *   GET    → { libere, segnate, centri } per chi guarda
  *   POST   { ids, cc } → segna (vince il primo)
  *   DELETE { ids }     → libera (solo se non pagata dopo la segnatura, salvo CdG)
+ *   PATCH  { id, cc }  → sposta o toglie (cc null), qualunque fattura: solo CdG/Pagamenti
  *
  * Accesso: coordinatore di almeno un centro di costo, oppure permesso
- * "Controllo di Gestione". Le regole stanno in lib/pagamenti/assegnazione.ts.
+ * "Controllo di Gestione" o "Pagamenti". Regole in lib/pagamenti/assegnazione.ts.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/core/auth'
-import { accessoQonto, puoVedereQonto } from '@/lib/qonto/accesso'
-import { fattureLibere, fattureSegnate, libera, segna } from '@/lib/pagamenti/assegnazione'
+import { accessoAssegnazione, fattureLibere, fattureSegnate, libera, puoAssegnare, segna, sposta } from '@/lib/pagamenti/assegnazione'
 import { getCentriDiCosto } from '@/lib/centri-costo/data'
 import { logAzione } from '@/lib/core/audit'
 
@@ -22,8 +22,8 @@ async function guard() {
   const session = await auth()
   const email = session?.user?.email
   if (!email) return { error: NextResponse.json({ error: 'Non autenticato' }, { status: 401 }) } as const
-  const accesso = await accessoQonto(session.user)
-  if (!puoVedereQonto(accesso)) return { error: NextResponse.json({ error: 'Accesso negato' }, { status: 403 }) } as const
+  const accesso = await accessoAssegnazione(session.user)
+  if (!puoAssegnare(accesso)) return { error: NextResponse.json({ error: 'Accesso negato' }, { status: 403 }) } as const
   return { session, email, accesso, error: null } as const
 }
 
@@ -99,6 +99,33 @@ export async function DELETE(req: NextRequest) {
       dettagli: { ids: lista, ...r },
     })
     return NextResponse.json(r)
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'Operazione non riuscita' }, { status: 400 })
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  const g = await guard()
+  if (g.error) return g.error
+  let b: { id?: unknown; cc?: unknown }
+  try {
+    b = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Body non valido' }, { status: 400 })
+  }
+  if (typeof b.id !== 'string' || !b.id) return NextResponse.json({ error: 'Fattura non indicata' }, { status: 400 })
+  const cc = typeof b.cc === 'string' && b.cc ? b.cc : null
+  try {
+    await sposta(b.id, cc, g.email, g.accesso)
+    await logAzione({
+      utente: g.email,
+      nome: g.session.user?.name,
+      azione: 'fatture.sposta_cc',
+      entita: 'FatturaPassiva',
+      entitaId: b.id,
+      dettagli: { cc },
+    })
+    return NextResponse.json({ ok: true })
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Operazione non riuscita' }, { status: 400 })
   }

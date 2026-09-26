@@ -31,7 +31,7 @@ const CAMPI = `
   oggetto, natura, origine, inserita_da, note, iban, motivo_verifica, blocco,
   fattura_passiva (
     id, fornitore, piva, numero_fornitore, data_fornitore, tipo_documento,
-    protocollo_numero, protocollo_suffisso, protocollo_data, file_sdi_url, pdf_url
+    protocollo_numero, protocollo_suffisso, protocollo_data, file_sdi_url, pdf_url, cc_codice
   )
 `
 
@@ -75,6 +75,7 @@ interface Row {
     protocollo_data: string | null
     file_sdi_url: string | null
     pdf_url: string | null
+    cc_codice: string | null
   } | null
 }
 
@@ -130,6 +131,7 @@ function aRiga(r: Row, oggi: string): RigaScadenza {
     blocco: (r.blocco as RigaScadenza['blocco']) ?? null,
     fileSdiUrl: f?.file_sdi_url ?? null,
     pdfUrl: f?.pdf_url ?? null,
+    cc: f?.cc_codice ?? null,
   }
 }
 

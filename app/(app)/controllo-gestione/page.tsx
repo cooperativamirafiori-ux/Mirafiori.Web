@@ -16,6 +16,7 @@ import Link from 'next/link'
 import { Header } from '@/components/ui/Header'
 import { puoEntrareControlloGestione, puoVedereFlussiFatture } from '@/lib/core/permessi'
 import { accessoQonto, puoVedereQonto } from '@/lib/qonto/accesso'
+import { accessoAssegnazione, puoAssegnare } from '@/lib/pagamenti/assegnazione'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,6 +29,7 @@ export default async function ControlloGestionePage() {
   if (!puoEntrareControlloGestione(permessi) && !qonto) redirect('/home')
 
   const flussi = puoVedereFlussiFatture(permessi)
+  const assegna = puoAssegnare(await accessoAssegnazione(session?.user))
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -49,7 +51,7 @@ export default async function ControlloGestionePage() {
               testo="Saldo e ultimi movimenti dei conti dei servizi"
             />
           )}
-          {qonto && (
+          {assegna && (
             <Card
               href="/controllo-gestione/fatture"
               emoji="📥"

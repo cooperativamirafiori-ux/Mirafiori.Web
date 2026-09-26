@@ -162,6 +162,11 @@ export interface RigaScadenza {
   /** Link al file XML in SharePoint e al PDF del fornitore, se c'era. */
   fileSdiUrl: string | null
   pdfUrl: string | null
+  /**
+   * Centro di costo della fattura (ccN), null se nessuno l'ha ancora preso.
+   * Dice da quale sottoconto Qonto parte il bonifico.
+   */
+  cc: string | null
 }
 
 export type MotivoVerifica = 'senza_modalita' | 'primo_import'

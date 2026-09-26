@@ -84,8 +84,13 @@ Scheda **Controllo di Gestione › Fatture del servizio**
 (`app/(app)/controllo-gestione/fatture/`, API `app/api/centri-costo/fatture`,
 regole in `lib/pagamenti/assegnazione.ts`). Decise con Dennis il 26/09/2026:
 
-- entra chi entra nella scheda Qonto: **coordinatore** di un centro di costo
-  (lista SP, colonna Coordinatori) o permesso **Controllo di Gestione**;
+- entrano i **coordinatori** di un centro di costo (lista SP, colonna
+  Coordinatori) e chi ha il permesso **Controllo di Gestione** o **Pagamenti**
+  (`accessoAssegnazione`): questi ultimi vedono e spostano tutto;
+- in **Flussi fatture** ogni riga mostra il servizio, e chi ha "Pagamenti" lo
+  sceglie o lo corregge dal menu sulla riga (`PATCH /api/centri-costo/fatture`,
+  vale anche per le fatture venute dall'Excel). **Il servizio decide da quale
+  sottoconto Qonto parte il bonifico**: senza, la fattura non va a Qonto;
 - si vedono **solo le fatture libere** e **solo quelle arrivate dagli XML**
   (lo storico Excel resta fuori);
 - **vince il primo**: `update … where cc_codice is null`; chi arriva secondo
