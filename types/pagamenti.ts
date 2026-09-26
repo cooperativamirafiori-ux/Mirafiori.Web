@@ -30,6 +30,7 @@ export const AREA_APPROVAZIONE_PAGAMENTI = 'Approvazione Pagamenti'
 // PAGATA (amministrazione). Tutte le altre le decide la modalità di pagamento
 // al momento dell'import.
 export type StatoScadenza =
+  | 'da_verificare' // non si sa ancora se va pagata (XML senza modalità, o primo import)
   | 'da_approvare' // sopra soglia, aspetta l'approvazione
   | 'da_pagare'    // sotto soglia, oppure approvata
   | 'pagata'       // clic dell'amministrazione (domani: estratto conto)
@@ -152,7 +153,28 @@ export interface RigaScadenza {
   giorniAttesa: number
   /** Giorni di ritardo sulla scadenza; 0 se non è ancora scaduta. */
   giorniRitardo: number
+  /** IBAN su cui pagare: dalla fattura, o quello confermato del fornitore. */
+  iban: string | null
+  /** Perché è "da verificare". Resta scritto anche dopo, come storia della riga. */
+  motivoVerifica: MotivoVerifica | null
+  /** Manca qualcosa per pagarla. Non è uno stato: la riga resta nella sua coda. */
+  blocco: BloccoPagamento | null
+  /** Link al file XML in SharePoint e al PDF del fornitore, se c'era. */
+  fileSdiUrl: string | null
+  pdfUrl: string | null
 }
+
+export type MotivoVerifica = 'senza_modalita' | 'primo_import'
+export type BloccoPagamento = 'iban_mancante' | 'iban_cambiato'
+
+/**
+ * Le tre risposte a una riga "da verificare".
+ *  - negozio    → pagata al momento; l'app impara il fornitore (le prossime
+ *                 fatture senza modalità nascono pagate)
+ *  - gia_pagata → pagata fuori dall'app, con la data indicata
+ *  - da_pagare  → va pagata: entra in coda, la soglia decide quale
+ */
+export type EsitoVerifica = 'negozio' | 'gia_pagata' | 'da_pagare'
 
 export interface Totale {
   righe: number

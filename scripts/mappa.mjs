@@ -133,6 +133,8 @@ const AREE = [
       'app/(app)/controllo-gestione', 'app/api/pagamenti', 'lib/pagamenti',
       'types/pagamenti', 'supabase/pagamenti', 'docs/flussi-fatture',
       'docs/controllo-di-gestione', 'supabase/uscite_manuali', 'docs/uscite-senza-fattura',
+      'docs/fatture-sdi', 'supabase/fatture_sdi', 'app/api/cron/fatture-sdi',
+      'scripts/prova-fatture-sdi', 'scripts/importa-fatture-sdi', 'scripts/rimetti-in-arrivo-sdi',
     ],
   },
   {

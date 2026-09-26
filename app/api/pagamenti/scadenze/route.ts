@@ -25,7 +25,8 @@ export async function GET() {
   const g = await guardLettura()
   if (g.error) return g.error
   try {
-    const [daApprovare, daPagare, automatiche, tot, anzianita, ultimo] = await Promise.all([
+    const [daVerificare, daApprovare, daPagare, automatiche, tot, anzianita, ultimo] = await Promise.all([
+      listaScadenze(['da_verificare']),
       listaScadenze(['da_approvare']),
       listaScadenze(['da_pagare']),
       listaAutomatiche(),
@@ -34,6 +35,7 @@ export async function GET() {
       ultimoImport(),
     ])
     return NextResponse.json({
+      daVerificare,
       daApprovare,
       daPagare,
       automatiche,

@@ -23,6 +23,10 @@
     {
       "path": "/api/cron/timbrature-alert",
       "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/cron/fatture-sdi",
+      "schedule": "15 3 * * *"
     }
   ]
 }

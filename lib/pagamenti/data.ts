@@ -28,10 +28,10 @@ const CAMPI = `
   id, posizione, data_scadenza, importo, modalita, famiglia_modalita, stimata,
   stato, data_pagamento, pagata_da, pagata_il, origine_pagamento, approvata_da, approvata_il,
   alert, segnalazione, scomparsa, creata_il,
-  oggetto, natura, origine, inserita_da, note,
+  oggetto, natura, origine, inserita_da, note, iban, motivo_verifica, blocco,
   fattura_passiva (
     id, fornitore, piva, numero_fornitore, data_fornitore, tipo_documento,
-    protocollo_numero, protocollo_suffisso, protocollo_data
+    protocollo_numero, protocollo_suffisso, protocollo_data, file_sdi_url, pdf_url
   )
 `
 
@@ -59,6 +59,9 @@ interface Row {
   origine: string
   inserita_da: string | null
   note: string | null
+  iban: string | null
+  motivo_verifica: string | null
+  blocco: string | null
   /** Nulla sulle righe inserite a mano: il join è esterno. */
   fattura_passiva: {
     id: string
@@ -67,9 +70,11 @@ interface Row {
     numero_fornitore: string | null
     data_fornitore: string | null
     tipo_documento: TipoDocumento
-    protocollo_numero: string
+    protocollo_numero: string | null
     protocollo_suffisso: string | null
-    protocollo_data: string
+    protocollo_data: string | null
+    file_sdi_url: string | null
+    pdf_url: string | null
   } | null
 }
 
@@ -88,7 +93,8 @@ function aRiga(r: Row, oggi: string): RigaScadenza {
     piva: f?.piva ?? null,
     numeroFornitore: f?.numero_fornitore ?? null,
     dataFornitore: f?.data_fornitore ?? null,
-    protocollo: f ? `${f.protocollo_numero}${suffisso} del ${f.protocollo_data}` : null,
+    // Le fatture arrivate solo dagli XML non hanno (ancora) un protocollo.
+    protocollo: f?.protocollo_numero ? `${f.protocollo_numero}${suffisso} del ${f.protocollo_data}` : null,
     oggetto: r.oggetto,
     // Il fornitore quando c'è la fattura, l'oggetto quando l'ha scritta una
     // persona. Il ripiego finale non deve accadere: il vincolo
@@ -119,6 +125,11 @@ function aRiga(r: Row, oggi: string): RigaScadenza {
     // silenzio di chi non decide, dato che non esiste un tasto «rimanda».
     giorniAttesa: Math.max(0, giorniFra(r.creata_il.slice(0, 10), oggi)),
     giorniRitardo: Math.max(0, giorniFra(r.data_scadenza, oggi)),
+    iban: r.iban,
+    motivoVerifica: (r.motivo_verifica as RigaScadenza['motivoVerifica']) ?? null,
+    blocco: (r.blocco as RigaScadenza['blocco']) ?? null,
+    fileSdiUrl: f?.file_sdi_url ?? null,
+    pdfUrl: f?.pdf_url ?? null,
   }
 }
 

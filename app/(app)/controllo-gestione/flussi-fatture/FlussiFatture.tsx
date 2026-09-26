@@ -24,13 +24,15 @@ import { Kpi } from '@/components/ui/Kpi'
 import { Pill } from '@/components/ui/Pill'
 import { Banner } from '@/components/ui/Banner'
 import { Vuoto } from '@/components/ui/Vuoto'
-import { StatoDati, Caricamento } from './Testata'
+import { StatoDati, ImportaSdi } from './Testata'
 import { NuovaUscita } from './NuovaUscita'
-import type { RicevutaImport, RigaScadenza, TotaliCoda } from '@/types/pagamenti'
+import { IbanRiga } from './IbanRiga'
+import type { EsitoVerifica, RicevutaImport, RigaScadenza, TotaliCoda } from '@/types/pagamenti'
 
-type Coda = 'da_pagare' | 'da_approvare' | 'automatiche'
+type Coda = 'da_verificare' | 'da_pagare' | 'da_approvare' | 'automatiche'
 
 interface Dati {
+  daVerificare: RigaScadenza[]
   daPagare: RigaScadenza[]
   daApprovare: RigaScadenza[]
   automatiche: RigaScadenza[]
@@ -66,6 +68,11 @@ export function FlussiFatture({
   const [dataPagamento, setDataPagamento] = useState(oggiISO())
   const [inCorso, setInCorso] = useState(false)
   const [ultimeChiuse, setUltimeChiuse] = useState<string[]>([])
+  // L'ultima risposta a delle righe "da verificare", per poterla annullare.
+  const [ultimaVerifica, setUltimaVerifica] = useState<{ ids: string[]; pive: string[]; esito: EsitoVerifica } | null>(null)
+  // Alla prima lettura, se c'è qualcosa da verificare si apre lì: è la coda
+  // che blocca le altre, e nessun altro la guarderà.
+  const primaLettura = useRef(true)
   // Spenta di default: le piastrelle raccontano le code, che è quello che si
   // vede sotto. Accesa, diventano una previsione di cassa — due domande
   // diverse, e chi guarda deve sapere quale sta leggendo.
@@ -82,12 +89,16 @@ export function FlussiFatture({
       if (!res.ok) throw new Error(j.error ?? 'Errore di lettura')
       setDati(j)
       setErrore('')
+      if (primaLettura.current) {
+        primaLettura.current = false
+        if (puoPagare && j.daVerificare?.length > 0) setCoda('da_verificare')
+      }
     } catch (e) {
       setErrore(e instanceof Error ? e.message : 'Errore di lettura')
     } finally {
       setCaricando(false)
     }
-  }, [])
+  }, [puoPagare])
 
   useEffect(() => {
     void carica()
@@ -95,6 +106,7 @@ export function FlussiFatture({
 
   const righe = useMemo(() => {
     if (!dati) return []
+    if (coda === 'da_verificare') return dati.daVerificare
     if (coda === 'da_pagare') return dati.daPagare
     if (coda === 'da_approvare') return dati.daApprovare
     return dati.automatiche
@@ -171,6 +183,47 @@ export function FlussiFatture({
     }
   }
 
+  async function verificaSelezione(esito: EsitoVerifica) {
+    const ids = selezionate.map((r) => r.id)
+    if (ids.length === 0) return
+    setInCorso(true)
+    setErrore('')
+    setMessaggio('')
+    try {
+      const res = await fetch('/api/pagamenti/scadenze/verifica', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, esito, data: dataPagamento }),
+      })
+      const j = await res.json()
+      if (!res.ok) throw new Error(j.error ?? 'Operazione non riuscita')
+      const imparati: string[] = j.imparati ?? []
+      setMessaggio(
+        `${j.aggiornate} ${j.aggiornate === 1 ? 'riga' : 'righe'} ` +
+          (esito === 'da_pagare' ? 'messe in coda' : 'segnate come pagate') +
+          (imparati.length > 0
+            ? ` · ${imparati.length === 1 ? 'questo fornitore' : `${imparati.length} fornitori`} da ora si paga al momento: le prossime fatture senza modalità nasceranno pagate`
+            : ''),
+      )
+      setUltimaVerifica({ ids, pive: imparati, esito })
+      setScelte(new Set())
+      await carica()
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : 'Operazione non riuscita')
+    } finally {
+      setInCorso(false)
+    }
+  }
+
+  async function annullaVerifica() {
+    if (!ultimaVerifica) return
+    await azione('/api/pagamenti/scadenze/verifica', 'DELETE', {
+      ids: ultimaVerifica.ids,
+      pive: ultimaVerifica.pive,
+    })
+    setUltimaVerifica(null)
+  }
+
   async function approvaSelezione() {
     const ids = selezionate.map((r) => r.id)
     if (ids.length === 0) return
@@ -183,11 +236,11 @@ export function FlussiFatture({
     <div className="space-y-5">
       <StatoDati ultimo={dati?.ultimoImport ?? null} />
 
-      {puoPagare && <Caricamento onFatto={carica} setErrore={setErrore} />}
+      {puoPagare && <ImportaSdi onFatto={carica} setErrore={setErrore} />}
 
-      {/* Le uscite che non passano dallo SDI. Sta qui, sotto il caricamento
-          dello scadenzario, perché è l'altra metà della stessa operazione:
-          il file porta le fatture, questa mette il resto. */}
+      {/* Le uscite che non passano dallo SDI. Sta qui, sotto l'import delle
+          fatture, perché è l'altra metà della stessa operazione: gli XML
+          portano le fatture, questa mette il resto. */}
       {puoPagare && <NuovaUscita onFatto={carica} />}
 
       <Banner tono="errore">{errore}</Banner>
@@ -201,6 +254,22 @@ export function FlussiFatture({
           </span>
           <button
             onClick={annulla}
+            disabled={inCorso}
+            className="text-sm font-semibold text-slate-700 underline underline-offset-2 disabled:opacity-50"
+          >
+            Annulla
+          </button>
+        </div>
+      )}
+
+      {ultimaVerifica && (
+        <div className="flex items-center justify-between gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3">
+          <span className="text-sm text-gray-600">
+            Hai appena risposto su {ultimaVerifica.ids.length}{' '}
+            {ultimaVerifica.ids.length === 1 ? 'riga da verificare' : 'righe da verificare'}. Sbagliato?
+          </span>
+          <button
+            onClick={annullaVerifica}
             disabled={inCorso}
             className="text-sm font-semibold text-slate-700 underline underline-offset-2 disabled:opacity-50"
           >
@@ -256,6 +325,11 @@ export function FlussiFatture({
       )}
 
       <div className="flex flex-wrap gap-2">
+        {dati && dati.daVerificare.length > 0 && (
+          <Tab attivo={coda === 'da_verificare'} onClick={() => setCoda('da_verificare')} avviso>
+            Da verificare ({dati.daVerificare.length})
+          </Tab>
+        )}
         <Tab attivo={coda === 'da_pagare'} onClick={() => setCoda('da_pagare')}>
           Da pagare {dati ? `(${dati.daPagare.length})` : ''}
         </Tab>
@@ -266,6 +340,15 @@ export function FlussiFatture({
           Escono da sole {dati ? `(${dati.automatiche.length})` : ''}
         </Tab>
       </div>
+
+      {coda === 'da_verificare' && (
+        <p className="text-sm text-gray-500">
+          Fatture di cui l’app non sa se vanno ancora pagate: o la fattura non dice come si paga
+          (scontrini fatti fattura, parcelle), o è un bonifico già scaduto quando l’app ha
+          cominciato a leggere gli XML. Finché nessuno risponde, non entrano nelle code e non
+          contano nei totali.
+        </p>
+      )}
 
       {coda === 'automatiche' && (
         <p className="text-sm text-gray-500">
@@ -308,8 +391,12 @@ export function FlussiFatture({
                 r={r}
                 scelta={scelte.has(r.id)}
                 selezionabile={
-                  (coda === 'da_pagare' && puoPagare) || (coda === 'da_approvare' && puoApprovare)
+                  (coda === 'da_verificare' && puoPagare) ||
+                  (coda === 'da_pagare' && puoPagare) ||
+                  (coda === 'da_approvare' && puoApprovare)
                 }
+                puoPagare={puoPagare}
+                onAggiornato={carica}
                 onToggle={() =>
                   setScelte((s) => {
                     const n = new Set(s)
@@ -352,6 +439,45 @@ export function FlussiFatture({
         </BarraAzioni>
       )}
 
+      {scelte.size > 0 && coda === 'da_verificare' && puoPagare && (
+        <BarraAzioni>
+          <span className="text-sm text-gray-600 w-full sm:w-auto">
+            {scelte.size} · {euroEsatto(totaleSelezione)}
+          </span>
+          <button
+            onClick={() => void verificaSelezione('negozio')}
+            disabled={inCorso}
+            className="rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            title="Pagata al momento, il giorno della fattura. L'app impara il fornitore."
+          >
+            Pagata in negozio
+          </button>
+          <span className="flex items-center gap-2">
+            <button
+              onClick={() => void verificaSelezione('gia_pagata')}
+              disabled={inCorso}
+              className="rounded-xl border border-emerald-600 px-3 py-2 text-sm font-semibold text-emerald-700 disabled:opacity-50"
+            >
+              Già pagata il
+            </button>
+            <input
+              type="date"
+              value={dataPagamento}
+              onChange={(e) => setDataPagamento(e.target.value)}
+              className="rounded-lg border border-gray-300 px-2 py-1 text-sm"
+            />
+          </span>
+          <button
+            onClick={() => void verificaSelezione('da_pagare')}
+            disabled={inCorso}
+            className="rounded-xl bg-slate-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            title="Va pagata: entra in coda (da approvare se sopra soglia)"
+          >
+            Da pagare
+          </button>
+        </BarraAzioni>
+      )}
+
       {scelte.size > 0 && coda === 'da_approvare' && puoApprovare && (
         <BarraAzioni>
           <span className="text-sm text-gray-600">{euroEsatto(totaleSelezione)}</span>
@@ -377,11 +503,15 @@ function Riga({
   selezionabile,
   onToggle,
   onElimina,
+  puoPagare,
+  onAggiornato,
 }: {
   r: RigaScadenza
   scelta: boolean
   selezionabile: boolean
   onToggle: () => void
+  puoPagare: boolean
+  onAggiornato: () => Promise<void>
   /** Solo sulle righe inserite a mano e non ancora pagate. */
   onElimina?: () => void
 }) {
@@ -412,6 +542,14 @@ function Riga({
             <Pill text={`scaduta da ${r.giorniRitardo} gg`} tono="rosso" dot="bg-red-500" />
           )}
           {r.stimata && <Pill text="scadenza stimata" tono="ambra" />}
+          {r.stato === 'da_verificare' && r.motivoVerifica === 'senza_modalita' && (
+            <Pill text="la fattura non dice come si paga" tono="ambra" />
+          )}
+          {r.stato === 'da_verificare' && r.motivoVerifica === 'primo_import' && (
+            <Pill text="forse già pagata" tono="ambra" />
+          )}
+          {r.blocco === 'iban_mancante' && <Pill text="manca l’IBAN" tono="rosso" dot="bg-red-500" />}
+          {r.blocco === 'iban_cambiato' && <Pill text="IBAN cambiato" tono="rosso" dot="bg-red-500" />}
           {r.approvataDa && r.stato === 'da_pagare' && <Pill text="approvata" tono="verde" />}
           {r.scomparsa && <Pill text="sparita dall’export" tono="ambra" />}
           {r.alert === 'possibile_doppio_pagamento' && (
@@ -435,6 +573,23 @@ function Riga({
           <p className="text-xs text-gray-400 mt-0.5">in attesa da {r.giorniAttesa} giorni</p>
         )}
         {r.segnalazione && <p className="text-xs text-amber-700 mt-0.5">{r.segnalazione}</p>}
+        {r.famiglia === 'bonifico' && r.stato !== 'pagata' && (
+          <IbanRiga r={r} puoConfermare={puoPagare} onFatto={onAggiornato} />
+        )}
+        {(r.pdfUrl || r.fileSdiUrl) && (
+          <p className="text-xs mt-1 flex gap-3">
+            {r.pdfUrl && (
+              <a href={r.pdfUrl} target="_blank" rel="noreferrer" className="text-slate-600 underline underline-offset-2">
+                PDF
+              </a>
+            )}
+            {r.fileSdiUrl && (
+              <a href={r.fileSdiUrl} target="_blank" rel="noreferrer" className="text-gray-400 underline underline-offset-2">
+                XML
+              </a>
+            )}
+          </p>
+        )}
       </div>
       <div className="text-right shrink-0">
         <p className="font-bold text-gray-800">{euroEsatto(r.importo)}</p>
@@ -481,18 +636,25 @@ function Tab({
   attivo,
   onClick,
   children,
+  avviso,
 }: {
   attivo: boolean
   onClick: () => void
   children: React.ReactNode
+  /** Coda che aspetta una risposta: si vede anche quando non è aperta. */
+  avviso?: boolean
 }) {
   return (
     <button
       onClick={onClick}
       className={`rounded-full px-4 py-1.5 text-sm font-semibold border transition-colors ${
         attivo
-          ? 'bg-slate-700 text-white border-slate-700'
-          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+          ? avviso
+            ? 'bg-amber-600 text-white border-amber-600'
+            : 'bg-slate-700 text-white border-slate-700'
+          : avviso
+            ? 'bg-amber-50 text-amber-800 border-amber-300 hover:border-amber-400'
+            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
       }`}
     >
       {children}
