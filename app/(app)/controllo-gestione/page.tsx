@@ -49,6 +49,14 @@ export default async function ControlloGestionePage() {
               testo="Saldo e ultimi movimenti dei conti dei servizi"
             />
           )}
+          {qonto && (
+            <Card
+              href="/controllo-gestione/fatture"
+              emoji="📥"
+              titolo="Fatture del servizio"
+              testo="Segna le fatture arrivate che sono del tuo servizio"
+            />
+          )}
           {flussi && (
             <Card
               href="/controllo-gestione/flussi-fatture"

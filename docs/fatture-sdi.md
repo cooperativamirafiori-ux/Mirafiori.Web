@@ -78,8 +78,25 @@ risposte (`POST /api/pagamenti/scadenze/verifica`, annullabile con `DELETE`):
 
 `supabase/fatture_sdi.sql` (migrazione `fatture_sdi`).
 
+## Fatture del servizio (coordinatori)
+
+Scheda **Controllo di Gestione › Fatture del servizio**
+(`app/(app)/controllo-gestione/fatture/`, API `app/api/centri-costo/fatture`,
+regole in `lib/pagamenti/assegnazione.ts`). Decise con Dennis il 26/09/2026:
+
+- entra chi entra nella scheda Qonto: **coordinatore** di un centro di costo
+  (lista SP, colonna Coordinatori) o permesso **Controllo di Gestione**;
+- si vedono **solo le fatture libere** e **solo quelle arrivate dagli XML**
+  (lo storico Excel resta fuori);
+- **vince il primo**: `update … where cc_codice is null`; chi arriva secondo
+  se lo sente dire;
+- chi ha segnato per sbaglio **libera da solo** finché la fattura non è stata
+  pagata dopo la segnatura; dopo, solo il Controllo di Gestione;
+- "di solito: …" = centri di costo delle altre fatture dello stesso fornitore.
+  Suggerisce, non preseleziona.
+- Scrive `cc_codice` (minuscolo, `ccN`), `cc_rivendicata_da`, `cc_rivendicata_il`; ogni gesto va nel registro.
+
 ## Prossimi pezzi
 
-- Il coordinatore segna "mia" una fattura (vince il primo: `update … where cc_codice is null`).
 - Dalle fatture segnate, richieste di bonifico su Qonto dal sottoconto del centro
   di costo (approvazione con SCA; OAuth lato server con refresh token in Supabase).
