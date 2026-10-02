@@ -10,7 +10,7 @@
  * Il bene nasce "In magazzino" e prende il suo numero di inventario: entra nel
  * registro unico, non in un elenco separato dei dispositivi. Poi si assegna.
  *
- * Protetta: area "IT e Dispositivi".
+ * Protetta: area "Beni e IT".
  */
 
 import { NextRequest, NextResponse } from 'next/server'

@@ -9,7 +9,7 @@
  * Stato del bene, ubicazione e note restano sulla PATCH dell'inventario
  * (`/api/inventario/[id]`): sono di tutti i beni, non solo dei dispositivi.
  *
- * Protetta: area "IT e Dispositivi".
+ * Protetta: area "Beni e IT".
  */
 
 import { NextRequest, NextResponse } from 'next/server'

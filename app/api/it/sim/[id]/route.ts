@@ -6,7 +6,7 @@
  * `lib/it/flusso.ts`. La data di cessazione si comporta da sé, come la
  * dismissione di un bene: passando a "Cessata" senza indicarla prende oggi.
  *
- * Protetta: area "IT e Dispositivi".
+ * Protetta: area "Beni e IT".
  */
 
 import { NextRequest, NextResponse } from 'next/server'

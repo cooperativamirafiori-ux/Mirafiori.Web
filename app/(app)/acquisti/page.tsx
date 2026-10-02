@@ -2,9 +2,7 @@ import Link from 'next/link'
 import { auth } from '@/lib/core/auth'
 import { Header } from '@/components/ui/Header'
 import { acquistiConfigurato, getAcquisti, AREA_ACQUISTI } from '@/lib/acquisti/data'
-import { getInventario, inventarioConfigurato } from '@/lib/inventario/data'
 import { STATI_APERTI } from '@/types/acquisti'
-import { STATI_BENE_CHIUSI } from '@/types/inventario'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,19 +20,6 @@ export default async function AcquistiPage() {
       daGestire = tutte.filter((a) => STATI_APERTI.includes(a.stato)).length
     } catch {
       daGestire = 0
-    }
-  }
-
-  // Sulla card dell'inventario il numero utile è quanti beni sono in patrimonio,
-  // non quanti record esistono: i dismessi restano in lista ma non si contano.
-  const inventarioAttivo = inventarioConfigurato()
-  let beniInPatrimonio = 0
-  if (inventarioAttivo && eGestore) {
-    try {
-      const beni = await getInventario()
-      beniInPatrimonio = beni.filter((b) => !STATI_BENE_CHIUSI.includes(b.statoBene)).length
-    } catch {
-      beniInPatrimonio = 0
     }
   }
 
@@ -74,16 +59,6 @@ export default async function AcquistiPage() {
               titolo="Gestione acquisti"
               sottotitolo="Valuta, ordina e chiudi le richieste"
               badge={daGestire > 0 ? String(daGestire) : undefined}
-            />
-          )}
-
-          {eGestore && inventarioAttivo && (
-            <ModuloCard
-              href="/inventario"
-              emoji="🏷️"
-              titolo="Inventario beni"
-              sottotitolo="Registro dei beni: scheda, garanzia, documenti e ubicazione"
-              badge={beniInPatrimonio > 0 ? String(beniInPatrimonio) : undefined}
             />
           )}
         </div>

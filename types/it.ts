@@ -1,5 +1,5 @@
 // ============================================================
-// Area IT e Dispositivi — tipi e costanti
+// Area Beni e IT — tipi e costanti
 //
 // Due anagrafiche e due liste di legame:
 //   · i dispositivi stanno nell'Inventario Beni (types/inventario.ts): un
@@ -13,8 +13,18 @@
 // Le decisioni e il perché stanno in docs/it-dispositivi-piano.md.
 // ============================================================
 
-/** Permesso d'area: si concede da Amministrazione › Permessi. */
-export const AREA_IT = 'IT e Dispositivi'
+/**
+ * Permesso d'area: si concede da Amministrazione › Permessi.
+ *
+ * Fino al 2 ott 2026 si chiamava "IT e Dispositivi": l'area ha preso dentro
+ * anche l'Inventario beni (prima stava sotto Richieste Acquisto) ed è stata
+ * ribattezzata. Le righe vecchie in Autorizzazioni si leggono comunque, vedi
+ * AREE_RINOMINATE in lib/core/permessi.ts.
+ */
+export const AREA_IT = 'Beni e IT'
+
+/** Il nome precedente del permesso, ancora presente nelle righe non migrate. */
+export const AREA_IT_VECCHIO_NOME = 'IT e Dispositivi'
 
 // ------------------------------------------------------------
 // Dispositivi

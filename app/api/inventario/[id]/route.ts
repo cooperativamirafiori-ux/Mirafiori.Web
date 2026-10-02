@@ -7,12 +7,13 @@
  * richiesta di acquisto ed è di sola lettura, così registro e richiesta non
  * divergono. Per correggere quei dati si corregge l'ordine, che riallinea i beni.
  *
- * Protetta: area "Acquisti".
+ * Protetta: area "Beni e IT" o "Acquisti".
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { guardArea } from '@/lib/core/api-guard'
 import { AREA_ACQUISTI } from '@/lib/acquisti/data'
+import { AREA_IT } from '@/types/it'
 import { aggiornaVitaBene, getBeneById, inventarioConfigurato } from '@/lib/inventario/data'
 import { logAzione } from '@/lib/core/audit'
 import { chiudiPerUscita } from '@/lib/it/flusso'
@@ -26,7 +27,7 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const g = await guardArea(AREA_ACQUISTI)
+  const g = await guardArea([AREA_IT, AREA_ACQUISTI])
   if (g.error) return g.error
   if (!inventarioConfigurato()) return err('Inventario non configurato', 503)
 
@@ -43,7 +44,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const g = await guardArea(AREA_ACQUISTI)
+  const g = await guardArea([AREA_IT, AREA_ACQUISTI])
   if (g.error) return g.error
   if (!inventarioConfigurato()) return err('Inventario non configurato', 503)
 

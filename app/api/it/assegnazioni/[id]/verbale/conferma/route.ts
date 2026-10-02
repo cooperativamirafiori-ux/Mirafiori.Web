@@ -4,7 +4,7 @@
  *
  * Body JSON: { genere: 'bene' | 'sim', tipo: 'consegna' | 'restituzione', nomeFile }
  *
- * Protetta: area "IT e Dispositivi".
+ * Protetta: area "Beni e IT".
  */
 
 import { NextRequest, NextResponse } from 'next/server'

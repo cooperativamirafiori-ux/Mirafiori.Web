@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
     if (!to.length) {
       return NextResponse.json({
         ok: true,
-        salto: 'nessun destinatario: manca il permesso "IT e Dispositivi" a qualcuno',
+        salto: 'nessun destinatario: manca il permesso "Beni e IT" a qualcuno',
         daInviare: nuovi.length,
       })
     }

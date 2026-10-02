@@ -15,12 +15,17 @@ type GuardResult =
   | { session: Session; error: null }
   | { session: null; error: NextResponse }
 
-export async function guardArea(area: string): Promise<GuardResult> {
+/**
+ * `area` può essere un elenco: basta averne una. Serve alle sezioni aperte a
+ * due permessi (l'Inventario beni: Beni e IT, più Acquisti che ci registra).
+ */
+export async function guardArea(area: string | string[]): Promise<GuardResult> {
+  const aree = Array.isArray(area) ? area : [area]
   const session = await auth()
   if (!session?.user?.email) {
     return { session: null, error: NextResponse.json({ error: 'Non autenticato' }, { status: 401 }) }
   }
-  if (!session.user.permessi?.includes(area)) {
+  if (!aree.some((a) => session.user.permessi?.includes(a))) {
     return { session: null, error: NextResponse.json({ error: 'Accesso negato' }, { status: 403 }) }
   }
   return { session, error: null }

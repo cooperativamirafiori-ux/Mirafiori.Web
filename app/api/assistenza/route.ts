@@ -1,6 +1,6 @@
 /**
  * POST /api/assistenza — nuova richiesta di assistenza (qualsiasi utente loggato)
- * GET  /api/assistenza — elenco completo (solo chi ha l'area "IT e Dispositivi")
+ * GET  /api/assistenza — elenco completo (solo chi ha l'area "Beni e IT")
  *
  * All'invio:
  *   1. crea l'item e assegna il codice ASS-{anno}-{nnn};

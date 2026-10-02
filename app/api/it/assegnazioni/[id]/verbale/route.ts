@@ -12,7 +12,7 @@
  * Il file va in "Verbali Consegna" o "Verbali Restituzione", col numero di
  * inventario nel nome: vedi lib/it/verbali.ts.
  *
- * Protetta: area "IT e Dispositivi".
+ * Protetta: area "Beni e IT".
  */
 
 import { NextRequest, NextResponse } from 'next/server'

@@ -11,7 +11,7 @@
  * lo stato del bene e svuota i campi di comodo dell'anagrafica, correggere no.
  * Lo stato non si scrive a mano — `flusso.ts` rifiuta.
  *
- * Protetta: area "IT e Dispositivi".
+ * Protetta: area "Beni e IT".
  */
 
 import { NextRequest, NextResponse } from 'next/server'

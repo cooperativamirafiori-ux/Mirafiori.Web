@@ -7,12 +7,13 @@
  * Body JSON: { nomeFile: string, tipo: 'fattura' | 'garanzia' }
  * Risposta:  { bene }
  *
- * Protetta: area "Acquisti".
+ * Protetta: area "Beni e IT" o "Acquisti".
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { guardArea } from '@/lib/core/api-guard'
 import { AREA_ACQUISTI } from '@/lib/acquisti/data'
+import { AREA_IT } from '@/types/it'
 import { confermaDocumento, getBeneById, inventarioConfigurato } from '@/lib/inventario/data'
 import { logAzione } from '@/lib/core/audit'
 import { TIPI_DOCUMENTO, type TipoDocumento } from '@/types/inventario'
@@ -24,7 +25,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const g = await guardArea(AREA_ACQUISTI)
+  const g = await guardArea([AREA_IT, AREA_ACQUISTI])
   if (g.error) return g.error
 
   const { id } = await params

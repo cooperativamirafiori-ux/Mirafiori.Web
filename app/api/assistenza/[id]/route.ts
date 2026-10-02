@@ -6,7 +6,7 @@
  * È la stessa forma di /api/acquisti/[id].
  *
  * Permessi:
- *   - le azioni di lavorazione richiedono l'area "IT e Dispositivi";
+ *   - le azioni di lavorazione richiedono l'area "Beni e IT";
  *   - `riapri` è del **richiedente**, sul proprio ticket e solo entro la
  *     finestra di riapertura;
  *   - `annulla` è concessa anche al richiedente, ma solo finché nessuno ha

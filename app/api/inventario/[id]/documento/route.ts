@@ -9,12 +9,13 @@
  * POST /api/inventario/[id]/documento/conferma. I byte non passano da Vercel,
  * quindi non vale il limite dei 4 MB dell'upload semplice di Graph.
  *
- * Protetta: area "Acquisti".
+ * Protetta: area "Beni e IT" o "Acquisti".
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { guardArea } from '@/lib/core/api-guard'
 import { AREA_ACQUISTI } from '@/lib/acquisti/data'
+import { AREA_IT } from '@/types/it'
 import {
   creaSessioneUploadDocumento,
   getBeneById,
@@ -30,7 +31,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const g = await guardArea(AREA_ACQUISTI)
+  const g = await guardArea([AREA_IT, AREA_ACQUISTI])
   if (g.error) return g.error
 
   const { id } = await params

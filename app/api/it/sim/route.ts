@@ -8,7 +8,7 @@
  * il numero viene portato altrove. Si rifiuta un ICCID già presente, altrimenti
  * la stessa scheda finisce due volte in elenco.
  *
- * Protetta: area "IT e Dispositivi".
+ * Protetta: area "Beni e IT".
  */
 
 import { NextRequest, NextResponse } from 'next/server'

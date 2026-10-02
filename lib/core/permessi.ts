@@ -8,7 +8,7 @@
 
 import { graphGet, graphPost, graphDelete } from '@/lib/core/graph'
 import { listBase, LIST, PREFER_NON_INDEXED } from '@/lib/core/sp'
-import { AREA_IT } from '@/types/it'
+import { AREA_IT, AREA_IT_VECCHIO_NOME } from '@/types/it'
 import { AREA_MANUTENZIONI } from '@/types/manutenzioni'
 import {
   AREA_CONTROLLO_GESTIONE,
@@ -110,9 +110,10 @@ export const DESCRIZIONI_AREE: Record<string, string> = {
   'Timbrature HR':
     'Cruscotto presenze di tutto il personale, validazione mensile dei fogli ore.',
   Acquisti:
-    'Gestione delle richieste d’acquisto: approvazione, ordini, consegne e inventario beni.',
-  'IT e Dispositivi':
-    'Dispositivi e SIM: anagrafica, assegnazione e restituzione, verbali di consegna. ' +
+    'Gestione delle richieste d’acquisto: approvazione, ordini e consegne. ' +
+    'Apre anche l’Inventario beni, per registrare quello che si è comprato.',
+  [AREA_IT]:
+    'Inventario beni, dispositivi e SIM: anagrafica, assegnazione e restituzione, verbali di consegna. ' +
     'Chi non ha questo permesso vede comunque i propri strumenti in “I miei strumenti”.',
   [AREA_MANUTENZIONI]:
     'Richieste manutenzione: apertura di una nuova richiesta e stato delle proprie. ' +
@@ -171,6 +172,21 @@ export function puoVedereFlussiFatture(permessi: string[] | undefined): boolean 
   return permessi.includes(AREA_PAGAMENTI) || permessi.includes(AREA_APPROVAZIONE_PAGAMENTI)
 }
 
+/**
+ * Aree che hanno cambiato nome: vecchio → nuovo.
+ *
+ * Le righe di Autorizzazioni hanno il nome scritto in chiaro, quindi rinominare
+ * un'area senza toccarle toglierebbe l'accesso a tutti in silenzio. Si
+ * traducono in lettura: chi ha la riga vecchia ha il permesso nuovo, il
+ * pannello mostra il nome nuovo. `scripts/rinomina-aree-permessi.mjs` riscrive
+ * le righe; dopo, questa tabella non serve più ma non fa danni.
+ */
+const AREE_RINOMINATE: Record<string, string> = {
+  [AREA_IT_VECCHIO_NOME]: AREA_IT,
+}
+
+const nomeAttuale = (area: string) => AREE_RINOMINATE[area] ?? area
+
 // Fallback usato se la lista SP non esiste ancora o Graph fallisce.
 // Mappa email -> aree concesse.
 const PERMESSI_FALLBACK: Record<string, string[]> = {
@@ -192,6 +208,7 @@ export async function getPermessi(email: string): Promise<string[]> {
     const aree = res.value
       .map((r) => r.fields?.Area)
       .filter((a): a is string => typeof a === 'string' && a.length > 0)
+      .map(nomeAttuale)
     // De-duplica preservando l'ordine
     return Array.from(new Set(aree))
   } catch {
@@ -218,7 +235,7 @@ export async function getTutteAutorizzazioni(): Promise<Autorizzazione[]> {
     .map((r) => ({
       id: r.id,
       utente: (r.fields!.Utente as string).toLowerCase(),
-      area: r.fields!.Area as string,
+      area: nomeAttuale(r.fields!.Area as string),
     }))
 }
 

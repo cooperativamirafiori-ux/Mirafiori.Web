@@ -55,7 +55,7 @@ export async function emailAssegnato(t: RichiestaAssistenza): Promise<string> {
 }
 
 /**
- * Chi fa assistenza: gli utenti con l'area "IT e Dispositivi".
+ * Chi fa assistenza: gli utenti con l'area "Beni e IT".
  *
  * È lo stesso permesso dell'anagrafica dispositivi, non uno nuovo: le persone
  * sono le stesse e due elenchi per la stessa squadra divergono al primo cambio

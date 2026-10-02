@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic'
  *
  * Chiedere aiuto è di tutti: nessun permesso, nessun controllo — come Richiesta
  * fattura. La card "Gestione" compare invece solo a chi ha l'area
- * "IT e Dispositivi", che è anche l'unica pagina protetta della sezione.
+ * "Beni e IT", che è anche l'unica pagina protetta della sezione.
  */
 export default async function AssistenzaPage() {
   const session = await auth()

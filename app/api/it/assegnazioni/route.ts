@@ -12,7 +12,7 @@
  * chi ce l'ha sull'anagrafica lo fa `lib/it/flusso.ts`: qui si controlla solo
  * che i dati siano scritti bene.
  *
- * Protetta: area "IT e Dispositivi".
+ * Protetta: area "Beni e IT".
  */
 
 import { NextRequest, NextResponse } from 'next/server'

@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { LogoutButton } from '@/components/ui/LogoutButton'
 import { puoEntrareControlloGestione, puoRichiedereManutenzione } from '@/lib/core/permessi'
 import { accessoQonto, puoVedereQonto } from '@/lib/qonto/accesso'
+import { AREA_IT } from '@/types/it'
 
 export default async function HomePage() {
   const session = await auth()
@@ -15,7 +16,7 @@ export default async function HomePage() {
   const puoTimbratureHr = session?.user?.permessi?.includes('Timbrature HR') ?? false
   const puoRisorseUmane = (session?.user?.membroRU ?? false) || puoTimbratureHr
 
-  const puoIT = session?.user?.permessi?.includes('IT e Dispositivi') ?? false
+  const puoIT = session?.user?.permessi?.includes(AREA_IT) ?? false
 
   // Manutenzioni: card riservata ai responsabili di struttura col permesso
   // (e agli admin). Chi non ce l'ha non la vede, così non finisce su un
@@ -142,8 +143,8 @@ export default async function HomePage() {
                 href="/it"
                 emoji="🖥️"
                 accent="purple"
-                titolo="IT e Dispositivi"
-                sottotitolo="Dispositivi, SIM e assegnazioni"
+                titolo="Beni e IT"
+                sottotitolo="Inventario beni, dispositivi, SIM e assegnazioni"
               />
             )}
             {puoControlloGestione && (

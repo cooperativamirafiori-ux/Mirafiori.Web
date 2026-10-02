@@ -33,7 +33,7 @@ interface Props {
   strutture: Array<{ id: number; label: string }>
   /**
    * Tutte le assegnazioni dei beni, per lo storico nella scheda. Qui è in sola
-   * lettura: si assegna e si restituisce dall'area IT e Dispositivi. Ma questo
+   * lettura: si assegna e si restituisce dall'area Beni e IT. Ma questo
    * resta il posto dove la cronologia si legge anche per un bene dismesso, che
    * dall'area IT è sparito.
    */
@@ -199,7 +199,7 @@ export function InventarioBeni({ iniziali, strutture, assegnazioni = [] }: Props
 
 /**
  * Chi ha avuto il bene, dalla volta più recente. In sola lettura: assegnare e
- * restituire si fa dall'area IT e Dispositivi, che sa anche cosa cambiare
+ * restituire si fa dall'area Beni e IT, che sa anche cosa cambiare
  * sull'anagrafica. Qui la cronologia c'è perché questo è il registro, e un bene
  * dismesso — che dall'area IT è sparito — la sua storia la conserva qui.
  */
@@ -223,7 +223,7 @@ function Storico({ righe }: { righe: Assegnazione[] }) {
         ))}
       </ul>
       <p className="text-[11px] text-gray-400 mt-2">
-        Le assegnazioni si gestiscono in IT e Dispositivi.
+        Le assegnazioni si gestiscono in Beni e IT.
       </p>
     </div>
   )
