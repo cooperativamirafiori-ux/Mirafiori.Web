@@ -17,6 +17,7 @@ import { Header } from '@/components/ui/Header'
 import { puoEntrareControlloGestione, puoVedereFlussiFatture } from '@/lib/core/permessi'
 import { accessoQonto, puoVedereQonto } from '@/lib/qonto/accesso'
 import { accessoAssegnazione, puoAssegnare } from '@/lib/pagamenti/assegnazione'
+import { puoUsareCuraAmbienti } from '@/lib/cura-ambienti/accesso'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,6 +31,7 @@ export default async function ControlloGestionePage() {
 
   const flussi = puoVedereFlussiFatture(permessi)
   const assegna = puoAssegnare(await accessoAssegnazione(session?.user))
+  const curaAmbienti = await puoUsareCuraAmbienti(session?.user)
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -57,6 +59,14 @@ export default async function ControlloGestionePage() {
               emoji="📥"
               titolo="Fatture del servizio"
               testo="Segna le fatture arrivate che sono del tuo servizio"
+            />
+          )}
+          {curaAmbienti && (
+            <Card
+              href="/controllo-gestione/cura-ambienti"
+              emoji="🧹"
+              titolo="Cura Ambienti"
+              testo="Preventivi e consuntivi dei lavori di pulizia e manutenzione"
             />
           )}
           {flussi && (

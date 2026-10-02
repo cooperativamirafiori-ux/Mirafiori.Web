@@ -48,6 +48,8 @@ const PREESISTENTI = {
   'CER Giulia': 'cc14',
   'Condominio Solidale': 'cc18',
   'CRP Cosmica': 'cc9',
+  // Aperto a mano il 2/10/2026, prima che esistesse cc24: vedi docs/cura-ambienti-piano.md
+  'Cura Ambienti': 'cc24',
 }
 
 async function centriDiCosto() {

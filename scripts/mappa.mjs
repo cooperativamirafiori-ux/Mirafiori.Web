@@ -50,6 +50,13 @@ const AREE = [
     ],
   },
   {
+    nome: 'Cura Ambienti',
+    prefissi: [
+      'app/(app)/controllo-gestione/cura-ambienti', 'app/api/cura-ambienti', 'lib/cura-ambienti',
+      'types/cura-ambienti', 'supabase/cura_ambienti', 'docs/cura-ambienti',
+    ],
+  },
+  {
     nome: 'Costi strutture',
     prefissi: ['app/(app)/inserisci-costo', 'app/(app)/cruscotto-costi', 'app/api/costi', 'lib/costi'],
   },

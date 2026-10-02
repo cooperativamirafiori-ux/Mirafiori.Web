@@ -66,7 +66,7 @@ const COLUMNS = [
   { name: 'Ordine', number: { decimalPlaces: 'none' } },
 ]
 
-// I 23 centri di costo, nell'ordine del foglio. `Ordine` viene calcolato a
+// I centri di costo, nell'ordine del foglio (cc24 aggiunto dopo). `Ordine` viene calcolato a
 // passi di 10 così si può infilare un centro di costo nuovo in mezzo senza
 // rinumerare tutto.
 const SEED = [
@@ -93,6 +93,8 @@ const SEED = [
   { codice: 'cc21', area: 'Ricettività',           nome: 'Pian della Mussa' },
   { codice: 'cc22', area: 'Commercio',             nome: 'Amazing' },
   { codice: 'cc23', area: 'Servizi Generali',      nome: 'Progettazione - Amministrazione' },
+  // Aggiunto il 2/10/2026: centro di servizio interno, vedi docs/cura-ambienti-piano.md
+  { codice: 'cc24', area: 'Servizi Generali',      nome: 'Cura Ambienti' },
 ]
 
 // --- carica .env.local se le env non sono già nell'ambiente ---
