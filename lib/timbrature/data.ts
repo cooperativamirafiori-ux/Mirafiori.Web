@@ -9,6 +9,7 @@
  *   anagrafica.ts  servizi e centri di costo, dipendenti, monte ore settimanale
  *   stati.ts       stato del mese (aperto → validato → confermato)
  *   righe.ts       le righe di ore: chi puo' scrivere cosa, e la scrittura
+ *   reperibilita.ts la spunta "Giornata di reperibilita'", una per giorno
  *   assenze.ts     ferie e permessi su un periodo di giorni consecutivi
  *   da-profilo.ts  il mese generato dall'orario teorico, per chi non timbra
  *   riepilogo.ts   dai dati ai numeri: giorni, settimane, flessibilita', cruscotti
@@ -37,6 +38,7 @@ export * from '@/lib/timbrature/date'
 export * from '@/lib/timbrature/anagrafica'
 export * from '@/lib/timbrature/stati'
 export * from '@/lib/timbrature/righe'
+export * from '@/lib/timbrature/reperibilita'
 export * from '@/lib/timbrature/assenze'
 export * from '@/lib/timbrature/da-profilo'
 export * from '@/lib/timbrature/riepilogo'

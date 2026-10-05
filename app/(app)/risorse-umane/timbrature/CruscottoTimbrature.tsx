@@ -305,6 +305,30 @@ export default function CruscottoTimbrature() {
     }
   }
 
+  /**
+   * Giornata di reperibilita' per conto del dipendente: stessa valvola di sfogo
+   * delle righe, nessuna finestra dei tre giorni, ferma a foglio validato.
+   */
+  async function cambiaReperibilita(data: string, attiva: boolean) {
+    if (!dettaglio || azione) return
+    setAzione(true); setErrore('')
+    try {
+      const r = await fetch('/api/timbrature/hr/reperibilita', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dipendenteId: dettaglio.dipendente.id, data, attiva }),
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'Errore')
+      await apriDettaglio(dettaglio.dipendente.id)
+      await carica()
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : 'Errore')
+    } finally {
+      setAzione(false)
+    }
+  }
+
   async function eliminaRiga(id: string) {
     if (!dettaglio) return
     if (!confirm('Eliminare questa riga dal foglio ore del dipendente?')) return
@@ -540,6 +564,7 @@ export default function CruscottoTimbrature() {
                 onAggiungi={nuovaRiga}
                 onModifica={modificaRiga}
                 onElimina={eliminaRiga}
+                onReperibilita={modificabile ? cambiaReperibilita : undefined}
               />
             </div>
 

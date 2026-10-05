@@ -178,7 +178,12 @@ export interface Timbratura {
    * fascia. Solo sulle righe di lavoro.
    */
   notte: boolean
-  /** Il turno era in reperibilita'. Non incide su nessun conteggio: serve alle HR per il costo. */
+  /**
+   * Il turno era in reperibilita' (chiamata durante la reperibilita': pagamento
+   * maggiorato). Non incide su nessun conteggio: serve alle HR per il costo.
+   * Da non confondere con la GIORNATA di reperibilita' (forfait), che sta nella
+   * tabella `giornata_reperibilita`: vedi lib/timbrature/reperibilita.ts.
+   */
   reperibilita: boolean
   mutua: boolean
   note: string | null
@@ -335,6 +340,8 @@ export interface RiepilogoGiorno {
   notte: boolean
   /** Almeno una riga di lavoro del giorno e' dichiarata in reperibilita'. */
   reperibilita: boolean
+  /** Giornata dichiarata di reperibilita' (spunta per giorno, anche senza ore): forfait. */
+  giornataReperibilita: boolean
 }
 
 /** Riga di scostamento su una singola settimana (ISO lun–dom, ritagliata al periodo) */
@@ -388,8 +395,10 @@ export interface RiepilogoPeriodo {
   flessibilitaSaldo: number
   /** Notti dichiarate nel periodo: la maggiorazione e' forfettaria, si contano. */
   notti: number
-  /** Turni dichiarati in reperibilita' nel periodo. */
+  /** Turni dichiarati in reperibilita' nel periodo (righe di lavoro con la spunta). */
   turniReperibilita: number
+  /** Giornate di reperibilita' dichiarate nel periodo (forfait giornaliero). */
+  giornateReperibilita: number
 }
 
 /**
@@ -424,6 +433,7 @@ export interface StatoDipendenteMese {
   flessibilitaSaldo: number
   notti: number
   turniReperibilita: number
+  giornateReperibilita: number
   stato: StatoMese
   fileUrl: string | null
   filePdfUrl: string | null

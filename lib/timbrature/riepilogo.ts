@@ -27,6 +27,7 @@ import {
 } from '@/lib/timbrature/date'
 import { festivitaAnno } from '@/lib/timbrature/festivita'
 import { listTimbrature } from '@/lib/timbrature/righe'
+import { listGiornateReperibilita } from '@/lib/timbrature/reperibilita'
 import { getChiusura, marcaDaValidare } from '@/lib/timbrature/stati'
 import type {
   ChiusuraMese,
@@ -53,7 +54,10 @@ export async function riepilogoPeriodo(
   from: string,
   to: string,
 ): Promise<RiepilogoPeriodo> {
-  const timb = await listTimbrature(dipendenteId, from, to)
+  const [timb, reperibili] = await Promise.all([
+    listTimbrature(dipendenteId, from, to),
+    listGiornateReperibilita(dipendenteId, from, to),
+  ])
   const festivita = {
     ...festivitaAnno(Number(from.slice(0, 4))),
     ...festivitaAnno(Number(to.slice(0, 4))),
@@ -82,6 +86,7 @@ export async function riepilogoPeriodo(
       voci: [],
       notte: false,
       reperibilita: false,
+      giornataReperibilita: false,
     })
   }
 
@@ -91,6 +96,7 @@ export async function riepilogoPeriodo(
   const perGiust = new Map<number, OrePerVoce>()
   let notti = 0
   let turniReperibilita = 0
+  let giornateReperibilita = 0
 
   for (const t of timb) {
     const g = perGiorno.get(t.data)
@@ -112,6 +118,16 @@ export async function riepilogoPeriodo(
         turniReperibilita++
       }
     }
+  }
+
+  // GIORNATA di reperibilita' (forfait): una spunta per giorno, indipendente
+  // dalle ore. Diversa dal turno in reperibilita' qui sopra, che sta sulla riga
+  // di lavoro e vuol dire "sono stato chiamato" (pagamento maggiorato).
+  for (const d of reperibili) {
+    const g = perGiorno.get(d)
+    if (!g || g.giornataReperibilita) continue
+    g.giornataReperibilita = true
+    giornateReperibilita++
   }
 
   let oreLavorate = 0
@@ -159,6 +175,7 @@ export async function riepilogoPeriodo(
     flessibilitaSaldo: round4(flessibilitaLavorata - flessibilitaRecuperata),
     notti,
     turniReperibilita,
+    giornateReperibilita,
   }
 }
 
@@ -311,6 +328,7 @@ export async function statoMeseTutti(
       flessibilitaSaldo: rp.flessibilitaSaldo,
       notti: rp.notti,
       turniReperibilita: rp.turniReperibilita,
+      giornateReperibilita: rp.giornateReperibilita,
       // Senza riga di chiusura lo stato viene dal calendario: un mese scaduto e'
       // gia' di fatto in attesa di validazione, anche prima che il cron passi.
       stato: ch?.stato ?? (scaduto ? 'da_validare' : 'aperto'),

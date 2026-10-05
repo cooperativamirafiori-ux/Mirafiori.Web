@@ -169,6 +169,9 @@ export async function generaFoglioOreBuffer(
       row.getCell(2).value = nGiorno
       row.getCell(3).value = g.festivitaNome ?? ''
       row.getCell(4).value = g.oreAttese
+      // Reperibili senza ore lavorate: e' proprio il caso per cui la spunta
+      // e' diventata di giornata, quindi sul foglio deve vedersi.
+      if (g.giornataReperibilita) row.getCell(5).value = 'Giornata di reperibilità'
       if (g.festivo) row.eachCell((c) => (c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2DCDB' } }))
       else if (nGiorno === 'Sabato' || nGiorno === 'Domenica') row.eachCell((c) => (c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } }))
       r++
@@ -183,9 +186,16 @@ export async function generaFoglioOreBuffer(
         row.getCell(3).value = g.festivitaNome ?? ''
         row.getCell(4).value = g.oreAttese
       }
-      // Le tre spunte viaggiano sul documento: sono l'unico modo in cui le HR
+      // La reperibilita' e' della giornata, non della riga: va sulla prima.
+      const repGiorno = idx === 0 && g.giornataReperibilita
+      // Le spunte viaggiano sul documento: sono l'unico modo in cui le HR
       // vedono notti e reperibilita', su cui si liquidano forfait e indennita'.
-      const marchi = [t.notte && 'Notte', t.reperibilita && 'Reperibilità', t.mutua && 'Mutua']
+      const marchi = [
+        t.notte && 'Notte',
+        t.reperibilita && 'Reperibilità',
+        repGiorno && 'Giornata di reperibilità',
+        t.mutua && 'Mutua',
+      ]
         .filter(Boolean)
         .join(', ')
       // Il progetto viaggia accanto al servizio: il foglio ore e' il documento
@@ -230,6 +240,7 @@ export async function generaFoglioOreBuffer(
   // Forfait e indennita' si liquidano a evento, non a ore: qui si contano.
   if (riepilogo.notti) setTot('Notti:', riepilogo.notti)
   if (riepilogo.turniReperibilita) setTot('Turni in reperibilità:', riepilogo.turniReperibilita)
+  if (riepilogo.giornateReperibilita) setTot('Giornate di reperibilità:', riepilogo.giornateReperibilita)
   if (riepilogo.scostamento < 0) {
     ws.getCell(`H${r}`).value =
       'Le ore rendicontate sono inferiori alle ore lavorative del mese. Giustificare le ore mancanti.'

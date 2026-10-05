@@ -43,6 +43,12 @@ export const VOCI_CON_RESIDUO = ['Ferie', 'Fest.Sopp.', VOCE_FLESSIBILITA]
 export function pad(n: number) { return String(n).padStart(2, '0') }
 export function ymd(y: number, m: number, d: number) { return `${y}-${pad(m)}-${pad(d)}` }
 export function ultimoGiornoMese(y: number, m: number) { return new Date(y, m, 0).getDate() }
+/** Somma n giorni a una data YYYY-MM-DD (n negativo = indietro). In UTC: niente salti d'ora legale. */
+export function addGiorni(dataYmd: string, n: number): string {
+  const d = new Date(dataYmd + 'T00:00:00Z')
+  d.setUTCDate(d.getUTCDate() + n)
+  return d.toISOString().slice(0, 10)
+}
 
 /** Data odierna YYYY-MM-DD nel fuso locale del dispositivo. */
 export function oggiYmd(): string {
@@ -115,6 +121,7 @@ export interface RiepilogoAOggi {
   giorniScoperti: string[]
   notti: number
   turniReperibilita: number
+  giornateReperibilita: number
   flessibilitaLavorata: number
   flessibilitaRecuperata: number
   flessibilitaSaldo: number
@@ -132,8 +139,9 @@ const r4 = (n: number) => Math.round(n * 10000) / 10000
  * rispondere alla domanda vera, "sono indietro adesso, devo recuperare nei
  * giorni che restano?".
  *
- * Le notti, la reperibilita' e lo spaccato dei giustificativi non stanno nei
- * totali per giorno, quindi si ricontano dalle righe.
+ * Le notti, i turni in reperibilita' e lo spaccato dei giustificativi non stanno
+ * nei totali per giorno, quindi si ricontano dalle righe. Le GIORNATE di
+ * reperibilita' invece sono un dato del giorno, e si contano dai giorni.
  */
 export function ritagliaAOggi(
   riepilogo: RiepilogoPeriodo,
@@ -171,6 +179,7 @@ export function ritagliaAOggi(
   const perVoce = new Map<number, OrePerVoce>()
   let notti = 0
   let turniReperibilita = 0
+  const giornateReperibilita = giorni.filter((g) => g.giornataReperibilita).length
   for (const t of righe) {
     if (t.tipoVoce === 'giustificativo') {
       const v = perVoce.get(t.servizioId) ?? {
@@ -226,6 +235,7 @@ export function ritagliaAOggi(
     giorniScoperti,
     notti,
     turniReperibilita,
+    giornateReperibilita,
     flessibilitaLavorata: r4(flessibilitaLavorata),
     flessibilitaRecuperata: r4(flessibilitaRecuperata),
     flessibilitaSaldo: r4(flessibilitaLavorata - flessibilitaRecuperata),

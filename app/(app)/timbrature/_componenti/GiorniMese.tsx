@@ -24,6 +24,8 @@ export function GiorniMese({
   onAggiungi,
   onModifica,
   onElimina,
+  onReperibilita,
+  reperibilitaModificabile,
 }: {
   riepilogo: RiepilogoPeriodo
   timbrature: Timbratura[]
@@ -34,6 +36,13 @@ export function GiorniMese({
   onAggiungi?: (data: string) => void
   onModifica?: (t: Timbratura) => void
   onElimina?: (id: string) => void
+  /**
+   * Spunta "Giornata di reperibilita'" sul giorno. Senza questa callback la
+   * reperibilita' si vede soltanto (pill), non si cambia.
+   */
+  onReperibilita?: (data: string, attiva: boolean) => void
+  /** Giorni su cui chi guarda puo' ancora cambiare la spunta (default: tutti). */
+  reperibilitaModificabile?: (data: string) => boolean
 }) {
   const [filtro, setFiltro] = useState<'tutti' | 'problemi'>('tutti')
 
@@ -87,6 +96,20 @@ export function GiorniMese({
         const scoperto = !g.festivo && g.oreAttese > 0 && !g.completo && g.data < oggi
         const futuro = g.data > oggi
         const chiuso = fuoriFinestra?.(g.data) ?? false
+        const repCambiabile =
+          !!onReperibilita && !futuro && (reperibilitaModificabile?.(g.data) ?? true)
+        const rep = repCambiabile ? (
+          <button
+            type="button"
+            onClick={() => onReperibilita!(g.data, !g.giornataReperibilita)}
+            aria-pressed={g.giornataReperibilita}
+            className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap transition ${g.giornataReperibilita ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-400 border-dashed border-gray-300 hover:text-indigo-700 hover:border-indigo-400'}`}
+          >
+            {g.giornataReperibilita ? '✓ giornata reperibilità' : '+ giornata reperibilità'}
+          </button>
+        ) : g.giornataReperibilita ? (
+          <Pill text="giornata reperibilità" tono="azzurro" />
+        ) : null
 
         return (
           <div
@@ -108,6 +131,7 @@ export function GiorniMese({
                       {oreLavoro > 0.001 && (
                         <Pill text={`lavoro in festività · ${oreLabel(oreLavoro)} h`} tono="ambra" />
                       )}
+                      {rep}
                     </>
                   ) : (
                     <>
@@ -120,6 +144,7 @@ export function GiorniMese({
                       ))}
                       {g.notte && <Pill text="notte" tono="azzurro" />}
                       {g.reperibilita && <Pill text="reperibilità" tono="azzurro" />}
+                      {rep}
                     </>
                   )}
                 </div>

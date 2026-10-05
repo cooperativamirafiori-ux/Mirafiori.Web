@@ -8,6 +8,7 @@ import { RiepilogoMese } from './_componenti/RiepilogoMese'
 import { GiorniMese, RigaVoce } from './_componenti/GiorniMese'
 import {
   MESI,
+  addGiorni,
   dataEstesa,
   oggiYmd,
   oreLabel,
@@ -58,6 +59,10 @@ interface FormRiga {
    * notte e l'indennita' di reperibilita' si liquida a turno, quindi una spunta
    * messa dal sistema al posto della persona sarebbe una voce in busta paga che
    * nessuno ha dichiarato.
+   *
+   * `reperibilita` qui e' "sono stato chiamato mentre ero reperibile" (pagamento
+   * maggiorato). La GIORNATA di reperibilita' (forfait) e' un'altra cosa e sta
+   * fuori dal form, sulla giornata: vedi `repGiorni`.
    */
   notte: boolean
   reperibilita: boolean
@@ -105,6 +110,13 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
   const [form, setForm] = useState<FormRiga | null>(null)
   const [formPeriodo, setFormPeriodo] = useState<FormPeriodo | null>(null)
   const [salvando, setSalvando] = useState(false)
+  /**
+   * Giornate di reperibilita' della finestra (oggi e i due giorni prima). Si
+   * leggono a parte perche' i primi giorni del mese la finestra pesca nel mese
+   * precedente, che il riepilogo caricato non contiene.
+   */
+  const [repGiorni, setRepGiorni] = useState<Set<string>>(new Set())
+  const [repInCorso, setRepInCorso] = useState<string | null>(null)
 
   const from = ymd(anno, mese, 1)
   const to = ymd(anno, mese, ultimoGiorno(anno, mese))
@@ -145,6 +157,16 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
   }, [])
 
   useEffect(() => { carica() }, [carica])
+
+  /** Le tre date in cui il dipendente puo' dichiarare la reperibilita', dalla piu' vecchia. */
+  const giorniRep = useMemo(() => [addGiorni(OGGI, -2), addGiorni(OGGI, -1), OGGI], [OGGI])
+
+  useEffect(() => {
+    fetch(`/api/timbrature/reperibilita?from=${giorniRep[0]}&to=${OGGI}`)
+      .then((r) => r.json())
+      .then((d) => setRepGiorni(new Set<string>(d.giorni ?? [])))
+      .catch(() => {})
+  }, [giorniRep, OGGI])
 
   const bloccato = finestra ? !finestra.aperta : false
   /** Prima data per cui si possono ancora registrare ORE DI LAVORO. */
@@ -343,6 +365,49 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
     }
   }
 
+  /**
+   * Spunta "Giornata di reperibilita'". Si aggiorna subito a schermo e si
+   * torna indietro solo se il server rifiuta: ricaricare tutto il mese per una
+   * spunta farebbe sparire la pagina dietro "Caricamento…" a ogni tocco.
+   */
+  async function cambiaReperibilita(data: string, attiva: boolean) {
+    if (repInCorso) return
+    const applica = (on: boolean) => {
+      setRepGiorni((prev) => {
+        const s = new Set(prev)
+        if (on) s.add(data)
+        else s.delete(data)
+        return s
+      })
+      setRiepilogo((prev) => {
+        if (!prev) return prev
+        const g = prev.giorni.find((x) => x.data === data)
+        if (!g || g.giornataReperibilita === on) return prev
+        return {
+          ...prev,
+          giorni: prev.giorni.map((x) => (x.data === data ? { ...x, giornataReperibilita: on } : x)),
+          giornateReperibilita: prev.giornateReperibilita + (on ? 1 : -1),
+        }
+      })
+    }
+    setRepInCorso(data); setErrore('')
+    applica(attiva)
+    try {
+      const r = await fetch('/api/timbrature/reperibilita', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data, attiva }),
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'Errore')
+    } catch (e) {
+      applica(!attiva)
+      setErrore(e instanceof Error ? e.message : 'Errore')
+    } finally {
+      setRepInCorso(null)
+    }
+  }
+
   async function elimina(id: string) {
     if (!confirm('Eliminare questa riga?')) return
     setErrore('')
@@ -488,6 +553,46 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
                 <div className="mt-2 text-xs font-semibold text-orange-500">🔥 {streak} giorni di fila compilati</div>
               )}
 
+              {/*
+                Giornata di reperibilita': prima delle ore, perche' vale anche
+                quando di ore non ce ne sono. Oggi e' la spunta grande; i due
+                giorni prima stanno accanto, con la stessa finestra delle ore.
+              */}
+              <div className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50/60 p-3">
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="h-6 w-6 shrink-0 accent-indigo-600"
+                    checked={repGiorni.has(OGGI)}
+                    disabled={repInCorso !== null}
+                    onChange={(e) => cambiaReperibilita(OGGI, e.target.checked)}
+                  />
+                  <span className="text-sm font-semibold text-indigo-900">Giornata di reperibilità</span>
+                </label>
+                <div className="mt-2 flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-indigo-800/80">Nei giorni prima:</span>
+                  {giorniRep.slice(0, 2).map((d) => {
+                    const on = repGiorni.has(d)
+                    return (
+                      <button
+                        key={d}
+                        type="button"
+                        aria-pressed={on}
+                        disabled={repInCorso !== null}
+                        onClick={() => cambiaReperibilita(d, !on)}
+                        className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition disabled:opacity-60 ${on ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-indigo-800 border-indigo-200 hover:border-indigo-400'}`}
+                      >
+                        {on ? '✓ ' : ''}{weekdayShort(d).toLowerCase()} {Number(d.slice(8, 10))}
+                      </button>
+                    )
+                  })}
+                </div>
+                <p className="mt-2 text-[11px] text-indigo-800/70">
+                  Spuntala anche se non hai lavorato: non cambia le ore, serve alle Risorse Umane
+                  per il rimborso forfettario.
+                </p>
+              </div>
+
               {/* Righe di oggi */}
               {righeOggi.length > 0 && (
                 <div className="mt-4 divide-y divide-gray-50 border-t border-gray-100">
@@ -626,6 +731,8 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
                 onAggiungi={nuovaRiga}
                 onModifica={modificaRiga}
                 onElimina={elimina}
+                onReperibilita={cambiaReperibilita}
+                reperibilitaModificabile={(d) => !bloccato && (nonTimbra || (d >= giorniRep[0] && d <= OGGI))}
               />
             )}
           </div>

@@ -141,7 +141,7 @@ export function RiepilogoMese({
       </div>
 
       {/* Cosa manca, e le voci che finiscono in busta paga. */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Kpi
           titolo={scoperti === 1 ? 'Giornata da sistemare' : 'Giornate da sistemare'}
           valore={scoperti || '—'}
@@ -152,6 +152,11 @@ export function RiepilogoMese({
           titolo="Turni in reperibilità"
           valore={r.turniReperibilita || '—'}
           accento={r.turniReperibilita ? 'violet' : 'slate'}
+        />
+        <Kpi
+          titolo={r.giornateReperibilita === 1 ? 'Giornata di reperibilità' : 'Giornate di reperibilità'}
+          valore={r.giornateReperibilita || '—'}
+          accento={r.giornateReperibilita ? 'violet' : 'slate'}
         />
       </div>
       {scoperti > 0 && (
