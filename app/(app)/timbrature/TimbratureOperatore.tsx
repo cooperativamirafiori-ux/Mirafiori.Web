@@ -588,8 +588,7 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
                   })}
                 </div>
                 <p className="mt-2 text-[11px] text-indigo-800/70">
-                  Spuntala anche se non hai lavorato: non cambia le ore, serve alle Risorse Umane
-                  per il rimborso forfettario.
+                  Spuntala solo se eri in reperibilità ma non hai lavorato.
                 </p>
               </div>
 
