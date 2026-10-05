@@ -127,6 +127,15 @@ const AREE = [
   { nome: 'Amministrazione (hub)', prefissi: ['app/(app)/amministrazione'] },
   // Prima dei Flussi fatture: il loro prefisso app/(app)/controllo-gestione
   // prenderebbe anche le pagine Qonto, e vince la prima area che combacia.
+  // Anche il Cruscotto prima dei Flussi fatture, e prima del Registro per i
+  // suoi file in lib/gestione.
+  {
+    nome: 'Controllo di gestione · Cruscotto',
+    prefissi: [
+      'app/(app)/controllo-gestione/cruscotto', 'lib/gestione/cruscotto', 'types/cruscotto',
+      'supabase/cruscotto_cdg', 'docs/cruscotto',
+    ],
+  },
   {
     nome: 'Controllo di gestione · Qonto',
     prefissi: [

@@ -44,6 +44,24 @@ export default async function ControlloGestionePage() {
           suo permesso: qui vedi solo quello a cui hai accesso.
         </p>
 
+        {qonto && (
+          <Link
+            href="/controllo-gestione/cruscotto"
+            className="group relative mb-4 block overflow-hidden rounded-2xl bg-[#0b1f5c] p-5 text-white shadow-lg shadow-primary/20 transition-all duration-200 hover:-translate-y-1 hover:shadow-xl"
+          >
+            <span className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-brand-cyan/40 blur-2xl" />
+            <span className="pointer-events-none absolute -bottom-12 left-1/3 h-32 w-32 rounded-full bg-brand-orange/30 blur-2xl" />
+            <span className="relative flex items-center gap-4">
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-2xl">📊</span>
+              <span className="min-w-0">
+                <span className="block text-lg font-bold">Cruscotto</span>
+                <span className="block text-sm text-white/75">Costi, ricavi e ore per centro di costo e per area</span>
+              </span>
+              <span className="ml-auto text-sm font-semibold text-brand-cyan-light transition-all group-hover:translate-x-1">→</span>
+            </span>
+          </Link>
+        )}
+
         <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {qonto && (
             <Card
@@ -81,7 +99,7 @@ export default async function ControlloGestionePage() {
 
         {!flussi && !qonto && (
           <p className="text-sm text-gray-500 border border-dashed border-gray-300 rounded-xl px-4 py-6 text-center">
-            I cruscotti dei costi non sono ancora attivi. Arriveranno qui.
+            Qui non c'è ancora niente per te.
           </p>
         )}
       </main>
