@@ -32,7 +32,7 @@ const DOMINIO = '@cooperativamirafiori.com'
 // Chi entra oggi. Si cambia dal pannello Amministrazione › Permessi: questo
 // script serve solo a non dover fare dodici clic la prima volta.
 const SEED = [
-  { utente: `claudia.carena${DOMINIO}`, aree: [AREA_PAGAMENTI] },
+  { utente: `claudia.carena${DOMINIO}`, aree: [AREA_PAGAMENTI, AREA_APPROVAZIONE] },
   { utente: `luca.cordaro${DOMINIO}`, aree: [AREA_APPROVAZIONE, AREA_CONTROLLO] },
   { utente: `info${DOMINIO}`, aree: [AREA_PAGAMENTI, AREA_APPROVAZIONE] },
   { utente: `dennis.maseri${DOMINIO}`, aree: [AREA_PAGAMENTI, AREA_APPROVAZIONE, AREA_CONTROLLO] },

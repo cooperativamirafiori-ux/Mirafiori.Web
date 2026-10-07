@@ -119,4 +119,4 @@ il numero da guardare prima di prendere servizi esterni: ore che nessuno paga so
   col margine di cc24 a fine trimestre).
 - **Coordinatori di cc24**: Marika Armandi e Dennis Maseri.
 - Conto Qonto rinominato `cc24 · Cura Ambienti`.
-- La Locanda (cc2) non ha sottoconto Qonto: `provision-qonto-sottoconti.mjs --salta cc2`.
+- Il 2/10/2026 creato anche il sottoconto Qonto `cc2 · La Locanda nel Parco`: ora tutti i centri di costo attivi ne hanno uno.
