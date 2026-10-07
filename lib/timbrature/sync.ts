@@ -44,6 +44,41 @@ export function rapportoChiuso(rec: RURecord): boolean {
   return TIROCINIO_CHIUSO.includes(str(rec.StatoTirocinio).toUpperCase())
 }
 
+/**
+ * Chi lavora per la cooperativa, e quindi può avere un foglio ore.
+ * Deciso con Dennis il 7 ott 2026: in anagrafica ci sono anche soci volontari,
+ * fruitori e sovventori, che le timbrature non le devono vedere.
+ */
+const TIPI_LAVORATORE: readonly string[] = [
+  'Dipendente', 'Socio lavoratore', 'Apprendista', 'Libero professionista',
+  'Socio libero professionista', 'Collaborazione Coordinate Continuativa',
+  'Tirocinante e/o Stagista', 'Volontario in servizio civile',
+]
+const TIPI_NON_LAVORATORE: readonly string[] = [
+  'Socio volontario', 'Socio fruitore', 'Socio persona giuridica', 'Socio sovventore e finanziatore',
+]
+
+export type ClasseLavoro = 'lavoratore' | 'non-lavoratore' | 'incerto'
+
+/**
+ * La scheda è di un lavoratore?
+ *
+ * Fa fede il "Tipo di rapporto". Se è vuoto, un tipo di contratto o una
+ * matricola bastano a dire che lavora; senza nessuno dei tre è "incerto" e non
+ * si indovina: le HR completano la scheda. I tirocini (che il campo non ce
+ * l'hanno) sono sempre lavoratori. Al 7 ott 2026: 117 lavoratori, 6 soci
+ * volontari, 9 incerti (vedi scripts/diagnosi-lavoratori.mjs).
+ */
+export function classeLavoro(rec: RURecord): ClasseLavoro {
+  const tirocinio = 'StatoTirocinio' in rec && !('TipoRapporto' in rec)
+  if (tirocinio) return 'lavoratore'
+  const tipo = str(rec.TipoRapporto)
+  if (TIPI_LAVORATORE.includes(tipo)) return 'lavoratore'
+  if (TIPI_NON_LAVORATORE.includes(tipo)) return 'non-lavoratore'
+  if (str(rec.TipoContratto) || str(rec.Matricola)) return 'lavoratore'
+  return 'incerto'
+}
+
 export interface Abilitazione {
   /** Esito finale: la persona può compilare il foglio ore. */
   attivo: boolean
@@ -51,6 +86,8 @@ export interface Abilitazione {
   spuntata: boolean
   /** True quando la spunta c'è ma il rapporto è chiuso: l'accesso decade. */
   decaduta: boolean
+  /** True quando la spunta c'è ma la scheda non è di un lavoratore (o non si sa). */
+  nonLavoratore: boolean
 }
 
 /**
@@ -60,11 +97,20 @@ export interface Abilitazione {
  * che nessuno debba ricordarsi di togliere la spunta. Questo è anche il motivo
  * per cui la spunta viene lasciata come è: se la persona rientra (per esempio un
  * contratto rinnovato) basta rimettere lo stato in corso e l'accesso torna.
+ *
+ * Lo stesso vale per chi non è un lavoratore (o ha il tipo di rapporto vuoto):
+ * la spunta da sola non lo abilita.
  */
 export function abilitazione(rec: RURecord): Abilitazione {
   const spuntata = str(rec.TimbraturaAttiva) === ATTIVA
   const chiuso = rapportoChiuso(rec)
-  return { attivo: spuntata && !chiuso, spuntata, decaduta: spuntata && chiuso }
+  const lavora = classeLavoro(rec) === 'lavoratore'
+  return {
+    attivo: spuntata && !chiuso && lavora,
+    spuntata,
+    decaduta: spuntata && chiuso,
+    nonLavoratore: spuntata && !chiuso && !lavora,
+  }
 }
 
 /**
@@ -138,6 +184,15 @@ export async function sincronizzaRecordRU(rec: RURecord): Promise<EsitoRecord> {
 
     if (ab.decaduta) {
       return { ok: true, azione, avviso: 'Timbrature non attive: il rapporto risulta chiuso. Rimetti lo stato in corso per riattivarle.' }
+    }
+    if (ab.nonLavoratore) {
+      return {
+        ok: true,
+        azione,
+        avviso: classeLavoro(rec) === 'incerto'
+          ? 'Timbrature non attive: manca il "Tipo di rapporto". Sceglilo nella scheda (es. Socio lavoratore, Dipendente) e salva di nuovo.'
+          : `Timbrature non attive: "${str(rec.TipoRapporto)}" non è un rapporto di lavoro, quindi non c'è un foglio ore.`,
+      }
     }
     if (nonTimbra && !ab.spuntata) {
       return {

@@ -22,6 +22,8 @@ export type Filtro =
   | 'decaduti'
   | 'senza-mail'
   | 'disallineati'
+  | 'senza-tipo-rapporto'
+  | 'non-lavoratori-attivi'
 
 /** I quattro filtri sempre visibili nella scheda "Tutte le persone". */
 export const FILTRI_BASE: readonly { id: Filtro; etichetta: string }[] = [
@@ -52,6 +54,19 @@ export const PROBLEMI: readonly DefProblema[] = [
     etichetta: 'Referente inesistente',
     frase: (n) => `${persone(n)} ${n === 1 ? 'ha' : 'hanno'} un referente che non esiste`,
     rimedio: 'Nessuno riceverà il foglio da validare: scegli il responsabile giusto.',
+  },
+  {
+    id: 'senza-tipo-rapporto',
+    etichetta: 'Senza tipo di rapporto',
+    frase: (n) => `${persone(n)} senza “Tipo di rapporto”`,
+    rimedio:
+      'Non si sa se sono lavoratori o soci volontari: finché manca non si possono attivare le timbrature. Si sceglie nella scheda in Risorse Umane (oppure “Cessato”, se non ci sono più).',
+  },
+  {
+    id: 'non-lavoratori-attivi',
+    etichetta: 'Non lavoratori con la spunta',
+    frase: (n) => `${persone(n)} con la spunta delle timbrature ma senza un rapporto di lavoro`,
+    rimedio: 'L’accesso è già spento da solo: puoi togliere la spunta per fare ordine.',
   },
   {
     id: 'senza-orario',
@@ -98,11 +113,15 @@ export function referenteSconosciuto(p: PersonaAbilitazione, inRubrica: Set<stri
 export function passa(p: PersonaAbilitazione, f: Filtro, inRubrica: Set<string>): boolean {
   switch (f) {
     case 'tutti':
-      return true
+      return p.lavoro !== 'non-lavoratore' || p.timbraturaAttiva
     case 'abilitati':
       return p.abilitata
     case 'non-abilitati':
-      return !p.abilitata && !p.chiuso
+      return !p.abilitata && !p.chiuso && p.lavoro !== 'non-lavoratore'
+    case 'senza-tipo-rapporto':
+      return p.lavoro === 'incerto' && !p.chiuso
+    case 'non-lavoratori-attivi':
+      return p.lavoro !== 'lavoratore' && !p.chiuso && p.timbraturaAttiva
     case 'hr':
       return p.abilitata && inCaricoHr(p)
     case 'referente-da-controllare':

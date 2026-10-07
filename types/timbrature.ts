@@ -487,6 +487,11 @@ export interface PersonaAbilitazione {
   statoRapporto: string
   /** Rapporto cessato o tirocinio interrotto/terminato. */
   chiuso: boolean
+  /**
+   * Dal "Tipo di rapporto": solo i lavoratori possono avere le timbrature.
+   * 'incerto' = tipo di rapporto vuoto e nessun altro indizio (contratto, matricola).
+   */
+  lavoro: 'lavoratore' | 'non-lavoratore' | 'incerto'
   timbraturaAttiva: boolean
   nonTimbra: boolean
   /** Referente foglio ore in minuscolo, null se vuoto. */

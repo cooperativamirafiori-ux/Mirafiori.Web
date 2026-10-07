@@ -19,6 +19,7 @@ import { getItem, getItems, aggiornaCampiParziali } from '@/lib/risorse-umane/da
 import { getDipendenti, getDipendenteByEmail } from '@/lib/timbrature/data'
 import {
   abilitazione,
+  classeLavoro,
   mailChiave,
   nominativoRU,
   referenteRU,
@@ -96,6 +97,7 @@ function componi(
     categoria: categoria(entity, rec),
     statoRapporto: entity === 'tirocini' ? str(rec.StatoTirocinio) : str(rec.StatoRapporto),
     chiuso: rapportoChiuso(rec),
+    lavoro: classeLavoro(rec),
     timbraturaAttiva: ab.spuntata,
     nonTimbra,
     referente,
@@ -129,6 +131,10 @@ export async function elencoAbilitazioni(gc: GraphClient): Promise<PersonaAbilit
       const d = mail ? perMail.get(mail) ?? null : null
       const p = componi(entity, rec, d, d ? orari.has(d.id) : false)
       if (p.chiuso && !p.timbraturaAttiva && !p.db?.attivo) continue
+      // Soci volontari, fruitori, sovventori: non hanno un foglio ore e qui
+      // sarebbero solo rumore. Restano visibili solo se hanno la spunta o sono
+      // ancora attivi nel database, cioè se c'è qualcosa da sistemare.
+      if (p.lavoro === 'non-lavoratore' && !p.timbraturaAttiva && !p.db?.attivo) continue
       out.push(p)
     }
   }
@@ -166,6 +172,23 @@ export async function applicaModifica(
     const prima = await getItem(gc, m.entity, m.spItemId)
     const campi: Record<string, string | null> = {}
 
+    if (m.timbraturaAttiva === true) {
+      const classe = classeLavoro(prima)
+      if (classe === 'non-lavoratore') {
+        return {
+          ...base,
+          ok: false,
+          errore: `${nominativoRU(prima)}: "${str(prima.TipoRapporto)}" non è un rapporto di lavoro, le timbrature non si attivano.`,
+        }
+      }
+      if (classe === 'incerto') {
+        return {
+          ...base,
+          ok: false,
+          errore: `${nominativoRU(prima)}: manca il "Tipo di rapporto". Va scelto nella scheda in Risorse Umane prima di attivare le timbrature.`,
+        }
+      }
+    }
     if (typeof m.timbraturaAttiva === 'boolean') campi.TimbraturaAttiva = m.timbraturaAttiva ? 'Si' : 'No'
     if (typeof m.nonTimbra === 'boolean') campi.NonTimbra = m.nonTimbra ? 'Si' : 'No'
     if (m.referente !== undefined) {

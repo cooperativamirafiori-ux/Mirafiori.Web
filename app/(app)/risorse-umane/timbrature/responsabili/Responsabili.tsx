@@ -214,11 +214,17 @@ export function Responsabili({ rubrica }: { rubrica: VoceRubrica[] }) {
   }
 
   async function attivaSelezionate() {
-    const da = selezionate.filter((p) => !p.timbraturaAttiva)
+    // Solo i lavoratori: soci volontari e schede senza tipo di rapporto si
+    // saltano qui, e il server li rifiuterebbe comunque.
+    const da = selezionate.filter((p) => !p.timbraturaAttiva && p.lavoro === 'lavoratore')
+    const saltate = selezionate.filter((p) => !p.timbraturaAttiva && p.lavoro !== 'lavoratore')
     if (da.length === 0) return
     const fatto = await salva(
       da.map((p) => ({ entity: p.entity, spItemId: p.spItemId, timbraturaAttiva: true })),
-      `Timbrature attivate per ${da.length === 1 ? '1 persona' : `${da.length} persone`}.`,
+      `Timbrature attivate per ${da.length === 1 ? '1 persona' : `${da.length} persone`}.` +
+        (saltate.length
+          ? ` ${saltate.length === 1 ? '1 saltata' : `${saltate.length} saltate`}: senza un rapporto di lavoro indicato.`
+          : ''),
     )
     if (fatto) chiudiSelezione()
   }
@@ -449,7 +455,7 @@ export function Responsabili({ rubrica }: { rubrica: VoceRubrica[] }) {
             <button onClick={chiudiSelezione} className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600">
               Fine
             </button>
-            {selezionate.some((p) => !p.timbraturaAttiva) && (
+            {selezionate.some((p) => !p.timbraturaAttiva && p.lavoro === 'lavoratore') && (
               <button
                 onClick={attivaSelezionate}
                 disabled={salvando}
@@ -554,6 +560,8 @@ function Riga({
   const note: { testo: string; tono: 'ambra' | 'rosso' | 'viola' | 'grigio' }[] = []
   if (p.abilitata && p.nonTimbra) note.push({ testo: 'non timbra', tono: 'viola' })
   if (p.categoria !== 'Dipendente') note.push({ testo: p.categoria.toLowerCase(), tono: 'grigio' })
+  if (p.lavoro === 'incerto' && !p.chiuso) note.push({ testo: 'manca il tipo di rapporto', tono: 'ambra' })
+  if (p.lavoro === 'non-lavoratore') note.push({ testo: 'non lavoratore', tono: 'grigio' })
   if (p.decaduta) note.push({ testo: 'rapporto chiuso', tono: 'rosso' })
   if (p.timbraturaAttiva && !p.mail && !p.chiuso) note.push({ testo: 'manca la mail', tono: 'rosso' })
   if (p.senzaOrario) note.push({ testo: 'manca l’orario', tono: 'ambra' })
@@ -561,7 +569,13 @@ function Riga({
 
   let stato = ''
   if (mostraStato) {
-    if (!p.abilitata) stato = p.chiuso ? 'Rapporto chiuso' : 'Timbrature non attive'
+    if (!p.abilitata) {
+      stato = p.chiuso
+        ? 'Rapporto chiuso'
+        : p.lavoro === 'lavoratore'
+          ? 'Timbrature non attive'
+          : 'Non si possono attivare le timbrature'
+    }
     else if (inCaricoHr(p)) stato = 'Valida: Risorse Umane'
     else if (sconosciuto) stato = `Valida: ${p.referente} (non esiste)`
     else stato = `Valida: ${nomeDi(p.referente!)}`
@@ -676,15 +690,23 @@ function Levetta({
   spiegazione,
   valore,
   onChange,
+  disabilitata = false,
 }: {
   titolo: string
   spiegazione: string
   valore: boolean
   onChange: (v: boolean) => void
+  disabilitata?: boolean
 }) {
   return (
-    <label className="flex cursor-pointer items-start gap-3 py-2">
-      <input type="checkbox" className="sr-only peer" checked={valore} onChange={(e) => onChange(e.target.checked)} />
+    <label className={`flex items-start gap-3 py-2 ${disabilitata ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+      <input
+        type="checkbox"
+        className="sr-only peer"
+        checked={valore}
+        disabled={disabilitata}
+        onChange={(e) => onChange(e.target.checked)}
+      />
       <span
         aria-hidden
         className={`mt-0.5 relative inline-flex h-7 w-12 shrink-0 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-primary ${
@@ -734,6 +756,8 @@ function ModaleModifica({
   if (referente !== p.referente) m.referente = referente
   const cambiato = Object.keys(m).length > 2
   const seStesso = !!referente && referente === p.mail
+  // Si può sempre SPEGNERE; accendere solo se è un lavoratore.
+  const nonAttivabile = p.lavoro !== 'lavoratore' && !p.timbraturaAttiva
 
   return (
     <Modale
@@ -762,6 +786,17 @@ function ModaleModifica({
             entrare.
           </Banner>
         )}
+        {p.lavoro === 'incerto' && !p.chiuso && (
+          <Banner tono="avviso">
+            Nella scheda manca il “Tipo di rapporto”: finché non si sa se è un lavoratore, le timbrature non si possono
+            attivare. Si sceglie nella scheda in Risorse Umane.
+          </Banner>
+        )}
+        {p.lavoro === 'non-lavoratore' && (
+          <Banner tono="info">
+            Non è un lavoratore (tipo di rapporto: socio non lavoratore): non ha un foglio ore.
+          </Banner>
+        )}
         {!p.mail && (
           <Banner tono="avviso">
             Manca la mail aziendale: va inserita nella scheda in Risorse Umane, altrimenti non può entrare.
@@ -773,6 +808,7 @@ function ModaleModifica({
             spiegazione="Può entrare nell’app e compilare il suo foglio ore."
             valore={attiva}
             onChange={setAttiva}
+            disabilitata={nonAttivabile}
           />
           <Levetta
             titolo="Non timbra"
