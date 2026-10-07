@@ -12,6 +12,8 @@
  *     fattura, non si paga.
  *  3. Contanti o carta (MP01, MP08) → nata PAGATA: il denaro è già uscito.
  *  4. RID, SDD, domiciliazioni → "automatica": esce da sola, nessuno la paga.
+ *     Eccezione: i fornitori in SENZA_DOMICILIAZIONE (SMAT, 07/10/2026) scrivono
+ *     SDD in fattura ma l'addebito non è attivo → vanno in coda come le altre.
  *  5. Nessuna modalità nell'XML → PAGATA se il fornitore è noto per pagare al
  *     momento (Lidl, dopo la prima volta), altrimenti "da verificare".
  *     Non si indovina: fra queste ci sono gli scontrini fatti fattura, ma
@@ -63,6 +65,15 @@ export function scadenzaStimata(dataFattura: string): string {
   return new Date(Date.UTC(anno, mese, Math.min(30, ultimo))).toISOString().slice(0, 10)
 }
 
+/**
+ * Fornitori che in fattura scrivono RID/SDD ma da cui l'addebito non parte:
+ * le loro fatture si pagano a mano (deciso con Dennis il 07/10/2026).
+ * Chiave: partita IVA senza prefisso paese.
+ */
+export const SENZA_DOMICILIAZIONE: Record<string, string> = {
+  '07937540016': 'SMAT',
+}
+
 const arrotonda = (n: number) => Math.round(n * 100) / 100
 
 export function scadenzeDa(f: FatturaSdi, c: Contesto): ScadenzaNuova[] {
@@ -101,7 +112,8 @@ export function scadenzeDa(f: FatturaSdi, c: Contesto): ScadenzaNuova[] {
     .sort((a, b) => a.data.localeCompare(b.data) || (a.importo ?? 0) - (b.importo ?? 0))
 
   return ordinate.map((r, i) => {
-    const famiglia = senzaModalita ? 'altro' : r.famiglia
+    const domiciliazioneFinta = !senzaModalita && r.famiglia === 'automatica' && !!f.piva && f.piva in SENZA_DOMICILIAZIONE
+    const famiglia: FamigliaModalita = senzaModalita ? 'altro' : domiciliazioneFinta ? 'bonifico' : r.famiglia
     const importo = arrotonda(r.importo ?? f.daPagare)
     let stato: StatoScadenza
     let motivo: ScadenzaNuova['motivo_verifica'] = null
@@ -133,12 +145,13 @@ export function scadenzeDa(f: FatturaSdi, c: Contesto): ScadenzaNuova[] {
     const ibanFattura = r.iban ?? f.rate.find((x) => x.iban)?.iban ?? null
     const ibanNoto = c.fornitore?.iban ?? null
     let blocco: ScadenzaNuova['blocco'] = null
-    if (serveIban && famiglia === 'bonifico') {
+    if (serveIban && famiglia === 'bonifico' && !domiciliazioneFinta) {
       if (!ibanFattura && !ibanNoto) blocco = 'iban_mancante'
       else if (ibanFattura && ibanNoto && c.fornitore?.ibanConfermato && ibanFattura !== ibanNoto) blocco = 'iban_cambiato'
     }
 
     const note = [
+      domiciliazioneFinta ? `${SENZA_DOMICILIAZIONE[f.piva!]}: in fattura c'è l'addebito diretto ma non è attivo, va pagata` : null,
       r.stimata ? 'scadenza non indicata in fattura: stimata al 30 del mese successivo' : null,
       senzaModalita && stato === 'pagata' ? 'fornitore che si paga al momento' : null,
       senzaModalita && stato === 'da_verificare' ? 'la fattura non dice come si paga' : null,
