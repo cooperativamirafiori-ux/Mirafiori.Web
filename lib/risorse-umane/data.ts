@@ -156,6 +156,36 @@ export async function aggiornaItem(g: GraphClient, entity: RUEntity, spItemId: s
   return getItem(g, entity, spItemId)
 }
 
+/**
+ * Aggiorna SOLO i campi indicati, lasciando intatto il resto della scheda.
+ *
+ * ⚠️ `aggiornaItem` non va bene per le modifiche parziali: passa da
+ * `buildFields`, che scrive TUTTI i campi dello schema e mette a null quelli
+ * assenti dall'input. È giusto per il form completo della scheda, ma con un
+ * input di tre campi cancellerebbe l'intera anagrafica.
+ *
+ * Accetta solo chiavi dello schema dell'entità (le altre si scartano) e solo
+ * valori testuali: chi la usa oggi (la schermata Responsabili delle timbrature)
+ * tocca campi scelta ed email.
+ */
+export async function aggiornaCampiParziali(
+  g: GraphClient,
+  entity: RUEntity,
+  spItemId: string,
+  campi: Record<string, string | null>,
+): Promise<RURecord> {
+  const ammessi = new Set(RU_CONFIG[entity].fields.map((f) => f.key))
+  const out: Record<string, string | null> = {}
+  for (const [k, v] of Object.entries(campi)) {
+    if (!ammessi.has(k)) continue
+    const s = typeof v === 'string' ? v.trim() : null
+    out[k] = s ? s : null
+  }
+  if (Object.keys(out).length === 0) return getItem(g, entity, spItemId)
+  await g.patch(`/sites/${SITE()}/lists/${listId(entity)}/items/${spItemId}/fields`, out)
+  return getItem(g, entity, spItemId)
+}
+
 export async function eliminaItem(g: GraphClient, entity: RUEntity, spItemId: string): Promise<void> {
   await g.del(`${listBase(entity)}/${spItemId}`)
 }

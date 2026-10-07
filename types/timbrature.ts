@@ -463,3 +463,59 @@ export interface StatoDipendenteMese {
    */
   disattivato?: boolean
 }
+
+// ------------------------------------------------- responsabili e abilitazioni
+
+/**
+ * Una persona dell'anagrafica RU vista dalla schermata "Responsabili e
+ * abilitazioni" (`/risorse-umane/timbrature/responsabili`).
+ *
+ * I campi `timbraturaAttiva`, `nonTimbra` e `referente` sono quelli della
+ * scheda RU, che resta la fonte di verità; `db` è come la persona risulta oggi
+ * nel database delle timbrature, e serve solo a scoprire i disallineamenti
+ * (la scheda modificata direttamente su SharePoint non sincronizza nulla).
+ */
+export interface PersonaAbilitazione {
+  entity: 'dipendenti' | 'tirocini'
+  spItemId: string
+  nominativo: string
+  /** Mail aziendale in minuscolo, '' se manca. */
+  mail: string
+  /** 'Dipendente', 'Collaboratore' o 'Tirocinio'. */
+  categoria: string
+  /** Stato del rapporto o del tirocinio come scritto in anagrafica. */
+  statoRapporto: string
+  /** Rapporto cessato o tirocinio interrotto/terminato. */
+  chiuso: boolean
+  timbraturaAttiva: boolean
+  nonTimbra: boolean
+  /** Referente foglio ore in minuscolo, null se vuoto. */
+  referente: string | null
+  /** Esito: può compilare il foglio ore (spunta + rapporto in corso + mail). */
+  abilitata: boolean
+  /** Spunta su Sì ma rapporto chiuso: l'accesso è decaduto da solo. */
+  decaduta: boolean
+  db: { attivo: boolean; referente: string | null; nonTimbra: boolean } | null
+  /** La scheda RU e il database timbrature dicono cose diverse. */
+  disallineata: boolean
+  /** Abilitata ma senza orario teorico: ore attese 0, nessun sollecito parte. */
+  senzaOrario: boolean
+}
+
+/** Campi della scheda RU che la schermata Responsabili può modificare. */
+export interface ModificaAbilitazione {
+  entity: 'dipendenti' | 'tirocini'
+  spItemId: string
+  timbraturaAttiva?: boolean
+  nonTimbra?: boolean
+  /** Email del referente; null per svuotare. Assente = non toccare. */
+  referente?: string | null
+}
+
+export interface EsitoModificaAbilitazione {
+  spItemId: string
+  ok: boolean
+  persona?: PersonaAbilitazione
+  avviso?: string
+  errore?: string
+}

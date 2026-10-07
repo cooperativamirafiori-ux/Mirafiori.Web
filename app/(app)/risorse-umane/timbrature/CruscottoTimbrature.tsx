@@ -380,12 +380,23 @@ export default function CruscottoTimbrature() {
           </div>
           {/* Le ore per progetto sono un'altra domanda ("quanto e' costato il
               bando"), non una colonna di questo elenco: pagina a parte. */}
-          <Link
-            href="/risorse-umane/timbrature/progetti"
-            className="shrink-0 rounded-lg bg-white/15 px-3 py-1.5 text-xs font-semibold hover:bg-white/25"
-          >
-            Ore per progetto →
-          </Link>
+          <div className="flex flex-wrap justify-end gap-2 shrink-0">
+            {/* Chi valida chi e chi è abilitato: solo HR, decide chi vede le ore di chi. */}
+            {isHr && (
+              <Link
+                href="/risorse-umane/timbrature/responsabili"
+                className="rounded-lg bg-white/15 px-3 py-1.5 text-xs font-semibold hover:bg-white/25"
+              >
+                Responsabili →
+              </Link>
+            )}
+            <Link
+              href="/risorse-umane/timbrature/progetti"
+              className="rounded-lg bg-white/15 px-3 py-1.5 text-xs font-semibold hover:bg-white/25"
+            >
+              Ore per progetto →
+            </Link>
+          </div>
         </div>
       </div>
 

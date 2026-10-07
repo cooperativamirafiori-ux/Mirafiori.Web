@@ -17,7 +17,7 @@
 import { useMemo, useState } from 'react'
 import { Banner } from '@/components/ui/Banner'
 import { Vuoto } from '@/components/ui/Vuoto'
-import { SceltaPersona, type VoceRubrica } from './SceltaPersona'
+import { SceltaPersona, type VoceRubrica } from '@/components/ui/SceltaPersona'
 import { VistaPerArea } from './VistaPerArea'
 
 interface Autorizzazione {

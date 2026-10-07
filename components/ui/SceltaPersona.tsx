@@ -10,6 +10,9 @@
  * Resta possibile inserire un indirizzo a mano, ma solo come ripiego: se la
  * rubrica non è leggibile (permesso Graph mancante, rete) la pagina deve
  * continuare a funzionare invece di diventare inutilizzabile.
+ *
+ * Nata nei Permessi, spostata nel kit il 7 ott 2026 quando è servita anche per
+ * scegliere il referente del foglio ore (Timbrature → Responsabili).
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -24,13 +27,18 @@ const MAX_RISULTATI = 8
 
 export function SceltaPersona({
   rubrica,
-  giaPresenti,
+  giaPresenti = [],
   onScegli,
+  notaPresenti = 'già in elenco',
+  autoFocus = false,
 }: {
   rubrica: VoceRubrica[]
   /** Email già in elenco: si possono scegliere, ma vanno segnalate. */
-  giaPresenti: string[]
+  giaPresenti?: string[]
   onScegli: (voce: VoceRubrica) => void
+  /** Testo accanto alle email di `giaPresenti`. */
+  notaPresenti?: string
+  autoFocus?: boolean
 }) {
   const [testo, setTesto] = useState('')
   const [aperto, setAperto] = useState(false)
@@ -108,6 +116,7 @@ export function SceltaPersona({
         aria-expanded={aperto}
         aria-controls="rubrica-risultati"
         autoComplete="off"
+        autoFocus={autoFocus}
         placeholder={
           rubrica.length
             ? 'Cerca una persona per nome o email…'
@@ -139,7 +148,7 @@ export function SceltaPersona({
             <ul className="max-h-72 overflow-y-auto">
               {voci.map((v, i) => {
                 const nota = presenti.has(v.email)
-                  ? 'già in elenco'
+                  ? notaPresenti
                   : v.email === emailLibera
                     ? 'fuori rubrica'
                     : null
