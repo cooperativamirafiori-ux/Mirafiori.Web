@@ -309,3 +309,42 @@ export async function ultimoImport(): Promise<RicevutaImport | null> {
     avvisi: Array.isArray(r.dettaglio?.avvisi) ? r.dettaglio.avvisi : [],
   }
 }
+
+/**
+ * Cerca nelle scadenze che NON stanno nelle code (pagate, stornate, storiche):
+ * le code l'interfaccia le filtra da sé, perché le ha già in mano.
+ *
+ * Due passi invece di un filtro sul join: un filtro sulla tabella collegata
+ * vorrebbe `!inner`, che farebbe sparire le uscite inserite a mano (vedi CAMPI).
+ * Si cerca per fornitore, P.IVA, numero fattura e — sulle righe a mano — oggetto.
+ */
+export async function cercaArchivio(testo: string, limite = 50): Promise<RigaScadenza[]> {
+  // Virgole, parentesi e jolly romperebbero il filtro `or` di PostgREST.
+  const q = testo.replace(/[,()%*\\"']/g, ' ').trim().replace(/\s+/g, ' ')
+  if (q.length < 2) return []
+  const db = supabase()
+  const like = `%${q}%`
+
+  const { data: fatture, error: e1 } = await db
+    .from('fattura_passiva')
+    .select('id')
+    .or(`fornitore.ilike.${like},piva.ilike.${like},numero_fornitore.ilike.${like}`)
+    // L'elenco degli id finisce nell'indirizzo della chiamata: oltre ~150 diventa troppo lungo.
+    .limit(150)
+  if (e1) throw new Error(`Ricerca fatture: ${e1.message}`)
+  const ids = (fatture ?? []).map((f: { id: string }) => f.id)
+
+  const filtro = [`oggetto.ilike.${like}`]
+  if (ids.length) filtro.push(`fattura_passiva_id.in.(${ids.join(',')})`)
+
+  const { data, error } = await db
+    .from('scadenza')
+    .select(CAMPI)
+    .in('stato', ['pagata', 'stornata', 'storica'])
+    .or(filtro.join(','))
+    .order('data_scadenza', { ascending: false })
+    .limit(limite)
+  if (error) throw new Error(`Ricerca scadenze: ${error.message}`)
+  const oggi = oggiISO()
+  return ((data ?? []) as unknown as Row[]).map((r) => aRiga(r, oggi))
+}

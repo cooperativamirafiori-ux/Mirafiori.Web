@@ -54,6 +54,32 @@ const dataIt = (iso: string | null) =>
 
 const oggiISO = () => new Date().toISOString().slice(0, 10)
 
+const norm = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
+/**
+ * La riga risponde alla ricerca? Ogni parola scritta deve trovarsi da qualche
+ * parte: fornitore, P.IVA, numero, oggetto, note, protocollo — oppure
+ * nell'importo, scritto come viene (825 · 1.732,40 · 1732,4).
+ */
+function corrisponde(r: RigaScadenza, testo: string): boolean {
+  const parole = norm(testo).split(/\s+/).filter(Boolean)
+  if (!parole.length) return true
+  const campi = norm(
+    [r.titolo, r.fornitore, r.piva, r.numeroFornitore, r.oggetto, r.note, r.protocollo]
+      .filter(Boolean)
+      .join(' '),
+  )
+  const importo = Math.abs(r.importo).toFixed(2)
+  return parole.every((p) => {
+    if (campi.includes(p)) return true
+    if (/^\d[\d.,]*$/.test(p)) {
+      const n = p.includes(',') ? p.replace(/\./g, '').replace(',', '.') : p
+      return importo.includes(n)
+    }
+    return false
+  })
+}
+
 export function FlussiFatture({
   puoPagare,
   puoApprovare,
@@ -79,6 +105,10 @@ export function FlussiFatture({
   // vede sotto. Accesa, diventano una previsione di cassa — due domande
   // diverse, e chi guarda deve sapere quale sta leggendo.
   const [conAutomatici, setConAutomatici] = useState(false)
+  // Ricerca: filtra le code che sono già qui e, a parte, cerca fra le chiuse.
+  const [cerca, setCerca] = useState('')
+  const [archivio, setArchivio] = useState<RigaScadenza[] | null>(null)
+  const [cercandoArchivio, setCercandoArchivio] = useState(false)
 
   const finestra = (t: TotaliCoda, chiave: 'entro7' | 'entro30' | 'entro60' | 'entro90') =>
     t[chiave].importo + (conAutomatici ? t.automatiche[chiave].importo : 0)
@@ -106,19 +136,51 @@ export function FlussiFatture({
     void carica()
   }, [carica])
 
-  const righe = useMemo(() => {
-    if (!dati) return []
-    if (coda === 'da_verificare') return dati.daVerificare
-    if (coda === 'da_pagare') return dati.daPagare
-    if (coda === 'da_approvare') return dati.daApprovare
-    return dati.automatiche
-  }, [dati, coda])
+  const filtrate = useMemo(() => {
+    const f = (l: RigaScadenza[]) => (cerca.trim() ? l.filter((r) => corrisponde(r, cerca)) : l)
+    return {
+      da_verificare: f(dati?.daVerificare ?? []),
+      da_pagare: f(dati?.daPagare ?? []),
+      da_approvare: f(dati?.daApprovare ?? []),
+      automatiche: f(dati?.automatiche ?? []),
+    } satisfies Record<Coda, RigaScadenza[]>
+  }, [dati, cerca])
+
+  const righe = filtrate[coda]
+  const ricercaAttiva = cerca.trim().length > 0
+
+  // Le fatture già chiuse non sono fra le code: si chiedono al server, con un
+  // attimo di attesa per non partire a ogni lettera.
+  useEffect(() => {
+    const q = cerca.trim()
+    if (q.length < 2) {
+      setArchivio(null)
+      return
+    }
+    let annullata = false
+    setCercandoArchivio(true)
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/pagamenti/scadenze/cerca?q=${encodeURIComponent(q)}`)
+        const j = await res.json()
+        if (!annullata) setArchivio(res.ok ? (j.righe ?? []) : [])
+      } catch {
+        if (!annullata) setArchivio([])
+      } finally {
+        if (!annullata) setCercandoArchivio(false)
+      }
+    }, 350)
+    return () => {
+      annullata = true
+      clearTimeout(t)
+    }
+  }, [cerca])
 
   // Cambiando coda le spunte non hanno più senso: si azzerano, altrimenti
   // si preme un tasto su righe che non si stanno guardando.
   useEffect(() => {
     setScelte(new Set())
-  }, [coda])
+  }, [coda, cerca])
 
   const selezionate = righe.filter((r) => scelte.has(r.id))
   const totaleSelezione = selezionate.reduce((s, r) => s + r.importo, 0)
@@ -364,20 +426,41 @@ export function FlussiFatture({
         </details>
       )}
 
+      {/* La ricerca sta sopra le code e vale per tutte: chi cerca una
+          fattura non sa in quale coda è finita. */}
+      <div className="relative">
+        <input
+          type="search"
+          value={cerca}
+          onChange={(e) => setCerca(e.target.value)}
+          placeholder="Cerca fornitore, numero fattura, P.IVA o importo"
+          className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 pr-10 text-sm focus:border-slate-500 focus:outline-none"
+        />
+        {ricercaAttiva && (
+          <button
+            onClick={() => setCerca('')}
+            aria-label="Cancella la ricerca"
+            className="absolute right-2 top-1/2 -translate-y-1/2 px-2 text-lg leading-none text-gray-400 hover:text-gray-600"
+          >
+            ×
+          </button>
+        )}
+      </div>
+
       <div className="flex flex-wrap gap-2">
         {dati && dati.daVerificare.length > 0 && (
           <Tab attivo={coda === 'da_verificare'} onClick={() => setCoda('da_verificare')} avviso>
-            Da verificare ({dati.daVerificare.length})
+            Da verificare ({filtrate.da_verificare.length})
           </Tab>
         )}
         <Tab attivo={coda === 'da_pagare'} onClick={() => setCoda('da_pagare')}>
-          Da pagare {dati ? `(${dati.daPagare.length})` : ''}
+          Da pagare {dati ? `(${filtrate.da_pagare.length})` : ''}
         </Tab>
         <Tab attivo={coda === 'da_approvare'} onClick={() => setCoda('da_approvare')}>
-          Da approvare {dati ? `(${dati.daApprovare.length})` : ''}
+          Da approvare {dati ? `(${filtrate.da_approvare.length})` : ''}
         </Tab>
         <Tab attivo={coda === 'automatiche'} onClick={() => setCoda('automatiche')}>
-          Escono da sole {dati ? `(${dati.automatiche.length})` : ''}
+          Escono da sole {dati ? `(${filtrate.automatiche.length})` : ''}
         </Tab>
       </div>
 
@@ -399,8 +482,12 @@ export function FlussiFatture({
 
       {caricando && <p className="text-sm text-gray-500">Caricamento…</p>}
 
-      {!caricando && righe.length === 0 && (
+      {!caricando && righe.length === 0 && !ricercaAttiva && (
         <Vuoto>{coda === 'da_approvare' ? 'Niente da approvare.' : 'Niente in coda.'}</Vuoto>
+      )}
+
+      {!caricando && righe.length === 0 && ricercaAttiva && (
+        <AltroveRicerca filtrate={filtrate} onScegli={setCoda} />
       )}
 
       {righe.length > 0 && (
@@ -455,6 +542,35 @@ export function FlussiFatture({
             ))}
           </ul>
         </>
+      )}
+
+      {ricercaAttiva && cerca.trim().length >= 2 && (
+        <section className="space-y-2 pt-2">
+          <h3 className="text-sm font-semibold text-gray-700">
+            Già pagate o chiuse
+            {archivio ? ` (${archivio.length}${archivio.length === 50 ? '+' : ''})` : ''}
+          </h3>
+          {cercandoArchivio && !archivio && <p className="text-sm text-gray-500">Cerco…</p>}
+          {archivio && archivio.length === 0 && (
+            <p className="text-sm text-gray-500">Nessuna fattura chiusa con questa ricerca.</p>
+          )}
+          {archivio && archivio.length > 0 && (
+            <ul className="space-y-2">
+              {archivio.map((r) => (
+                <Riga
+                  key={r.id}
+                  r={r}
+                  scelta={false}
+                  selezionabile={false}
+                  puoPagare={false}
+                  onAggiornato={carica}
+                  centri={dati?.centri ?? []}
+                  onToggle={() => undefined}
+                />
+              ))}
+            </ul>
+          )}
+        </section>
       )}
 
       {/* Barra delle azioni: compare solo con qualcosa selezionato, e solo a
@@ -725,6 +841,45 @@ function Tab({
     >
       {children}
     </button>
+  )
+}
+
+/** Niente in questa coda: dice in quali altre code la ricerca ha trovato qualcosa. */
+function AltroveRicerca({
+  filtrate,
+  onScegli,
+}: {
+  filtrate: Record<Coda, RigaScadenza[]>
+  onScegli: (c: Coda) => void
+}) {
+  const nomi: Record<Coda, string> = {
+    da_verificare: 'Da verificare',
+    da_pagare: 'Da pagare',
+    da_approvare: 'Da approvare',
+    automatiche: 'Escono da sole',
+  }
+  const altrove = (Object.keys(nomi) as Coda[]).filter((c) => filtrate[c].length > 0)
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600">
+      {altrove.length === 0 ? (
+        'Nessuna fattura in coda con questa ricerca.'
+      ) : (
+        <>
+          Non è in questa coda. Trovata in:{' '}
+          {altrove.map((c, i) => (
+            <span key={c}>
+              {i > 0 && ' · '}
+              <button
+                onClick={() => onScegli(c)}
+                className="font-semibold text-slate-700 underline underline-offset-2"
+              >
+                {nomi[c]} ({filtrate[c].length})
+              </button>
+            </span>
+          ))}
+        </>
+      )}
+    </div>
   )
 }
 
