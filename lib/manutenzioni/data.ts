@@ -2,7 +2,7 @@
  * Richieste di manutenzione: letture e scritture sulla lista SP.
  */
 
-import { graphGet, graphPost, graphPatch } from '@/lib/core/graph'
+import { graphGet, graphGetAll, graphPost, graphPatch } from '@/lib/core/graph'
 import { listBase, lookupValue, SITE, LIST, SP_USER_INFO_LIST, getSPUserLookupId } from '@/lib/core/sp'
 import type { Struttura, Tecnico, RichiestaManutenzione } from '@/types/manutenzioni'
 
@@ -132,3 +132,17 @@ export async function aggiornaRichiesta(
 // ============================================================
 // Parametri Configurazione
 // ============================================================
+
+/**
+ * Ticket completati → importo pagato al fornitore esterno (ImportoFattura).
+ * Serve al cruscotto Costi per struttura: il costo del ticket in Costi
+ * Strutture somma fornitore + ore interne, e dove ci sono i Lavori di Cura
+ * Ambienti le ore interne stanno già lì (decisione di Dennis del 9/10/2026).
+ */
+export async function getImportiEsterniTicket(): Promise<Map<string, number>> {
+  const voci = await graphGetAll<any>(
+    `${listBase('richieste')}?$select=id&$expand=fields($select=Title,ImportoFattura,Stato)&$filter=fields/Stato eq 'Completata'&$top=999`,
+    { Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly' },
+  )
+  return new Map(voci.map((i) => [String(i.fields?.Title ?? ''), Number(i.fields?.ImportoFattura ?? 0)]))
+}

@@ -92,3 +92,10 @@ export async function salvaPdf(idImportate: string, nome: string, base64: string
   )
   return r.webUrl ?? null
 }
+
+/** File già spostati in "Importate" (per rileggerli: utenze, correzioni). */
+export async function elencaImportate(): Promise<FileSdi[]> {
+  const idImportate = await cartellaImportate()
+  const voci = await graphGetAll<any>(`${drive()}/items/${idImportate}/children?$select=id,name,size,file,webUrl&$top=999`)
+  return voci.filter((v) => v.file).map((v) => ({ id: v.id, name: v.name, size: v.size, webUrl: v.webUrl }))
+}

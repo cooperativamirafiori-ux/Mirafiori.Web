@@ -18,6 +18,7 @@ import { puoEntrareControlloGestione, puoVedereFlussiFatture } from '@/lib/core/
 import { accessoQonto, puoVedereQonto } from '@/lib/qonto/accesso'
 import { accessoAssegnazione, puoAssegnare } from '@/lib/pagamenti/assegnazione'
 import { puoUsareCuraAmbienti } from '@/lib/cura-ambienti/accesso'
+import { accessoStrutture, puoVedereCostiStrutture } from '@/lib/costi-strutture/data'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,6 +33,7 @@ export default async function ControlloGestionePage() {
   const flussi = puoVedereFlussiFatture(permessi)
   const assegna = puoAssegnare(await accessoAssegnazione(session?.user))
   const curaAmbienti = await puoUsareCuraAmbienti(session?.user)
+  const costiStrutture = puoVedereCostiStrutture(await accessoStrutture(session?.user))
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -85,6 +87,14 @@ export default async function ControlloGestionePage() {
               emoji="🧹"
               titolo="Cura Ambienti"
               testo="Preventivi e consuntivi dei lavori di pulizia e manutenzione"
+            />
+          )}
+          {costiStrutture && (
+            <Card
+              href="/amministrazione/costi-strutture"
+              emoji="🏠"
+              titolo="Costi per struttura"
+              testo="Utenze, manutenzioni, pulizie e costi fissi delle strutture"
             />
           )}
           {flussi && (

@@ -57,6 +57,17 @@ const AREE = [
     ],
   },
   {
+    // Prima di "Costi strutture": i suoi prefissi (lib/costi, app/api/costi)
+    // catturerebbero anche lib/costi-strutture e lib/costi-fissi.
+    nome: 'Utenze · Costi per struttura',
+    prefissi: [
+      'app/(app)/amministrazione/utenze', 'app/(app)/amministrazione/costi-fissi', 'app/(app)/amministrazione/costi-strutture',
+      'app/api/utenze', 'app/api/costi-fissi', 'lib/utenze', 'lib/costi-fissi', 'lib/costi-strutture',
+      'lib/pagamenti/sdi/forniture', 'types/utenze', 'types/costi-fissi', 'types/costi-strutture',
+      'supabase/utenze', 'docs/utenze', 'scripts/utenze-', 'scripts/esplora-utenze', 'scripts/esplora-costi-strutture',
+    ],
+  },
+  {
     nome: 'Costi strutture',
     prefissi: ['app/(app)/inserisci-costo', 'app/(app)/cruscotto-costi', 'app/api/costi', 'lib/costi'],
   },

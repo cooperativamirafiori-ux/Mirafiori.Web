@@ -311,3 +311,32 @@ export async function preparaMese(mese: string, email: string): Promise<{ creati
   const creati = data?.length ?? 0
   return { creati, giaPresenti: righe.length - creati }
 }
+
+/**
+ * Consuntivi dell'anno per struttura e mese: è ciò che Cura Ambienti addebita
+ * alle strutture (lavori consuntivati o addebitati, destinatario struttura).
+ * Lo usa il cruscotto Costi per struttura. Importo null se manca la tariffa.
+ */
+export async function getConsuntiviAnno(
+  anno: number,
+): Promise<Array<{ strutturaCodice: string; mese: string; titolo: string; importo: number | null }>> {
+  const { data, error } = await supabase()
+    .from(TABELLA)
+    .select('*')
+    .eq('destinatario', 'struttura')
+    .in('stato', ['consuntivato', 'addebitato'])
+    .gte('mese', `${anno}-01-01`)
+    .lte('mese', `${anno}-12-01`)
+  if (error) throw new Error(`Consuntivi Cura Ambienti: ${error.message}`)
+  const lavori = (data ?? []).map(daRiga)
+  const mesi = [...new Set(lavori.map((l) => l.mese))]
+  const tariffe = new Map(await Promise.all(mesi.map(async (m) => [m, await getTariffe(m)] as const)))
+  return lavori
+    .filter((l) => l.strutturaCodice)
+    .map((l) => ({
+      strutturaCodice: l.strutturaCodice!,
+      mese: l.mese,
+      titolo: l.titolo,
+      importo: importiLavoro(l, tariffe.get(l.mese)!).consuntivo,
+    }))
+}

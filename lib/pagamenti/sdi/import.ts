@@ -19,7 +19,8 @@ import { supabase } from '@/lib/core/supabase'
 import { sogliaApprovazione } from '@/lib/pagamenti/import'
 import { eRicevutaSdi, leggiFatturaSdi, leggiMetadatiSdi, type FatturaSdi } from './fattura'
 import { scadenzeDa, type Contesto } from './regole'
-import { cartellaImportate, cartellaSdi, elencaFileSdi, salvaPdf, scaricaFileSdi, spostaInImportate } from './cartella'
+import { cartellaImportate, cartellaSdi, elencaFileSdi, elencaImportate, salvaPdf, scaricaFileSdi, spostaInImportate } from './cartella'
+import { caricaContesto, registraBollette, type ContestoUtenze } from '@/lib/utenze/data'
 
 /** La nostra partita IVA: un documento emesso da noi non è una fattura passiva. */
 export const PIVA_COOPERATIVA = '05569090011'
@@ -37,6 +38,7 @@ export interface RicevutaSdi {
   scartate: Array<{ file: string; motivo: string }>
   errori: Array<{ file: string; motivo: string }>
   rimasti: number          // non letti per limite di tempo: al prossimo giro
+  bollette: number         // forniture di luce/gas/acqua registrate (area Utenze)
   /** Vero se è una prova: niente scritto, niente spostato. */
   prova: boolean
   /** Una riga per fattura: cosa è successo (o succederebbe) e perché. */
@@ -210,11 +212,25 @@ export async function importaFattureSdi(opz: { utente: string; budgetMs?: number
 
   const ric: RicevutaSdi = {
     importId, primoImport, fileLetti: 0, fatture: 0, nuove: 0, raccordate: 0, giaImportate: 0,
-    perStato: {}, bloccate: 0, scartate: [], errori: [], rimasti: 0, prova: !scrivi, righe: [],
+    perStato: {}, bloccate: 0, scartate: [], errori: [], rimasti: 0, bollette: 0, prova: !scrivi, righe: [],
   }
 
   const tutti = await elencaFileSdi()
   const idImportate = scrivi ? await cartellaImportate() : ''
+
+  // Utenze: la Mappatura si legge una volta sola, e solo se serve. Un guasto
+  // qui non ferma l'import delle fatture: le bollette si recuperano dopo
+  // (le fatture restano senza `utenze_lette_il`).
+  let ctxUtenze: ContestoUtenze | null | undefined
+  const utenze = async (fatturaId: string, f: FatturaSdi) => {
+    if (!scrivi || (!f.forniture.length && !f.testoUtenze)) return
+    try {
+      if (ctxUtenze === undefined) ctxUtenze = await caricaContesto().catch(() => null)
+      if (ctxUtenze) ric.bollette += await registraBollette(ctxUtenze, fatturaId, f)
+    } catch (e: any) {
+      ric.errori.push({ file: f.nomeFile, motivo: `utenze: ${String(e?.message ?? e).slice(0, 200)}` })
+    }
+  }
 
   // Ricevute SDI: nome del file di fattura → identificativo + id del file ricevuta.
   const ricevute = new Map<string, { idSdi: string; fileId: string }>()
@@ -256,7 +272,10 @@ export async function importaFattureSdi(opz: { utente: string; budgetMs?: number
         else ric.raccordate++
         for (const s of e.scadenze) ric.perStato[s.stato] = (ric.perStato[s.stato] ?? 0) + 1
         ric.bloccate += e.scadenze.filter((s) => s.blocco).length
-        if (e.tipo !== 'gia') ids.push(e.id)
+        if (e.tipo !== 'gia') {
+          ids.push(e.id)
+          await utenze(e.id, f)
+        }
         ric.righe.push({
           fornitore: f.fornitore, numero: f.numero, data: f.data, importo: f.daPagare, esito: e.tipo,
           scadenze: e.scadenze.map((s) => ({ stato: s.stato, data: s.data_scadenza, importo: s.importo, motivo: s.motivo_verifica, blocco: s.blocco })),
@@ -310,4 +329,54 @@ export async function importaFattureSdi(opz: { utente: string; budgetMs?: number
     dettaglio: { ...ric, righe: undefined },
   })
   return ric
+}
+
+/**
+ * Rilegge per le utenze gli XML delle fatture già importate (in "Importate")
+ * che non sono ancora passate dalla lettura delle forniture: serve una volta
+ * per le fatture arrivate prima dell'area Utenze, e dopo un guasto.
+ * Ripetibile: ogni fattura letta prende `utenze_lette_il` e non si rilegge.
+ */
+export async function rileggiUtenze(opz: { budgetMs?: number } = {}): Promise<{ lette: number; bollette: number; senzaFile: number; rimaste: number; errori: Array<{ file: string; motivo: string }> }> {
+  const t0 = Date.now()
+  const budget = opz.budgetMs ?? 240_000
+  const db = supabase()
+  const ctx = await caricaContesto()
+  const esito = { lette: 0, bollette: 0, senzaFile: 0, rimaste: 0, errori: [] as Array<{ file: string; motivo: string }> }
+
+  const { data: fatture, error } = await db
+    .from('fattura_passiva')
+    .select('id, file_sdi, identificativo_sdi')
+    .not('identificativo_sdi', 'is', null)
+    .not('file_sdi', 'is', null)
+    .is('utenze_lette_il', null)
+    .limit(2000)
+  if (error) throw new Error(`fatture da rileggere: ${error.message}`)
+  if (!fatture?.length) return esito
+
+  const file = new Map<string, string>()
+  for (const f of await elencaImportate()) file.set(normNome(f.name), f.id)
+
+  for (const r of fatture) {
+    if (Date.now() - t0 > budget) {
+      esito.rimaste++
+      continue
+    }
+    const idFile = file.get(normNome(r.file_sdi))
+    if (!idFile) {
+      esito.senzaFile++
+      await db.from('fattura_passiva').update({ utenze_lette_il: new Date().toISOString() }).eq('id', r.id)
+      continue
+    }
+    try {
+      const corpi = leggiFatturaSdi(r.file_sdi, await scaricaFileSdi(idFile))
+      const k = /#(\d+)$/.exec(r.identificativo_sdi ?? '')
+      const f = corpi[k ? Number(k[1]) - 1 : 0] ?? corpi[0]
+      esito.bollette += await registraBollette(ctx, r.id, f)
+      esito.lette++
+    } catch (e: any) {
+      esito.errori.push({ file: r.file_sdi, motivo: String(e?.message ?? e).slice(0, 200) })
+    }
+  }
+  return esito
 }

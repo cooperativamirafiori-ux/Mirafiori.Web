@@ -57,11 +57,11 @@ export default async function ManutenzioniPage() {
               />
 
               <ModuloCard
-                href="/cruscotto-costi"
+                href="/amministrazione/costi-strutture"
                 emoji="📊"
                 iconBg="bg-brand-cyan-dark"
                 titolo="Cruscotto costi"
-                sottotitolo="Costi per struttura da inizio anno"
+                sottotitolo="Costi per struttura: manutenzioni, utenze, costi fissi"
                 badge="Admin"
               />
             </>

@@ -10,6 +10,8 @@
  */
 
 import { estraiDaP7m } from './p7m'
+import { leggiForniture } from './forniture'
+import type { FornituraSdi } from '@/types/utenze'
 import { cerca, leggiXml, numero, testo, trova, tutti, type Elemento } from './xml'
 import type { FamigliaModalita } from '@/types/pagamenti'
 
@@ -60,6 +62,10 @@ export interface FatturaSdi {
   /** Riferimenti testuali nelle righe (es. "C04749 LOCANDA NEL PARCO"): aiutano a indovinare il servizio. */
   riferimenti: string[]
   allegati: AllegatoSdi[]
+  /** Luce, gas, acqua: codice, importo, consumo e periodo (vuoto se non è una bolletta). */
+  forniture: FornituraSdi[]
+  /** Testo normalizzato dove cercare i codici della Mappatura Utenze, per chi non li mette in riga. */
+  testoUtenze: string
 }
 
 // ------------------------------------------------------------
@@ -221,6 +227,7 @@ function unaFattura(nomeFile: string, header: Elemento | undefined, body: Elemen
     descrizione,
     riferimenti,
     allegati,
+    ...leggiForniture(body, imponibile),
   }
 }
 
