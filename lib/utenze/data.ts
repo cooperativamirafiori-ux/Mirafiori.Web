@@ -109,7 +109,7 @@ export async function aggiornaUtenza(id: number, d: DatiMappatura): Promise<void
   await graphPatch(`${base()}/${id}/fields`, campiSp(d))
 }
 
-/** Solo per le righe doppie: dall'app non c'è un "elimina" (vedi docs/utenze.md). */
+/** Toglie una riga della Mappatura. Le bollette già divise non cambiano (la struttura è copiata sulla quota). */
 export async function eliminaUtenzaSp(id: number): Promise<void> {
   await graphDelete(`${base()}/${id}`)
 }
@@ -283,6 +283,19 @@ export async function collegaCodice(codice: string, utente: string, riapplica = 
       await ccAutomatico(b.fattura_passiva_id)
     }
   }
+  return n
+}
+
+/**
+ * Bollette in attesa il cui codice nel frattempo è entrato in Mappatura (da
+ * SharePoint, da uno script, da un'altra schermata): si collegano. Gira a fine
+ * import notturno e dopo "Rileggi". Ritorna quante bollette ha sistemato.
+ */
+export async function collegaInAttesa(): Promise<number> {
+  const [attesa, mappatura] = await Promise.all([getDaCollegare(), getMappatura()])
+  const noti = new Set(mappatura.filter((m) => m.strutturaId).map((m) => normCodice(m.codice)))
+  let n = 0
+  for (const d of attesa) if (noti.has(normCodice(d.codice))) n += await collegaCodice(d.codice, AUTOMATICO)
   return n
 }
 

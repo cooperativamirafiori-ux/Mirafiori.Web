@@ -3,13 +3,12 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Kpi } from '@/components/ui/Kpi'
-import { Pill } from '@/components/ui/Pill'
 import { Banner } from '@/components/ui/Banner'
-import { Vuoto } from '@/components/ui/Vuoto'
 import { ETICHETTA_TIPO, normCodice, type DaCollegare, type StrutturaCc, type UtenzaConUltima } from '@/types/utenze'
 import { data, euro, numero, EMOJI_TIPO } from '../../costi-strutture/_componenti/formato'
 import { ModaleUtenza } from './ModaleUtenza'
 import { ModaleCollega } from './ModaleCollega'
+import { ElencoStrutture, type GruppoStruttura } from './ElencoStrutture'
 
 export function GestioneUtenze({
   utenze,
@@ -25,7 +24,7 @@ export function GestioneUtenze({
   anno: number
 }) {
   const router = useRouter()
-  const [modifica, setModifica] = useState<UtenzaConUltima | 'nuova' | null>(null)
+  const [modifica, setModifica] = useState<UtenzaConUltima | { nuova: number | null } | null>(null)
   const [collega, setCollega] = useState<DaCollegare | null>(null)
   const [messaggio, setMessaggio] = useState('')
   const [errore, setErrore] = useState('')
@@ -34,18 +33,25 @@ export function GestioneUtenze({
 
   const nomeStruttura = useMemo(() => new Map(strutture.map((s) => [s.id, `${s.codice} · ${s.nome}`])), [strutture])
 
-  const gruppi = useMemo(() => {
+  // Tutte le strutture, anche quelle senza utenze (per aggiungerne). Con una
+  // ricerca restano solo quelle che contengono qualcosa che corrisponde.
+  const gruppi = useMemo<GruppoStruttura[]>(() => {
     const q = cerca.trim().toLowerCase()
-    const filtrate = utenze.filter((u) =>
-      !q || [u.codice, u.fornitore, u.note, nomeStruttura.get(u.strutturaId ?? 0) ?? ''].some((t) => t.toLowerCase().includes(q)),
-    )
-    const m = new Map<string, UtenzaConUltima[]>()
-    for (const u of filtrate) {
-      const k = u.strutturaId ? nomeStruttura.get(u.strutturaId) ?? 'Struttura non trovata' : 'Senza struttura'
-      m.set(k, [...(m.get(k) ?? []), u])
-    }
-    return [...m.entries()].sort(([a], [b]) => (a === 'Senza struttura' ? 1 : b === 'Senza struttura' ? -1 : a.localeCompare(b, 'it')))
-  }, [utenze, nomeStruttura, cerca])
+    const corrisponde = (u: UtenzaConUltima) =>
+      !q || [u.codice, u.fornitore, u.note, nomeStruttura.get(u.strutturaId ?? 0) ?? ''].some((t) => t.toLowerCase().includes(q))
+    const ids = new Set(strutture.map((s) => s.id))
+    const out: GruppoStruttura[] = strutture
+      .map((s) => ({ struttura: s, utenze: utenze.filter((u) => u.strutturaId === s.id && corrisponde(u)) }))
+      .filter((g) => !q || g.utenze.length > 0 || `${g.struttura.codice} ${g.struttura.nome}`.toLowerCase().includes(q))
+    const orfane = utenze.filter((u) => (!u.strutturaId || !ids.has(u.strutturaId)) && corrisponde(u))
+    if (orfane.length) out.unshift({ struttura: null, utenze: orfane })
+    return out.sort((a, b) => {
+      if (!a.struttura) return -1
+      if (!b.struttura) return 1
+      if (!a.utenze.length !== !b.utenze.length) return a.utenze.length ? -1 : 1
+      return a.struttura.codice.localeCompare(b.struttura.codice)
+    })
+  }, [utenze, strutture, nomeStruttura, cerca])
 
   // Percentuale totale per codice: sopra 100 la bolletta resta da collegare
   // (sarebbe contata più volte), sotto 100 una parte non va da nessuna parte.
@@ -148,55 +154,25 @@ export function GestioneUtenze({
 
       <section>
         <div className="flex flex-wrap items-center gap-2 mb-3">
-          <h3 className="font-bold text-gray-800 mr-auto">Elenco utenze</h3>
-          <button onClick={() => setModifica('nuova')} className="px-4 py-2 rounded-xl bg-brand-cyan text-white text-sm font-semibold">
+          <h3 className="font-bold text-gray-800 mr-auto">Strutture</h3>
+          <button onClick={() => setModifica({ nuova: null })} className="px-4 py-2 rounded-xl bg-brand-cyan text-white text-sm font-semibold">
             + Nuova utenza
           </button>
         </div>
         <input
           value={cerca}
           onChange={(e) => setCerca(e.target.value)}
-          placeholder="Cerca codice, struttura, fornitore…"
+          placeholder="Cerca una struttura o un codice (POD, PDR…)"
           className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-base mb-4 focus:outline-none focus:ring-2 focus:ring-brand-cyan"
         />
-        {!gruppi.length && <Vuoto>Nessuna utenza.</Vuoto>}
-        <div className="space-y-5">
-          {gruppi.map(([nome, righe]) => (
-            <div key={nome}>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">{nome}</p>
-              <div className="space-y-2">
-                {righe.map((u) => (
-                  <button
-                    key={u.id}
-                    onClick={() => setModifica(u)}
-                    className="w-full text-left bg-white rounded-xl border border-gray-100 p-3.5 hover:border-brand-cyan transition-colors"
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span>{EMOJI_TIPO[u.tipo]}</span>
-                      <span className="font-mono text-sm font-semibold text-gray-800 break-all">{u.codice}</span>
-                      {u.percentuale < 100 && <Pill tono="neutro" text={`${numero(u.percentuale)}%`} />}
-                      {u.segnaposto && <Pill tono="ambra" text="codice da completare" />}
-                      {!u.strutturaId && <Pill tono="rosso" text="senza struttura" />}
-                      {percentualeStorta(u) !== null && (
-                        <Pill tono="rosso" text={`il codice somma al ${numero(percentualeStorta(u)!)}%`} />
-                      )}
-                      {u.fornitore && <span className="text-xs text-gray-500">{u.fornitore}</span>}
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1.5">
-                      {u.ultima
-                        ? `Ultima bolletta ${data(u.ultima.data)} · ${euro(u.ultima.importo, 2)}` +
-                          (u.ultima.consumo != null ? ` · ${numero(u.ultima.consumo)} ${u.ultima.unita ?? ''}` : '') +
-                          (u.ultima.periodoDal ? ` · ${data(u.ultima.periodoDal)} → ${data(u.ultima.periodoAl)}` : '') +
-                          ` · ${u.bolletteAnno} nel ${anno}`
-                        : 'Nessuna bolletta arrivata finora'}
-                    </p>
-                    {u.note && <p className="text-xs text-gray-400 mt-1">{u.note}</p>}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+        <ElencoStrutture
+          gruppi={gruppi}
+          anno={anno}
+          cercando={cerca.trim().length > 0}
+          percentualeStorta={percentualeStorta}
+          onApriUtenza={(u) => setModifica(u)}
+          onNuova={(id) => setModifica({ nuova: id })}
+        />
       </section>
 
       <section className="bg-white rounded-xl border border-gray-100 p-4">
@@ -215,7 +191,8 @@ export function GestioneUtenze({
 
       {modifica && (
         <ModaleUtenza
-          utenza={modifica === 'nuova' ? null : modifica}
+          utenza={'nuova' in modifica ? null : modifica}
+          strutturaIniziale={'nuova' in modifica ? modifica.nuova : null}
           strutture={strutture}
           onChiudi={() => setModifica(null)}
           onFatto={(t) => {

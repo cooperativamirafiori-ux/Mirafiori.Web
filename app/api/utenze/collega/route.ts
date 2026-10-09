@@ -23,6 +23,13 @@ export async function POST(req: NextRequest) {
   try {
     let rigaId: number
     const segnapostoId = Number(body.segnapostoId ?? 0)
+    // Il codice è già in Mappatura (aggiunto da SharePoint o da uno script):
+    // niente riga nuova, che farebbe superare il 100%; si collegano le bollette.
+    const gia = (await getMappatura()).find((m) => normCodice(m.codice) === codice && m.strutturaId)
+    if (gia) {
+      const collegate = await collegaCodice(codice, g.session.user.email!)
+      return NextResponse.json({ ok: true, collegate, gia: true })
+    }
     if (segnapostoId) {
       const riga = (await getMappatura()).find((m) => m.id === segnapostoId)
       if (!riga || !riga.strutturaId) return NextResponse.json({ error: 'Riga segnaposto non trovata o senza struttura' }, { status: 400 })

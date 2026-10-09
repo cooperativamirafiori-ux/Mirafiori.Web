@@ -35,6 +35,8 @@ Il codice sta in `lib/pagamenti/sdi/forniture.ts` (funzione pura). Per i fornito
 
 **Regola:** struttura e centro di costo si **copiano** sulla quota al collegamento. Cambiare la Mappatura vale per il futuro; per riscrivere le bollette passate c'è la spunta "Applica anche alle bollette già registrate".
 
+**Eliminare un'utenza** (dalla sua scheda, con conferma): la riga esce dalla Mappatura. Le bollette già divise restano sulla loro struttura, perché la struttura è copiata sulla quota; se ne arrivano altre con quel codice, finiscono in "Da collegare". Le bollette in attesa il cui codice entra in Mappatura da fuori (SharePoint, script) si collegano da sole a fine import notturno e dopo "Rileggi" (`collegaInAttesa`).
+
 **Recupero:** il bottone "Rileggi le fatture già importate" (`POST /api/utenze/rileggi`) rilegge gli XML in "Importate" delle fatture senza `utenze_lette_il`. È ripetibile e riparte da dove era rimasto.
 
 ## Doppioni: come si evitano (verifica del 9/10/2026)

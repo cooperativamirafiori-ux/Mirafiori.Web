@@ -20,7 +20,7 @@ import { sogliaApprovazione } from '@/lib/pagamenti/import'
 import { eRicevutaSdi, leggiFatturaSdi, leggiMetadatiSdi, type FatturaSdi } from './fattura'
 import { scadenzeDa, type Contesto } from './regole'
 import { cartellaImportate, cartellaSdi, elencaFileSdi, elencaImportate, salvaPdf, scaricaFileSdi, spostaInImportate } from './cartella'
-import { caricaContesto, registraBollette, type ContestoUtenze } from '@/lib/utenze/data'
+import { caricaContesto, collegaInAttesa, registraBollette, type ContestoUtenze } from '@/lib/utenze/data'
 
 /** La nostra partita IVA: un documento emesso da noi non è una fattura passiva. */
 export const PIVA_COOPERATIVA = '05569090011'
@@ -314,6 +314,13 @@ export async function importaFattureSdi(opz: { utente: string; budgetMs?: number
     if (data?.length) await spostaInImportate(r.fileId, idImportate).catch(() => undefined)
   }
 
+  // Codici entrati in Mappatura dopo l'arrivo delle loro bollette.
+  try {
+    ric.bollette += await collegaInAttesa()
+  } catch (e: any) {
+    ric.errori.push({ file: 'utenze', motivo: `collegamento in attesa: ${String(e?.message ?? e).slice(0, 200)}` })
+  }
+
   await db.from('import_file').insert({
     id: importId,
     nome_file: `${ric.fileLetti} file da "${cartellaSdi()}"`,
@@ -352,7 +359,10 @@ export async function rileggiUtenze(opz: { budgetMs?: number } = {}): Promise<{ 
     .is('utenze_lette_il', null)
     .limit(2000)
   if (error) throw new Error(`fatture da rileggere: ${error.message}`)
-  if (!fatture?.length) return esito
+  if (!fatture?.length) {
+    esito.bollette += await collegaInAttesa()
+    return esito
+  }
 
   const file = new Map<string, string>()
   for (const f of await elencaImportate()) file.set(normNome(f.name), f.id)
@@ -378,5 +388,6 @@ export async function rileggiUtenze(opz: { budgetMs?: number } = {}): Promise<{ 
       esito.errori.push({ file: r.file_sdi, motivo: String(e?.message ?? e).slice(0, 200) })
     }
   }
+  esito.bollette += await collegaInAttesa()
   return esito
 }
