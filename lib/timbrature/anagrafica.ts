@@ -7,7 +7,7 @@
  * sopra `date.ts`.
  */
 
-import { supabase } from '@/lib/core/supabase'
+import { supabase, tutteLeRighe } from '@/lib/core/supabase'
 import { calcolaOre, normalizzaOrario, orarioInMinuti, round4, weekdayIso } from '@/lib/timbrature/date'
 import type {
   Servizio,
@@ -338,6 +338,45 @@ export async function profiloVigente(
     .maybeSingle()
   if (error) throw new Error(error.message)
   return data ? mapProfilo(data) : null
+}
+
+/**
+ * Le variazioni di orario di piu' dipendenti con decorrenza fino a `dataYmd`,
+ * dalla piu' recente, in una sola lettura. Con `profiloVigenteDa` se ne ricava
+ * il vigente a qualunque data del periodo: e' `profiloVigente` per il cruscotto.
+ */
+export async function profiliFinoA(
+  dipendentiIds: number[],
+  dataYmd: string,
+): Promise<Map<number, ProfiloOrario[]>> {
+  const out = new Map<number, ProfiloOrario[]>()
+  if (!dipendentiIds.length) return out
+  const righe = await tutteLeRighe((da, a) =>
+    supabase()
+      .from('profilo_orario')
+      .select(SELECT_PROFILO)
+      .in('dipendente_id', dipendentiIds)
+      .lte('decorrenza', dataYmd)
+      .order('decorrenza', { ascending: false })
+      .order('id', { ascending: true })
+      .range(da, a),
+  )
+  for (const r of righe) {
+    const p = mapProfilo(r)
+    const id = Number(p.dipendenteId)
+    const lista = out.get(id)
+    if (lista) lista.push(p)
+    else out.set(id, [p])
+  }
+  return out
+}
+
+/** Fra i profili di un dipendente (dal piu' recente), quello vigente a `dataYmd`. */
+export function profiloVigenteDa(
+  profili: ProfiloOrario[] | undefined,
+  dataYmd: string,
+): ProfiloOrario | null {
+  return profili?.find((p) => String(p.decorrenza).slice(0, 10) <= dataYmd) ?? null
 }
 
 /**

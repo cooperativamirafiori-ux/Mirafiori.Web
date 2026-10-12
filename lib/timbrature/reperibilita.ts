@@ -17,7 +17,7 @@
  *   - responsabile e HR, per conto: finche' il foglio non e' validato.
  */
 
-import { supabase } from '@/lib/core/supabase'
+import { supabase, tutteLeRighe } from '@/lib/core/supabase'
 import { assertScrivibile } from '@/lib/timbrature/righe'
 
 const TABELLA = 'giornata_reperibilita'
@@ -37,6 +37,35 @@ export async function listGiornateReperibilita(
     .order('data', { ascending: true })
   if (error) throw new Error(error.message)
   return (data ?? []).map((r: any) => String(r.data).slice(0, 10))
+}
+
+/** Come `listGiornateReperibilita`, per piu' dipendenti in una sola lettura. */
+export async function listGiornateReperibilitaMolti(
+  dipendentiIds: number[],
+  from: string,
+  to: string,
+): Promise<Map<number, string[]>> {
+  const out = new Map<number, string[]>()
+  if (!dipendentiIds.length) return out
+  const righe = await tutteLeRighe((da, a) =>
+    supabase()
+      .from(TABELLA)
+      .select('dipendente_id, data')
+      .in('dipendente_id', dipendentiIds)
+      .gte('data', from)
+      .lte('data', to)
+      .order('data', { ascending: true })
+      .order('dipendente_id', { ascending: true })
+      .range(da, a),
+  )
+  for (const r of righe as any[]) {
+    const id = Number(r.dipendente_id)
+    const data = String(r.data).slice(0, 10)
+    const lista = out.get(id)
+    if (lista) lista.push(data)
+    else out.set(id, [data])
+  }
+  return out
 }
 
 /**

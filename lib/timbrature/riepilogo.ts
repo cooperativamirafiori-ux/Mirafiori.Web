@@ -9,12 +9,14 @@
  * non e' una funzione in piu': e' semplicemente come funziona.
  */
 
-import { supabase } from '@/lib/core/supabase'
+import { supabase, tutteLeRighe } from '@/lib/core/supabase'
 import {
   getDipendenti,
   mapDip,
   monteToSettimana,
+  profiliFinoA,
   profiloVigente,
+  profiloVigenteDa,
 } from '@/lib/timbrature/anagrafica'
 import {
   giorniDa,
@@ -26,17 +28,19 @@ import {
   weekdayIso,
 } from '@/lib/timbrature/date'
 import { festivitaAnno } from '@/lib/timbrature/festivita'
-import { listTimbrature } from '@/lib/timbrature/righe'
-import { listGiornateReperibilita } from '@/lib/timbrature/reperibilita'
-import { getChiusura, marcaDaValidare } from '@/lib/timbrature/stati'
+import { listTimbrature, listTimbratureMolti } from '@/lib/timbrature/righe'
+import { listGiornateReperibilita, listGiornateReperibilitaMolti } from '@/lib/timbrature/reperibilita'
+import { getChiusura, getChiusureMese, marcaDaValidare } from '@/lib/timbrature/stati'
 import type {
   ChiusuraMese,
   Dipendente,
   OrePerVoce,
+  ProfiloOrario,
   RiepilogoGiorno,
   RiepilogoPeriodo,
   RiepilogoSettimana,
   StatoDipendenteMese,
+  Timbratura,
 } from '@/types/timbrature'
 
 /**
@@ -54,17 +58,33 @@ export async function riepilogoPeriodo(
   from: string,
   to: string,
 ): Promise<RiepilogoPeriodo> {
-  const [timb, reperibili] = await Promise.all([
+  const [timb, reperibili, profStart] = await Promise.all([
     listTimbrature(dipendenteId, from, to),
     listGiornateReperibilita(dipendenteId, from, to),
+    // profili: prendi il vigente all'inizio periodo (assunzione: cambio raro)
+    profiloVigente(dipendenteId, from),
   ])
+  return calcolaRiepilogo(timb, reperibili, profStart, from, to)
+}
+
+/**
+ * Il calcolo vero e proprio, sui dati gia' letti. Separato dalla lettura perche'
+ * il cruscotto legge le righe di tutti i dipendenti in blocco e poi calcola
+ * persona per persona: stessi numeri, una manciata di chiamate invece di
+ * quattro per dipendente.
+ */
+export function calcolaRiepilogo(
+  timb: Timbratura[],
+  reperibili: string[],
+  profStart: ProfiloOrario | null,
+  from: string,
+  to: string,
+): RiepilogoPeriodo {
   const festivita = {
     ...festivitaAnno(Number(from.slice(0, 4))),
     ...festivitaAnno(Number(to.slice(0, 4))),
   }
 
-  // profili: prendi il vigente all'inizio periodo (assunzione: cambio raro)
-  const profStart = await profiloVigente(dipendenteId, from)
   const monte = monteToSettimana(profStart)
 
   const perGiorno = new Map<string, RiepilogoGiorno>()
@@ -264,15 +284,21 @@ async function dipendentiDelMese(
   const attivi = tuttiAttivi.filter(filtro)
   const noti = new Set(attivi.map((d) => d.id))
 
+  // Paginate: le righe di un mese di tutti superano presto il tetto di 1000
+  // di PostgREST, e una lettura troncata perderebbe proprio i disattivati.
   const [righe, chiusure] = await Promise.all([
-    supabase().from('timbratura').select('dipendente_id').gte('data', from).lte('data', to),
-    supabase().from('chiusura_mese').select('dipendente_id').eq('anno', anno).eq('mese', mese),
+    tutteLeRighe((da, a) =>
+      supabase().from('timbratura').select('dipendente_id').gte('data', from).lte('data', to)
+        .order('id', { ascending: true }).range(da, a),
+    ),
+    tutteLeRighe((da, a) =>
+      supabase().from('chiusura_mese').select('dipendente_id').eq('anno', anno).eq('mese', mese)
+        .order('id', { ascending: true }).range(da, a),
+    ),
   ])
-  if (righe.error) throw new Error(righe.error.message)
-  if (chiusure.error) throw new Error(chiusure.error.message)
 
   const conAttivita = new Set<number>(
-    [...(righe.data ?? []), ...(chiusure.data ?? [])].map((r: any) => Number(r.dipendente_id)),
+    [...righe, ...chiusure].map((r: any) => Number(r.dipendente_id)),
   )
   const daRecuperare = [...conAttivita].filter((id) => !noti.has(id))
 
@@ -304,15 +330,31 @@ export async function statoMeseTutti(
   const { from, to } = primoUltimoGiorno(anno, mese)
   const dips = await dipendentiDelMese(anno, mese, from, to, referente)
   const scaduto = meseScaduto(anno, mese)
+
+  // Tutto in blocco: quattro letture per l'intero cruscotto, non quattro per
+  // dipendente una dopo l'altra (con 120 persone erano secondi di attesa).
+  const ids = dips.map(({ dip }) => dip.id)
+  const [timbPer, reperPer, profiliPer, chiusurePer] = await Promise.all([
+    listTimbratureMolti(ids, from, to),
+    listGiornateReperibilitaMolti(ids, from, to),
+    profiliFinoA(ids, to),
+    getChiusureMese(ids, anno, mese),
+  ])
+
   const out: StatoDipendenteMese[] = []
   for (const { dip: d, disattivato } of dips) {
-    const [rp, ch, prof] = await Promise.all([
-      riepilogoPeriodo(d.id, from, to),
-      getChiusura(d.id, anno, mese),
-      // Solo per chi non timbra: serve a dire se il bottone "Compila il mese"
-      // ha da cosa generare. Per gli altri e' una domanda senza senso.
-      d.nonTimbra ? profiloVigente(d.id, to) : Promise.resolve(null),
-    ])
+    const profili = profiliPer.get(Number(d.id))
+    const rp = calcolaRiepilogo(
+      timbPer.get(Number(d.id)) ?? [],
+      reperPer.get(Number(d.id)) ?? [],
+      profiloVigenteDa(profili, from),
+      from,
+      to,
+    )
+    const ch = chiusurePer.get(Number(d.id)) ?? null
+    // Solo per chi non timbra: serve a dire se il bottone "Compila il mese"
+    // ha da cosa generare. Per gli altri e' una domanda senza senso.
+    const prof = d.nonTimbra ? profiloVigenteDa(profili, to) : null
     const incompleti = giorniIncompleti(rp).length
     out.push({
       dipendenteId: d.id,

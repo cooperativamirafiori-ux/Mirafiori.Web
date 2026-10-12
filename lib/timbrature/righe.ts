@@ -7,7 +7,7 @@
  * semplice.
  */
 
-import { supabase } from '@/lib/core/supabase'
+import { supabase, tutteLeRighe } from '@/lib/core/supabase'
 import {
   getDipendenteById,
   monteToSettimana,
@@ -84,6 +84,40 @@ export async function listTimbrature(
     .order('ora_inizio', { ascending: true, nullsFirst: true })
   if (error) throw new Error(error.message)
   return (data ?? []).map(mapTimbratura)
+}
+
+/**
+ * Le righe di piu' dipendenti in una sola lettura, raggruppate per dipendente e
+ * nello stesso ordine di `listTimbrature`. Per il cruscotto, che altrimenti
+ * farebbe una chiamata per persona.
+ */
+export async function listTimbratureMolti(
+  dipendentiIds: number[],
+  from: string,
+  to: string,
+): Promise<Map<number, Timbratura[]>> {
+  const out = new Map<number, Timbratura[]>()
+  if (!dipendentiIds.length) return out
+  const righe = await tutteLeRighe((da, a) =>
+    supabase()
+      .from('timbratura')
+      .select(SELECT_TIMB)
+      .in('dipendente_id', dipendentiIds)
+      .gte('data', from)
+      .lte('data', to)
+      .order('data', { ascending: true })
+      .order('ora_inizio', { ascending: true, nullsFirst: true })
+      .order('id', { ascending: true })
+      .range(da, a),
+  )
+  for (const r of righe) {
+    const t = mapTimbratura(r)
+    const id = Number(t.dipendenteId)
+    const lista = out.get(id)
+    if (lista) lista.push(t)
+    else out.set(id, [t])
+  }
+  return out
 }
 
 // ----------------------------------------------------------- chi puo' scrivere

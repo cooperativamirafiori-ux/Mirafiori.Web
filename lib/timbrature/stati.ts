@@ -10,7 +10,7 @@
  */
 
 import { randomBytes } from 'crypto'
-import { supabase } from '@/lib/core/supabase'
+import { supabase, tutteLeRighe } from '@/lib/core/supabase'
 import { getDipendenteById, getSubordinati, mapDip } from '@/lib/timbrature/anagrafica'
 import { meseScaduto, oggiRoma, primaDataUtile, ultimoGiornoUtile } from '@/lib/timbrature/date'
 import type { ChiusuraMese, Dipendente, FinestraMese, StatoMese } from '@/types/timbrature'
@@ -61,6 +61,31 @@ export async function getChiusura(
     .maybeSingle()
   if (error) throw new Error(error.message)
   return data ? mapChiusura(data) : null
+}
+
+/** Le chiusure del mese di piu' dipendenti in una sola lettura, per dipendente. */
+export async function getChiusureMese(
+  dipendentiIds: number[],
+  anno: number,
+  mese: number,
+): Promise<Map<number, ChiusuraMese>> {
+  const out = new Map<number, ChiusuraMese>()
+  if (!dipendentiIds.length) return out
+  const righe = await tutteLeRighe((da, a) =>
+    supabase()
+      .from('chiusura_mese')
+      .select('*')
+      .in('dipendente_id', dipendentiIds)
+      .eq('anno', anno)
+      .eq('mese', mese)
+      .order('id', { ascending: true })
+      .range(da, a),
+  )
+  for (const r of righe) {
+    const ch = mapChiusura(r)
+    out.set(Number(ch.dipendenteId), ch)
+  }
+  return out
 }
 
 /**

@@ -25,3 +25,29 @@ export function supabase(): SupabaseClient {
   })
   return _client
 }
+
+/**
+ * Tutte le righe di una lettura, pagina per pagina.
+ *
+ * PostgREST restituisce al massimo un tetto di righe per chiamata (1000 di
+ * default) e lo fa in silenzio: una lettura "di tutti" che supera il tetto torna
+ * troncata senza errore. Serve alle letture in blocco (il cruscotto legge le
+ * righe di tutti i dipendenti insieme), che il tetto lo superano davvero.
+ *
+ * `pagina(da, a)` deve costruire la query con `.range(da, a)` e un ordinamento
+ * stabile (che finisca su una chiave unica), altrimenti le pagine si sovrappongono.
+ * Si va avanti finche' arriva una pagina vuota: cosi' funziona anche se il tetto
+ * del progetto e' piu' basso di quello chiesto.
+ */
+export async function tutteLeRighe<T = any>(
+  pagina: (da: number, a: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const PAGINA = 1000
+  const out: T[] = []
+  for (;;) {
+    const { data, error } = await pagina(out.length, out.length + PAGINA - 1)
+    if (error) throw new Error(error.message)
+    if (!data?.length) return out
+    out.push(...data)
+  }
+}
