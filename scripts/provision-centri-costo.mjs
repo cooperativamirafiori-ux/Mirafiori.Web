@@ -35,14 +35,21 @@ const LIST_NAME = 'Centri di Costo'
 // propri e una lista in più sarebbe solo un lookup in più da mantenere.
 // Nel foglio l'area delle autonomie è scritta "Area Autonomie (tipicamente
 // progetti)": la parentesi è una nota di lettura, non fa parte del nome.
+// Aree del modello di controllo di gestione (12/10/2026): sostituiscono le
+// dieci di prima ("Area Educativa" divisa in Educativa / Educativa
+// Residenziale, "Area Autonomie" in Autonomie / Autonomie Adulti, "Pari
+// opportunità" → "Contrasto violenza di genere"). Le liste esistenti si
+// allineano con scripts/allinea-modello-centri-costo.mjs.
 const AREE = [
-  'Lavoro',
+  'Educativa',
+  'Educativa Residenziale',
+  'Autonomie',
+  'Autonomie Adulti',
+  'Socio Sanitaria',
+  'Socio Culturale',
+  'Contrasto violenza di genere',
   'Ristorazione',
-  'Pari opportunità',
-  'Area Socio-Culturale',
-  'Area Socio Sanitaria',
-  'Area Educativa',
-  'Area Autonomie',
+  'Lavoro',
   'Ricettività',
   'Commercio',
   'Servizi Generali',
@@ -60,6 +67,12 @@ const COLUMNS = [
   // con scripts/coordinatori-centri-costo.mjs, che sistema anche la colonna su
   // una lista già creata. Il nome interno resta Responsabile.
   { name: 'Responsabile', displayName: 'Coordinatori', personOrGroup: { allowMultipleSelection: true } },
+  // Dal 12/10/2026 coordinatori e responsabili d'area stanno come EMAIL (testo,
+  // separate da ";"): una colonna persona accetta solo chi ha già aperto il
+  // sito SharePoint. Si modificano da Amministrazione → Centri di costo.
+  // La colonna persona sopra resta e si legge ancora, ma l'app la svuota.
+  { name: 'EmailCoordinatori', displayName: 'Coordinatori (email)', text: { allowMultipleLines: true } },
+  { name: 'EmailResponsabileArea', displayName: 'Responsabile Area (email)', text: { allowMultipleLines: true } },
   // Un centro di costo non si cancella mai — lo storico dei costi lo referenzia.
   // Quando non serve più si mette Attivo = No e sparisce dai menù.
   { name: 'Attivo', boolean: {} },
@@ -73,23 +86,23 @@ const SEED = [
   { codice: 'cc1',  area: 'Lavoro',                nome: 'Scat.to Orientamento lavoro' },
   { codice: 'cc2',  area: 'Ristorazione',          nome: 'La Locanda nel Parco' },
   { codice: 'cc3',  area: 'Ristorazione',          nome: 'Una Serra per Mirafiori' },
-  { codice: 'cc4',  area: 'Pari opportunità',      nome: 'CAV In Rete' },
-  { codice: 'cc5',  area: 'Pari opportunità',      nome: 'Casa Artemisia' },
-  { codice: 'cc6',  area: 'Pari opportunità',      nome: 'Toc Toc Roberto' },
-  { codice: 'cc7',  area: 'Area Socio-Culturale',  nome: 'CPG Torino' },
-  { codice: 'cc8',  area: 'Area Socio-Culturale',  nome: 'MirArte' },
-  { codice: 'cc9',  area: 'Area Socio Sanitaria',  nome: 'CRP CO.S.MI.C.A' },
-  { codice: 'cc10', area: 'Area Socio Sanitaria',  nome: 'Salute Mentale ASL TO' },
-  { codice: 'cc11', area: 'Area Socio Sanitaria',  nome: 'Educativa Sanitaria ASL TO5' },
-  { codice: 'cc12', area: 'Area Socio Sanitaria',  nome: 'Interventi CDSR Fondazione OZ' },
-  { codice: 'cc13', area: 'Area Socio Sanitaria',  nome: 'Progetto Ponte' },
-  { codice: 'cc14', area: 'Area Educativa',        nome: 'CER Giulia' },
-  { codice: 'cc15', area: 'Area Educativa',        nome: 'Ed. amb. Nord' },
-  { codice: 'cc16', area: 'Area Educativa',        nome: 'Ed. amb. Sud' },
-  { codice: 'cc17', area: 'Area Autonomie',        nome: 'SCAT.TO abitare' },
-  { codice: 'cc18', area: 'Area Autonomie',        nome: 'Condominio Solidale' },
-  { codice: 'cc19', area: 'Area Autonomie',        nome: 'Care Leavers' },
-  { codice: 'cc20', area: 'Area Autonomie',        nome: 'CISA 12 Nichelino' },
+  { codice: 'cc4',  area: 'Contrasto violenza di genere',      nome: 'CAV In Rete' },
+  { codice: 'cc5',  area: 'Contrasto violenza di genere',      nome: 'Casa Artemisia' },
+  { codice: 'cc6',  area: 'Contrasto violenza di genere',      nome: 'Toc Toc Roberto' },
+  { codice: 'cc7',  area: 'Socio Culturale',  nome: 'CPG Torino' },
+  { codice: 'cc8',  area: 'Socio Culturale',  nome: 'MirArte' },
+  { codice: 'cc9',  area: 'Socio Sanitaria',  nome: 'CRP CO.S.MI.C.A' },
+  { codice: 'cc10', area: 'Socio Sanitaria',  nome: 'Salute Mentale ASL TO' },
+  { codice: 'cc11', area: 'Socio Sanitaria',  nome: 'Educativa Sanitaria ASL TO5' },
+  { codice: 'cc12', area: 'Socio Sanitaria',  nome: 'Interventi CDSR Fondazione OZ' },
+  { codice: 'cc13', area: 'Socio Sanitaria',  nome: 'Progetto Ponte' },
+  { codice: 'cc14', area: 'Educativa Residenziale',        nome: 'CER Giulia' },
+  { codice: 'cc15', area: 'Educativa',        nome: 'Ed. amb. Nord' },
+  { codice: 'cc16', area: 'Educativa',        nome: 'Ed. amb. Sud' },
+  { codice: 'cc17', area: 'Autonomie',        nome: 'SCAT.TO abitare' },
+  { codice: 'cc18', area: 'Autonomie',        nome: 'Condominio Solidale' },
+  { codice: 'cc19', area: 'Autonomie',        nome: 'Care Leavers' },
+  { codice: 'cc20', area: 'Autonomie Adulti',        nome: 'CISA 12 Nichelino' },
   { codice: 'cc21', area: 'Ricettività',           nome: 'Pian della Mussa' },
   { codice: 'cc22', area: 'Commercio',             nome: 'Amazing' },
   { codice: 'cc23', area: 'Servizi Generali',      nome: 'Progettazione - Amministrazione' },

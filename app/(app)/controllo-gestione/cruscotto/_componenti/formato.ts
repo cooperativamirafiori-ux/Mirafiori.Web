@@ -42,18 +42,24 @@ export function dataBreve(iso: string): string {
 /**
  * Colore per AREA, fisso per nome: il colore segue l'area, non la posizione in
  * classifica, così un filtro o un coordinatore che vede due aree non ridipinge
- * niente. Otto tinte validate per il daltonismo nell'ordine delle aree
- * sull'anagrafica; le due aree da un solo centro (Ricettività, Commercio)
- * stanno in "Altre aree", grigio.
+ * niente. Dal 12/10/2026 le aree sono quelle del modello di controllo di
+ * gestione: dieci tinte, con Educativa Residenziale e Autonomie Adulti in una
+ * gradazione più chiara dell'area madre (verde, viola). Ordine e tinte passati
+ * dal validatore della skill dataviz (CVD ≥ 9, normale ≥ 17 sulle adiacenti);
+ * il contrasto basso di alcune tinte è compensato dalle etichette sempre
+ * visibili. Ricettività e Commercio (un centro ciascuna) stanno in "Altre
+ * aree", grigio.
  */
 const COLORI_AREA: Record<string, string> = {
-  Lavoro: '#2a78d6',
+  Educativa: '#008300',
+  'Educativa Residenziale': '#6cc06c',
+  Autonomie: '#4a3aa7',
+  'Autonomie Adulti': '#9085e9',
+  'Socio Sanitaria': '#e87ba4',
+  'Socio Culturale': '#eda100',
+  'Contrasto violenza di genere': '#1baf7a',
   Ristorazione: '#eb6834',
-  'Pari opportunità': '#1baf7a',
-  'Area Socio-Culturale': '#eda100',
-  'Area Socio Sanitaria': '#e87ba4',
-  'Area Educativa': '#008300',
-  'Area Autonomie': '#4a3aa7',
+  Lavoro: '#2a78d6',
   'Servizi Generali': '#e34948',
 }
 export const GRIGIO_ALTRO = '#8a8984'
