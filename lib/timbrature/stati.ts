@@ -11,7 +11,7 @@
 
 import { randomBytes } from 'crypto'
 import { supabase } from '@/lib/core/supabase'
-import { getDipendenteById, mapDip } from '@/lib/timbrature/anagrafica'
+import { getDipendenteById, getSubordinati, mapDip } from '@/lib/timbrature/anagrafica'
 import { meseScaduto, oggiRoma, primaDataUtile, ultimoGiornoUtile } from '@/lib/timbrature/date'
 import type { ChiusuraMese, Dipendente, FinestraMese, StatoMese } from '@/types/timbrature'
 
@@ -257,4 +257,24 @@ export async function chiusureInStato(
   return righe
     .map((r: any) => ({ chiusura: mapChiusura(r), dipendente: byId.get(Number(r.dipendente_id))! }))
     .filter((x) => !!x.dipendente)
+}
+
+/**
+ * Per la Home e la pagina Timbrature: quanti collaboratori ha un responsabile
+ * e quanti loro fogli ore aspettano lui (da validare o contestati, cioe'
+ * tornati indietro dal dipendente). Una sola query sulle chiusure, perche'
+ * la Home la chiama a ogni apertura.
+ */
+export async function situazioneResponsabile(
+  email: string,
+): Promise<{ collaboratori: number; inAttesa: number }> {
+  const subs = await getSubordinati(email)
+  if (!subs.length) return { collaboratori: 0, inAttesa: 0 }
+  const { count, error } = await supabase()
+    .from('chiusura_mese')
+    .select('id', { count: 'exact', head: true })
+    .in('dipendente_id', subs.map((d) => d.id))
+    .in('stato', ['da_validare', 'contestato'] satisfies StatoMese[])
+  if (error) throw new Error(error.message)
+  return { collaboratori: subs.length, inAttesa: count ?? 0 }
 }

@@ -4,6 +4,7 @@ import { LogoutButton } from '@/components/ui/LogoutButton'
 import { puoEntrareControlloGestione, puoRichiedereManutenzione } from '@/lib/core/permessi'
 import { accessoQonto, puoVedereQonto } from '@/lib/qonto/accesso'
 import { AREA_IT } from '@/types/it'
+import { situazioneResponsabile } from '@/lib/timbrature/data'
 
 export default async function HomePage() {
   const session = await auth()
@@ -30,6 +31,19 @@ export default async function HomePage() {
   const puoControlloGestione =
     puoEntrareControlloGestione(session?.user?.permessi) ||
     puoVedereQonto(await accessoQonto(session?.user))
+
+  // Responsabili del foglio ore: non e' un permesso, lo si e' perche' qualcuno
+  // ti ha come referente. La card compare solo a loro. Se Supabase non
+  // risponde la Home deve aprirsi lo stesso: la card semplicemente non c'e'.
+  let responsabile: { collaboratori: number; inAttesa: number } | null = null
+  if (session?.user?.email) {
+    try {
+      const r = await situazioneResponsabile(session.user.email)
+      if (r.collaboratori > 0) responsabile = r
+    } catch {
+      responsabile = null
+    }
+  }
 
   const mostraRiservata = puoRisorseUmane || puoAmministrare || puoIT || puoControlloGestione
 
@@ -67,6 +81,20 @@ export default async function HomePage() {
 
         {/* Operatività */}
         <Sezione titolo="Operatività">
+          {responsabile && (
+            <FunzioneCard
+              href="/timbrature/validazione"
+              emoji="✅"
+              accent="purple"
+              titolo="Fogli ore da validare"
+              sottotitolo={
+                responsabile.inAttesa > 0
+                  ? `${responsabile.inAttesa === 1 ? '1 foglio aspetta' : `${responsabile.inAttesa} fogli aspettano`} te · ${responsabile.collaboratori} collaborator${responsabile.collaboratori === 1 ? 'e' : 'i'}`
+                  : `Nessun foglio in attesa · ${responsabile.collaboratori} collaborator${responsabile.collaboratori === 1 ? 'e' : 'i'}`
+              }
+              badge={responsabile.inAttesa > 0 ? String(responsabile.inAttesa) : undefined}
+            />
+          )}
           {puoManutenzioni && (
             <FunzioneCard
               href="/manutenzioni"

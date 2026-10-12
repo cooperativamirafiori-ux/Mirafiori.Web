@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { auth } from '@/lib/core/auth'
 import { redirect } from 'next/navigation'
 import { Header } from '@/components/ui/Header'
-import { dipendenteAbilitato, eResponsabile } from '@/lib/timbrature/data'
+import { dipendenteAbilitato, situazioneResponsabile } from '@/lib/timbrature/data'
 import TimbratureOperatore from './TimbratureOperatore'
 
 export const dynamic = 'force-dynamic'
@@ -13,35 +13,23 @@ export default async function TimbraturePage() {
 
   // Timbrature riservate a chi è abilitato dall'anagrafica Risorse Umane
   // (spunta "Timbratura attiva" sulla scheda della persona).
-  const [dipendente, responsabile] = await Promise.all([
+  const [dipendente, situazione] = await Promise.all([
     dipendenteAbilitato(session.user.email),
-    eResponsabile(session.user.email),
+    situazioneResponsabile(session.user.email),
   ])
+  const responsabile = situazione.collaboratori > 0
 
   // Un responsabile puo' non timbrare (o non essere ancora abilitato) e avere
   // comunque fogli ore da validare: la porta d'ingresso deve esserci lo stesso.
   if (!dipendente) return <NonAbilitato responsabile={responsabile} />
 
+  // L'accesso ai fogli dei collaboratori sta SOTTO la barra blu, dentro la
+  // pagina: la vecchia striscia sopra l'intestazione su telefono non si vedeva.
   return (
-    <>
-      {responsabile && <BarraResponsabile />}
-      <TimbratureOperatore nome={session.user.name ?? ''} />
-    </>
-  )
-}
-
-/** Scorciatoia verso i fogli ore dei collaboratori, per chi ne ha. */
-function BarraResponsabile() {
-  return (
-    <div className="bg-accent-purple/10 border-b border-accent-purple/20 px-5 py-2.5 text-sm flex items-center justify-between gap-3">
-      <span className="text-accent-purple font-medium">Hai collaboratori da seguire</span>
-      <Link
-        href="/timbrature/validazione"
-        className="shrink-0 font-semibold text-accent-purple hover:underline"
-      >
-        Fogli ore da validare →
-      </Link>
-    </div>
+    <TimbratureOperatore
+      nome={session.user.name ?? ''}
+      responsabile={responsabile ? situazione : null}
+    />
   )
 }
 

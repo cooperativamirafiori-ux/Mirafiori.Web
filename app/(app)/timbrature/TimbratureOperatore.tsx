@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { Header } from '@/components/ui/Header'
 import { CompilaDaProfilo } from '@/components/timbrature/CompilaDaProfilo'
 import type { Servizio, Progetto, Timbratura, RiepilogoPeriodo, FinestraMese } from '@/types/timbrature'
@@ -79,7 +80,14 @@ interface FormPeriodo {
   al: string
 }
 
-export default function TimbratureOperatore({ nome }: { nome: string }) {
+export default function TimbratureOperatore({
+  nome,
+  responsabile = null,
+}: {
+  nome: string
+  /** Solo per chi ha collaboratori: apre il riquadro verso la validazione. */
+  responsabile?: { collaboratori: number; inAttesa: number } | null
+}) {
   const OGGI = oggiYmd()
   const now = new Date()
   const [vista, setVista] = useState<'oggi' | 'mese'>('oggi')
@@ -511,6 +519,7 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-5">
+        {responsabile && <RiquadroResponsabile {...responsabile} />}
         {errore && (
           <div className="mb-4 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">{errore}</div>
         )}
@@ -1000,5 +1009,33 @@ export default function TimbratureOperatore({ nome }: { nome: string }) {
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * Porta d'ingresso ai fogli ore dei collaboratori. Sta in cima al contenuto,
+ * ben visibile anche da telefono, con il numero di fogli che aspettano.
+ */
+function RiquadroResponsabile({ collaboratori, inAttesa }: { collaboratori: number; inAttesa: number }) {
+  const daFare = inAttesa > 0
+  return (
+    <Link
+      href="/timbrature/validazione"
+      className={`mb-4 flex items-center gap-3 rounded-2xl p-4 shadow-sm border-l-4 border-accent-purple transition-colors ${
+        daFare ? 'bg-accent-purple text-white' : 'bg-accent-purple/10 text-accent-purple'
+      }`}
+    >
+      <span className="text-2xl shrink-0">✅</span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-bold leading-tight">Fogli ore da validare</span>
+        <span className={`block text-sm mt-0.5 ${daFare ? 'text-white/85' : 'opacity-80'}`}>
+          {daFare
+            ? `${inAttesa === 1 ? '1 foglio aspetta' : `${inAttesa} fogli aspettano`} te`
+            : 'Nessun foglio in attesa'}
+          {` · ${collaboratori} collaborator${collaboratori === 1 ? 'e' : 'i'}`}
+        </span>
+      </span>
+      <span className="text-xl shrink-0">→</span>
+    </Link>
   )
 }
