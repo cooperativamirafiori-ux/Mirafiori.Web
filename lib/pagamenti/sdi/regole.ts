@@ -10,7 +10,10 @@
  *     nell'import: non sono nemmeno fatture passive.)
  *  2. Nota di credito → una scadenza "stornata", importo negativo: riduce una
  *     fattura, non si paga.
- *  3. Contanti o carta (MP01, MP08) → nata PAGATA: il denaro è già uscito.
+ *  3. Carta (MP08) → nata PAGATA: il denaro è già uscito.
+ *     Contanti (MP01) NO (Dennis, 13/10/2026): in fattura c'è spesso scritto
+ *     «contanti» anche quando non lo è. Si tratta come la regola 5: PAGATA solo
+ *     se il fornitore è noto per pagare al momento, altrimenti "da verificare".
  *  4. RID, SDD, domiciliazioni → "automatica": esce da sola, nessuno la paga.
  *     Eccezione: i fornitori in SENZA_DOMICILIAZIONE (SMAT, 07/10/2026) scrivono
  *     SDD in fattura ma l'addebito non è attivo → vanno in coda come le altre.
@@ -115,6 +118,8 @@ export function scadenzeDa(f: FatturaSdi, c: Contesto): ScadenzaNuova[] {
     const domiciliazioneFinta = !senzaModalita && r.famiglia === 'automatica' && !!f.piva && f.piva in SENZA_DOMICILIAZIONE
     const famiglia: FamigliaModalita = senzaModalita ? 'altro' : domiciliazioneFinta ? 'bonifico' : r.famiglia
     const importo = arrotonda(r.importo ?? f.daPagare)
+    // Contanti dichiarati in fattura: non ci si fida, come se la modalità mancasse.
+    const contanti = r.modalita === 'MP01'
     let stato: StatoScadenza
     let motivo: ScadenzaNuova['motivo_verifica'] = null
     let pagata = false
@@ -124,7 +129,7 @@ export function scadenzeDa(f: FatturaSdi, c: Contesto): ScadenzaNuova[] {
       pagata = true
     } else if (famiglia === 'automatica') {
       stato = 'automatica'
-    } else if (senzaModalita) {
+    } else if (senzaModalita || contanti) {
       if (c.fornitore?.pagaAlMomento) {
         stato = 'pagata'
         pagata = true
@@ -153,8 +158,9 @@ export function scadenzeDa(f: FatturaSdi, c: Contesto): ScadenzaNuova[] {
     const note = [
       domiciliazioneFinta ? `${SENZA_DOMICILIAZIONE[f.piva!]}: in fattura c'è l'addebito diretto ma non è attivo, va pagata` : null,
       r.stimata ? 'scadenza non indicata in fattura: stimata al 30 del mese successivo' : null,
-      senzaModalita && stato === 'pagata' ? 'fornitore che si paga al momento' : null,
+      (senzaModalita || contanti) && stato === 'pagata' ? 'fornitore che si paga al momento' : null,
       senzaModalita && stato === 'da_verificare' ? 'la fattura non dice come si paga' : null,
+      contanti && stato === 'da_verificare' ? 'in fattura c\'è «contanti», ma non è detto che sia stata pagata così' : null,
       motivo === 'primo_import' ? 'primo import dagli XML: verificare che non sia già stata pagata' : null,
       blocco === 'iban_cambiato' ? `IBAN in fattura ${ibanFattura} diverso da quello confermato ${ibanNoto}` : null,
     ].filter(Boolean).join('; ') || null

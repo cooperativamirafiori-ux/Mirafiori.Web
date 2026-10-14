@@ -1,7 +1,7 @@
 /**
  * Lavori di Cura Ambienti.
  *
- *   GET  ?mese=YYYY-MM → { lavori, riepilogo, strutture }
+ *   GET  ?mese=YYYY-MM → { lavori, riepilogo, ricorrenze, strutture }
  *   POST {dati}        → crea un lavoro in bozza
  *
  * Accesso: coordinatori di cc24 o permesso "Controllo di Gestione"

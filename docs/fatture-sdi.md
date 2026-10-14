@@ -41,7 +41,8 @@ pagamento.** Nel dubbio si va in "da verificare", mai in "da pagare".
 
 1. Integrazioni e autofatture (TD16–23, TD26–28) → nessuna scadenza.
 2. Nota di credito (TD04/TD08) → `stornata`, importo negativo.
-3. Contanti o carta (MP01, MP08) → nasce `pagata`.
+3. Carta (MP08) → nasce `pagata`. Contanti (MP01) **no** (13/10/2026: in
+   fattura lo scrivono anche quando non è vero) → come la regola 5.
 4. RID, SDD, domiciliazioni → `automatica`.
 5. Nessuna modalità nell'XML → `pagata` se il fornitore è noto per pagare al
    momento, altrimenti `da_verificare` (`senza_modalita`).

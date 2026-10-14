@@ -5,6 +5,10 @@
  * consuntivi: ore timbrate su Cura Ambienti contro ore consuntivate.
  *
  * Righe impilate (niente tabelle): i coordinatori lo usano dal telefono.
+ *
+ * Sotto i numeri, la sezione Ricorrenti: le pulizie che si ripetono, con
+ * Pausa / Riprendi / Chiudi. "Crea i lavori ricorrenti del mese" salta quelle
+ * in pausa; i lavori già creati non si toccano.
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -13,9 +17,14 @@ import { Kpi } from '@/components/ui/Kpi'
 import { Pill } from '@/components/ui/Pill'
 import { Vuoto } from '@/components/ui/Vuoto'
 import {
+  GIORNI_SETTIMANA,
   STATI_LAVORO,
+  STATI_RICORRENZA,
+  type Frequenza,
   type LavoroConImporti,
   type RiepilogoMese,
+  type Ricorrenza,
+  type StatoRicorrenza,
   type StrutturaScelta,
 } from '@/types/cura-ambienti'
 import { euro, meseCorrente, nomeMese, ore, spostaMese } from './formato'
@@ -24,7 +33,20 @@ import { SchedaLavoro } from './SchedaLavoro'
 interface Dati {
   lavori: LavoroConImporti[]
   riepilogo: RiepilogoMese
+  ricorrenze: Ricorrenza[]
   strutture: StrutturaScelta[]
+}
+
+const quando = (f: Frequenza | null, g: number | null) =>
+  f === 'settimanale' && g ? `Ogni ${GIORNI_SETTIMANA[g - 1]}` : 'Ogni mese'
+
+function oreRicorrenza(r: Ricorrenza): string {
+  const parti = [
+    r.orePulizie ? `${ore(r.orePulizie)} pulizie` : null,
+    r.oreManutenzione ? `${ore(r.oreManutenzione)} manutenzione` : null,
+  ].filter(Boolean)
+  if (!parti.length) return 'ore da definire'
+  return `${parti.join(' + ')}${r.frequenza === 'settimanale' ? ' ogni volta' : ' al mese'}`
 }
 
 export function LavoriCuraAmbienti() {
@@ -35,6 +57,8 @@ export function LavoriCuraAmbienti() {
   const [messaggio, setMessaggio] = useState('')
   const [aperto, setAperto] = useState<LavoroConImporti | 'nuovo' | null>(null)
   const [preparo, setPreparo] = useState(false)
+  const [daChiudere, setDaChiudere] = useState<string | null>(null)
+  const [cambio, setCambio] = useState<string | null>(null)
 
   const carica = useCallback(async () => {
     setCaricamento(true)
@@ -69,14 +93,44 @@ export function LavoriCuraAmbienti() {
       if (!res.ok) throw new Error(j.error ?? 'Operazione non riuscita')
       setMessaggio(
         j.creati === 0 && j.giaPresenti === 0
-          ? `Nel mese prima non ci sono lavori ricorrenti da copiare.`
-          : `Copiati ${j.creati} lavori ricorrenti${j.giaPresenti ? ` (${j.giaPresenti} c'erano già)` : ''}.`,
+          ? `Nessuna ricorrenza attiva per ${nomeMese(mese)}.`
+          : j.creati === 0
+            ? `I lavori ricorrenti di ${nomeMese(mese)} c'erano già tutti.`
+            : `Creati ${j.creati} lavori ricorrenti${j.giaPresenti ? ` (${j.giaPresenti} c'erano già)` : ''}.`,
       )
       await carica()
     } catch (e) {
       setErrore(e instanceof Error ? e.message : 'Operazione non riuscita')
     } finally {
       setPreparo(false)
+    }
+  }
+
+  async function statoRicorrenza(rc: Ricorrenza, stato: StatoRicorrenza) {
+    setCambio(rc.id)
+    setErrore('')
+    setMessaggio('')
+    try {
+      const res = await fetch(`/api/cura-ambienti/ricorrenze/${rc.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stato }),
+      })
+      const j = await res.json()
+      if (!res.ok) throw new Error(j.error ?? 'Operazione non riuscita')
+      setMessaggio(
+        stato === 'pausa'
+          ? `«${rc.titolo}» in pausa: dal prossimo mese non si crea più, finché non la riprendi.`
+          : stato === 'attiva'
+            ? `«${rc.titolo}» ripresa.`
+            : `«${rc.titolo}» chiusa: i lavori già creati restano.`,
+      )
+      setDaChiudere(null)
+      await carica()
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : 'Operazione non riuscita')
+    } finally {
+      setCambio(null)
     }
   }
 
@@ -122,6 +176,87 @@ export function LavoriCuraAmbienti() {
         <Banner tono="avviso">Per questo mese manca una tariffa oraria: gli importi non si possono calcolare.</Banner>
       )}
 
+      {dati && dati.ricorrenze.length > 0 && (
+        <section className="rounded-2xl border border-sky-200 bg-sky-50/50 p-4 space-y-3">
+          <div>
+            <h3 className="font-bold text-gray-800">Ricorrenti ({dati.ricorrenze.length})</h3>
+            <p className="text-sm text-gray-500">
+              Le pulizie che si ripetono. In pausa non si creano nei prossimi mesi; chiusa si ferma per sempre.
+            </p>
+          </div>
+          <ul className="space-y-2">
+            {dati.ricorrenze.map((rc) => {
+              const st = STATI_RICORRENZA[rc.stato]
+              const occupato = cambio === rc.id
+              return (
+                <li
+                  key={rc.id}
+                  className={`bg-white rounded-xl border border-gray-100 p-3 ${rc.stato === 'pausa' ? 'opacity-75' : ''}`}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Pill text={st.etichetta} tono={st.tono} />
+                    <Pill text={quando(rc.frequenza, rc.giornoSettimana)} tono="azzurro" />
+                  </div>
+                  <p className="mt-1.5 font-semibold text-gray-800">{rc.titolo}</p>
+                  <p className="text-sm text-gray-500">
+                    {rc.destinatario === 'struttura'
+                      ? `${rc.strutturaNome ?? rc.strutturaCodice} · ${rc.ccCodice}`
+                      : `Cliente esterno: ${rc.cliente}`}
+                    {' · '}
+                    {oreRicorrenza(rc)}
+                  </p>
+                  {daChiudere === rc.id ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="text-sm text-gray-700 w-full sm:w-auto">Chiuderla per sempre?</span>
+                      <button
+                        onClick={() => statoRicorrenza(rc, 'chiusa')}
+                        disabled={occupato}
+                        className="grow sm:grow-0 px-3 py-2 rounded-xl bg-red-600 text-white font-semibold disabled:opacity-50"
+                      >
+                        Sì, chiudi
+                      </button>
+                      <button
+                        onClick={() => setDaChiudere(null)}
+                        className="grow sm:grow-0 px-3 py-2 rounded-xl border border-gray-300 bg-white text-gray-700 font-semibold"
+                      >
+                        No
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {rc.stato === 'attiva' ? (
+                        <button
+                          onClick={() => statoRicorrenza(rc, 'pausa')}
+                          disabled={occupato}
+                          className="grow sm:grow-0 px-3 py-2 rounded-xl border border-amber-300 bg-white text-amber-800 font-semibold disabled:opacity-50"
+                        >
+                          Metti in pausa
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => statoRicorrenza(rc, 'attiva')}
+                          disabled={occupato}
+                          className="grow sm:grow-0 px-3 py-2 rounded-xl border border-emerald-600 bg-emerald-600 text-white font-semibold disabled:opacity-50"
+                        >
+                          Riprendi
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setDaChiudere(rc.id)}
+                        disabled={occupato}
+                        className="grow sm:grow-0 px-3 py-2 rounded-xl border border-red-200 bg-white text-red-700 font-semibold disabled:opacity-50"
+                      >
+                        Chiudi
+                      </button>
+                    </div>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      )}
+
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setAperto('nuovo')}
@@ -134,7 +269,7 @@ export function LavoriCuraAmbienti() {
           disabled={preparo}
           className="px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-gray-700 font-semibold disabled:opacity-50"
         >
-          {preparo ? 'Preparo…' : 'Copia i ricorrenti del mese prima'}
+          {preparo ? 'Preparo…' : 'Crea i lavori ricorrenti del mese'}
         </button>
       </div>
 
@@ -143,7 +278,7 @@ export function LavoriCuraAmbienti() {
 
       {!caricamento && dati && dati.lavori.length === 0 && (
         <Vuoto>
-          Nessun lavoro in {nomeMese(mese)}. Crea il primo, oppure copia le pulizie ricorrenti del mese prima.
+          Nessun lavoro in {nomeMese(mese)}. Crea il primo, oppure crea i lavori delle pulizie ricorrenti.
         </Vuoto>
       )}
 
@@ -162,7 +297,7 @@ export function LavoriCuraAmbienti() {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs text-gray-400">#{l.numero}</span>
                   <Pill text={s.etichetta} tono={s.tono} />
-                  {l.ricorrente && <Pill text="Ricorrente" tono="neutro" />}
+                  {l.ricorrente && <Pill text={quando(l.frequenza, l.giornoSettimana)} tono="azzurro" />}
                 </div>
                 <p className="mt-1.5 font-semibold text-gray-800">{l.titolo}</p>
                 <p className="text-sm text-gray-500">
@@ -199,6 +334,7 @@ export function LavoriCuraAmbienti() {
           mese={mese}
           strutture={dati.strutture}
           tariffe={dati.riepilogo.tariffe}
+          tariffeStrutture={dati.riepilogo.tariffeStrutture}
           onChiudi={() => setAperto(null)}
           onSalvato={async (testo) => {
             setAperto(null)

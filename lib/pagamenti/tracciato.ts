@@ -224,7 +224,16 @@ export function aNumero(v: unknown): number | null {
 // era, e sul file vero del 01/09/2026 «Bollettino di c/c postale» finiva fra i
 // pagamenti da negozio perché *postale* contiene *pos*: quattro bollettini da
 // pagare sarebbero nati già pagati e nessuno li avrebbe più visti.
-const NEGOZIO = [/\bcontant/, /\bcarta\b/, /\bbancomat\b/, /\bpos\b/, /\bcash\b/]
+// ⚠️ Contanti tolti dal 13/10/2026 (Dennis): in fattura c'è spesso scritto
+// «contanti» anche quando non è vero. Vedi `eContanti` e `statoIniziale`.
+const NEGOZIO = [/\bcarta\b/, /\bbancomat\b/, /\bpos\b/]
+const CONTANTI = [/\bcontant/, /\bcash\b/]
+
+/** «Contanti» dichiarati in fattura: non bastano per dirla pagata. */
+export function eContanti(modalita: string | null): boolean {
+  const t = norm(modalita)
+  return !!t && CONTANTI.some((k) => k.test(t))
+}
 // La domanda che divide le due liste è una sola: **qualcuno deve fare un
 // gesto perché il denaro esca?** Se sì è una coda, se no è un addebito.
 // Non conta che il pagamento sia elettronico o preautorizzato in astratto.

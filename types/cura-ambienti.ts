@@ -33,7 +33,46 @@ export interface Tariffe {
   manutenzione: number | null
 }
 
+/** Tariffe che per una struttura sostituiscono quelle di base, per figura. */
+export type TariffeStrutture = Record<string, Partial<Record<Figura, number>>>
+
 export type Destinatario = 'struttura' | 'esterno'
+
+/** Come si ripete un lavoro. `null` = una volta sola. */
+export type Frequenza = 'mensile' | 'settimanale'
+
+/** 1 = lunedì … 7 = domenica. */
+export const GIORNI_SETTIMANA = ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'] as const
+
+export type StatoRicorrenza = 'attiva' | 'pausa' | 'chiusa'
+
+export const STATI_RICORRENZA: Record<StatoRicorrenza, { etichetta: string; tono: Tono }> = {
+  attiva: { etichetta: 'Attiva', tono: 'verde' },
+  pausa: { etichetta: 'In pausa', tono: 'ambra' },
+  chiusa: { etichetta: 'Chiusa', tono: 'neutro' },
+}
+
+/**
+ * La pulizia che si ripete: lo stampo da cui nascono i lavori del mese.
+ * Ore PER VOLTA (nel mese: × volte), materiali al mese.
+ */
+export interface Ricorrenza {
+  id: string
+  destinatario: Destinatario
+  strutturaCodice: string | null
+  strutturaNome: string | null
+  ccCodice: string | null
+  cliente: string | null
+  titolo: string
+  descrizione: string | null
+  frequenza: Frequenza
+  giornoSettimana: number | null
+  orePulizie: number
+  oreManutenzione: number
+  materiali: number
+  stato: StatoRicorrenza
+  dalMese: string
+}
 
 export interface Lavoro {
   id: string
@@ -49,6 +88,11 @@ export interface Lavoro {
   descrizione: string | null
   ricorrente: boolean
   copiatoDa: string | null
+  /** La ricorrenza da cui nasce (o che ha fatto nascere). */
+  ricorrenzaId: string | null
+  /** Copiati dalla ricorrenza, per mostrarli nella scheda. */
+  frequenza: Frequenza | null
+  giornoSettimana: number | null
   stato: StatoLavoro
   prevOrePulizie: number
   prevOreManutenzione: number
@@ -85,7 +129,12 @@ export interface DatiLavoro {
   cliente: string | null
   titolo: string
   descrizione: string | null
-  ricorrente: boolean
+  /**
+   * Si ripete? Con `settimanale` le ore del preventivo arrivano PER VOLTA e il
+   * server le moltiplica per le volte del mese.
+   */
+  frequenza: Frequenza | null
+  giornoSettimana: number | null
   prevOrePulizie: number
   prevOreManutenzione: number
   prevMateriali: number
@@ -105,6 +154,8 @@ export interface StrutturaScelta {
 export interface RiepilogoMese {
   mese: string
   tariffe: Tariffe
+  /** Le strutture con tariffe proprie (Locanda: detersivi a parte). */
+  tariffeStrutture: TariffeStrutture
   /** Ore timbrate sul servizio Cura Ambienti nel mese: è la verità. */
   oreTimbrate: number
   orePreventivate: number

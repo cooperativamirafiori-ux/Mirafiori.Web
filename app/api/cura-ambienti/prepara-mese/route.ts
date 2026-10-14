@@ -1,5 +1,5 @@
 /**
- * POST { mese } → copia nel mese i lavori ricorrenti del mese prima.
+ * POST { mese } → crea nel mese i lavori delle ricorrenze attive.
  * Ripetibile: i già copiati non si ricopiano.
  */
 

@@ -51,7 +51,8 @@ insert into progetto (nome, ordine) values
   ('Piazza Ragazzabile',       40),
   ('Risalto Fermi',            50),
   ('Risalto Mirafiori',        60),
-  ('Nuove Forme',              70)
+  ('Nuove Forme',              70),
+  ('Provaci SAM',              80)
 on conflict (nome) do nothing;
 
 -- --- Verifica ----------------------------------------------------------------

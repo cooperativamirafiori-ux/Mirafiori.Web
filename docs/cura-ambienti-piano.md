@@ -118,5 +118,14 @@ il numero da guardare prima di prendere servizi esterni: ore che nessuno paga so
   coordinatore, mezzo e benzina, consumo, attrezzature e DPI (stima del 2/10/2026, da verificare
   col margine di cc24 a fine trimestre).
 - **Coordinatori di cc24**: Marika Armandi e Dennis Maseri.
+- **13/10/2026 — Ricorrenze** (`supabase/cura_ambienti_ricorrenze.sql`, tabella
+  `ricorrenza_cura_ambienti`): un lavoro si ripete **ogni mese** oppure **ogni settimana** in un
+  giorno fisso. Per il settimanale le ore si scrivono *per volta* e nel mese valgono × le volte che
+  quel giorno cade (4 o 5). Sezione **Ricorrenti** nella pagina: Metti in pausa / Riprendi / Chiudi.
+  "Crea i lavori ricorrenti del mese" salta quelle in pausa e chiuse; i lavori già creati non si
+  toccano. Mensili: il preventivo resta il consuntivo del mese prima, se c'è.
+- **13/10/2026 — Locanda (B01) a 24 €/h sulle pulizie** (tabella `tariffa_struttura`): i detersivi
+  li ordina a parte sul suo cc2, quindi la tariffa non comprende il consumo. Stima di 2 €/h di
+  consumo dentro i 26, da verificare col margine di cc24. Manutenzione resta 26 €/h.
 - Conto Qonto rinominato `cc24 · Cura Ambienti`.
 - Il 2/10/2026 creato anche il sottoconto Qonto `cc2 · La Locanda nel Parco`: ora tutti i centri di costo attivi ne hanno uno.

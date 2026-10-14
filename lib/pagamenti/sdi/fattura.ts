@@ -73,7 +73,9 @@ export interface FatturaSdi {
 // ------------------------------------------------------------
 
 const MODALITA: Record<string, [string, FamigliaModalita]> = {
-  MP01: ['contanti', 'negozio'],
+  // ⚠️ MP01 non è più «già pagata» (Dennis, 13/10/2026): i fornitori scrivono
+  // «contanti» anche quando non lo è. Decide regole.ts, che la manda a verificare.
+  MP01: ['contanti', 'altro'],
   MP02: ['assegno', 'bonifico'],
   MP03: ['assegno circolare', 'bonifico'],
   MP04: ['contanti presso Tesoreria', 'altro'],

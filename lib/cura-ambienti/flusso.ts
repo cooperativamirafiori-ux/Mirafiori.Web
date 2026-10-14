@@ -5,10 +5,12 @@
 
 import type {
   DatiLavoro,
+  Frequenza,
   ImportiLavoro,
   Lavoro,
   StatoLavoro,
   Tariffe,
+  TariffeStrutture,
 } from '@/types/cura-ambienti'
 
 const tondo = (n: number) => Math.round(n * 100) / 100
@@ -27,6 +29,33 @@ export function importo(
   if (orePulizie > 0 && t.pulizie === null) return null
   if (oreManutenzione > 0 && t.manutenzione === null) return null
   return tondo(orePulizie * (t.pulizie ?? 0) + oreManutenzione * (t.manutenzione ?? 0) + materiali)
+}
+
+/**
+ * Le tariffe che valgono per un lavoro: quelle di base, sostituite figura per
+ * figura da quelle della struttura se ne ha (Locanda: detersivi a parte).
+ */
+export function tariffeDi(base: Tariffe, perStruttura: TariffeStrutture, strutturaCodice: string | null): Tariffe {
+  const s = strutturaCodice ? perStruttura[strutturaCodice] : undefined
+  if (!s) return base
+  return {
+    pulizie: s.pulizie ?? base.pulizie,
+    manutenzione: s.manutenzione ?? base.manutenzione,
+  }
+}
+
+/** Quante volte cade un giorno della settimana (1 = lunedì) in un mese `YYYY-MM-01`. */
+export function volteNelMese(mese: string, giorno: number): number {
+  const [a, m] = mese.split('-').map(Number)
+  const giorni = new Date(Date.UTC(a, m, 0)).getUTCDate()
+  const primo = ((new Date(Date.UTC(a, m - 1, 1)).getUTCDay() + 6) % 7) + 1 // 1 = lunedì
+  const scarto = (giorno - primo + 7) % 7
+  return Math.floor((giorni - 1 - scarto) / 7) + 1
+}
+
+/** Volte nel mese per una frequenza: 1 per mensile, i giorni giusti per settimanale. */
+export function volte(mese: string, frequenza: Frequenza | null, giorno: number | null): number {
+  return frequenza === 'settimanale' && giorno ? volteNelMese(mese, giorno) : 1
 }
 
 export function importiLavoro(l: Lavoro, t: Tariffe): ImportiLavoro {
@@ -113,6 +142,12 @@ export function leggiDati(b: Record<string, unknown>): { dati: DatiLavoro } | { 
   if (destinatario === 'esterno' && !cliente) problemi.push('Scrivi il nome del cliente')
   const titolo = testo(b.titolo)
   if (!titolo) problemi.push('Scrivi che lavoro è')
+  // `ricorrente: true` è il vecchio modulo: valeva "ogni mese".
+  const frequenza: Frequenza | null =
+    b.frequenza === 'settimanale' ? 'settimanale' : b.frequenza === 'mensile' || b.ricorrente === true ? 'mensile' : null
+  const g = Number(b.giornoSettimana)
+  const giornoSettimana = frequenza === 'settimanale' && Number.isInteger(g) && g >= 1 && g <= 7 ? g : null
+  if (frequenza === 'settimanale' && !giornoSettimana) problemi.push('Scegli il giorno della settimana')
 
   const dati: DatiLavoro = {
     mese: mese ?? '',
@@ -121,7 +156,8 @@ export function leggiDati(b: Record<string, unknown>): { dati: DatiLavoro } | { 
     cliente: destinatario === 'esterno' ? cliente : null,
     titolo: titolo ?? '',
     descrizione: testo(b.descrizione),
-    ricorrente: b.ricorrente === true,
+    frequenza,
+    giornoSettimana,
     prevOrePulizie: num(b.prevOrePulizie, 0),
     prevOreManutenzione: num(b.prevOreManutenzione, 0),
     prevMateriali: num(b.prevMateriali, 0),

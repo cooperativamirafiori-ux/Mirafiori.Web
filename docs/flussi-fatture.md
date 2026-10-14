@@ -121,7 +121,7 @@ stili — che è la parte scritta peggio e che così non leggiamo affatto.
 | Tipologia | Righe | Va in |
 |---|---:|---|
 | Bonifico | 785 | coda |
-| Contanti | 511 | archivio (già uscito) |
+| Contanti | 511 | da verificare (dal 13/10/2026; prima archivio) |
 | RID · SEPA Direct Debit (CORE/B2B) · Domiciliazione · RIBA · Quietanza erario | 572 | escono da sole |
 | Carta di pagamento | 262 | archivio (già uscito) |
 | PagoPA | 34 | coda |

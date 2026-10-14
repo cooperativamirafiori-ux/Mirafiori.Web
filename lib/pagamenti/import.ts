@@ -24,7 +24,7 @@
 import { createHash } from 'node:crypto'
 import { supabase } from '@/lib/core/supabase'
 import { getParametro } from '@/lib/core/sp'
-import { leggiScadenzario, type RigaFile } from '@/lib/pagamenti/tracciato'
+import { eContanti, leggiScadenzario, type RigaFile } from '@/lib/pagamenti/tracciato'
 import {
   CHIAVE_PARAMETRO_SOGLIA,
   SOGLIA_APPROVAZIONE_DEFAULT,
@@ -80,8 +80,12 @@ export function statoIniziale(
   // righe esistenti la riapertura è impedita più sotto, nel confronto.
   if (chiusuraDaGestionale && riga.pagataSecondoGestionale) return 'pagata'
 
-  // Contanti e carta: il denaro è uscito prima che la fattura arrivasse.
+  // Carta: il denaro è uscito prima che la fattura arrivasse.
   if (riga.famiglia === 'negozio') return 'pagata'
+
+  // Contanti: NON più «già pagata» (Dennis, 13/10/2026) — i fornitori lo
+  // scrivono anche quando non è vero. Né pagata né in coda: da verificare.
+  if (eContanti(riga.modalita)) return 'da_verificare'
 
   // RID, SDD, domiciliazioni: escono da sole alla scadenza. Nessuno le paga,
   // ma restano visibili perché la cassa deve saperlo.
@@ -240,6 +244,7 @@ export async function importaScadenzario(
         modalita: r.modalita,
         famiglia_modalita: r.famiglia,
         stato,
+        motivo_verifica: stato === 'da_verificare' ? 'senza_modalita' : null,
         soglia_applicata: soglia,
         import_id: importId,
         vista_il: adesso,
@@ -311,7 +316,9 @@ export async function importaScadenzario(
         import_id: importId,
         // Se cambia l'importo di una scadenza ancora aperta può cambiare la
         // coda: 1.400 € che diventano 1.600 € devono passare da chi approva.
-        ...(chiusa ? {} : { stato, soglia_applicata: soglia }),
+        ...(chiusa
+          ? {}
+          : { stato, soglia_applicata: soglia, motivo_verifica: stato === 'da_verificare' ? 'senza_modalita' : null }),
       })
       .eq('id', vecchia.id)
     if (error) throw new Error(`Aggiornamento scadenza: ${error.message}`)

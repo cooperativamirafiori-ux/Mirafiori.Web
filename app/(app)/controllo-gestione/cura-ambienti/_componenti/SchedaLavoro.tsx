@@ -9,6 +9,11 @@
  *
  * I cambi di stato salvano prima i dati: "Chiudi il consuntivo" con le ore
  * appena scritte non deve perderle.
+ *
+ * "Si ripete": ogni mese oppure ogni settimana in un giorno fisso. Per il
+ * settimanale le ore del preventivo si scrivono PER VOLTA e il mese le
+ * moltiplica per le volte che quel giorno cade (4 o 5). Pausa e chiusura
+ * della ricorrenza stanno nella sezione Ricorrenti, non qui.
  */
 
 import { useState } from 'react'
@@ -16,16 +21,17 @@ import { Modale } from '@/components/ui/Modale'
 import { Campo } from '@/components/ui/Campo'
 import { Banner } from '@/components/ui/Banner'
 import { Pill } from '@/components/ui/Pill'
-import { Spunta } from '@/components/ui/Bottoni'
-import { importo, modificabile, passaggiDa } from '@/lib/cura-ambienti/flusso'
+import { importo, modificabile, passaggiDa, tariffeDi, volteNelMese } from '@/lib/cura-ambienti/flusso'
 import {
+  GIORNI_SETTIMANA,
   STATI_LAVORO,
   type LavoroConImporti,
   type StatoLavoro,
   type StrutturaScelta,
   type Tariffe,
+  type TariffeStrutture,
 } from '@/types/cura-ambienti'
-import { euro, nomeMese } from './formato'
+import { euro, nomeMese, ore } from './formato'
 
 const AZIONE: Partial<Record<StatoLavoro, string>> = {
   bozza: 'Riporta in bozza',
@@ -43,6 +49,7 @@ export function SchedaLavoro({
   mese,
   strutture,
   tariffe,
+  tariffeStrutture,
   onChiudi,
   onSalvato,
 }: {
@@ -50,6 +57,7 @@ export function SchedaLavoro({
   mese: string
   strutture: StrutturaScelta[]
   tariffe: Tariffe
+  tariffeStrutture: TariffeStrutture
   onChiudi: () => void
   onSalvato: (messaggio: string) => void
 }) {
@@ -62,9 +70,18 @@ export function SchedaLavoro({
   const [cliente, setCliente] = useState(lavoro?.cliente ?? '')
   const [titolo, setTitolo] = useState(lavoro?.titolo ?? '')
   const [descrizione, setDescrizione] = useState(lavoro?.descrizione ?? '')
-  const [ricorrente, setRicorrente] = useState(lavoro?.ricorrente ?? false)
-  const [pP, setPP] = useState(s(lavoro?.prevOrePulizie ?? null))
-  const [pM, setPM] = useState(s(lavoro?.prevOreManutenzione ?? null))
+  const legato = !!lavoro?.ricorrenzaId
+  const meseLavoro = lavoro?.mese ?? mese
+  const [frequenza, setFrequenza] = useState<string>(
+    lavoro?.frequenza ?? (lavoro?.ricorrente ? 'mensile' : 'no'),
+  )
+  const [giorno, setGiorno] = useState(s(lavoro?.giornoSettimana ?? null))
+  // Un settimanale salvato ha le ore del mese: nella scheda tornano per volta.
+  const voltePrima =
+    lavoro?.frequenza === 'settimanale' && lavoro.giornoSettimana ? volteNelMese(lavoro.mese, lavoro.giornoSettimana) : 1
+  const perVolta = (n: number | undefined) => (n === undefined ? null : Math.round((n / voltePrima) * 100) / 100)
+  const [pP, setPP] = useState(s(perVolta(lavoro?.prevOrePulizie)))
+  const [pM, setPM] = useState(s(perVolta(lavoro?.prevOreManutenzione)))
   const [pMat, setPMat] = useState(s(lavoro?.prevMateriali ?? null))
   const [cP, setCP] = useState(s(lavoro?.consOrePulizie))
   const [cM, setCM] = useState(s(lavoro?.consOreManutenzione))
@@ -74,9 +91,13 @@ export function SchedaLavoro({
   const [errore, setErrore] = useState('')
 
   const mostraConsuntivo = !nuovo && stato !== 'bozza'
-  const prev = importo(num(pP), num(pM), num(pMat), tariffe)
+  const settimanale = frequenza === 'settimanale'
+  const volteMese = settimanale && giorno ? volteNelMese(meseLavoro, Number(giorno)) : 1
+  const t = tariffeDi(tariffe, tariffeStrutture, destinatario === 'struttura' ? strutturaCodice || null : null)
+  const tariffaPropria = destinatario === 'struttura' && !!strutturaCodice && !!tariffeStrutture[strutturaCodice]
+  const prev = importo(num(pP) * volteMese, num(pM) * volteMese, num(pMat), t)
   const consScritto = cP.trim() !== '' || cM.trim() !== '' || cMat.trim() !== ''
-  const cons = consScritto ? importo(num(cP), num(cM), num(cMat), tariffe) : null
+  const cons = consScritto ? importo(num(cP), num(cM), num(cMat), t) : null
 
   const dati = () => ({
     mese: lavoro?.mese ?? mese,
@@ -85,7 +106,8 @@ export function SchedaLavoro({
     cliente: destinatario === 'esterno' ? cliente : null,
     titolo,
     descrizione,
-    ricorrente,
+    frequenza: frequenza === 'no' ? null : frequenza,
+    giornoSettimana: settimanale ? Number(giorno) || null : null,
     prevOrePulizie: pP,
     prevOreManutenzione: pM,
     prevMateriali: pMat,
@@ -131,9 +153,15 @@ export function SchedaLavoro({
     etichetta: `${x.nome}${x.ccCodice ? ` · ${x.ccCodice}` : ' · senza centro di costo'}`,
   }))
   const tariffaTesto =
-    tariffe.pulizie === tariffe.manutenzione
-      ? `${euro(tariffe.pulizie)}/h`
-      : `pulizie ${euro(tariffe.pulizie)}/h · manutenzione ${euro(tariffe.manutenzione)}/h`
+    t.pulizie === t.manutenzione
+      ? `${euro(t.pulizie)}/h`
+      : `pulizie ${euro(t.pulizie)}/h · manutenzione ${euro(t.manutenzione)}/h`
+  const sceltaFrequenza = [
+    ...(legato ? [] : [{ valore: 'no', etichetta: 'No, una volta sola' }]),
+    { valore: 'mensile', etichetta: 'Ogni mese' },
+    { valore: 'settimanale', etichetta: 'Ogni settimana' },
+  ]
+  const nomeGiorno = giorno ? GIORNI_SETTIMANA[Number(giorno) - 1] : ''
 
   return (
     <Modale
@@ -221,34 +249,88 @@ export function SchedaLavoro({
           disabilitato={!aperto}
         />
         <Campo etichetta="Dettagli" tipo="textarea" valore={descrizione} onChange={setDescrizione} disabilitato={!aperto} />
-        {aperto && (
-          <Spunta etichetta="Si ripete ogni mese (pulizia ordinaria)" valore={ricorrente} onChange={setRicorrente} />
+        <Campo
+          etichetta="Si ripete"
+          tipo="choice"
+          valore={frequenza}
+          onChange={setFrequenza}
+          scelte={sceltaFrequenza}
+          senzaVuoto
+          aiuto={
+            legato
+              ? 'Le modifiche valgono anche per i prossimi mesi. Pausa e stop dalla sezione Ricorrenti, in cima alla pagina.'
+              : 'Le pulizie ordinarie: il lavoro si ricrea da solo nei mesi seguenti.'
+          }
+          disabilitato={!aperto}
+        />
+        {settimanale && (
+          <Campo
+            etichetta="Che giorno"
+            tipo="choice"
+            valore={giorno}
+            onChange={setGiorno}
+            scelte={GIORNI_SETTIMANA.map((g, i) => ({ valore: String(i + 1), etichetta: g }))}
+            obbligatorio
+            disabilitato={!aperto}
+          />
+        )}
+        {tariffaPropria && (
+          <Banner tono="info">
+            Tariffa propria di questa struttura: pulizie {euro(t.pulizie)}/h, perché i detersivi li ordina a parte sul suo
+            centro di costo.
+          </Banner>
         )}
 
         <fieldset className="rounded-xl border border-gray-200 p-3 space-y-3">
           <legend className="px-1 text-sm font-semibold text-gray-700">Preventivo</legend>
           <div className="grid grid-cols-2 gap-3">
-            <Campo etichetta="Ore pulizie" tipo="number" inputMode="decimal" min={0} valore={pP} onChange={setPP} disabilitato={!aperto} />
-            <Campo etichetta="Ore manutenzione" tipo="number" inputMode="decimal" min={0} valore={pM} onChange={setPM} disabilitato={!aperto} />
+            <Campo
+              etichetta={settimanale ? 'Ore pulizie ogni volta' : 'Ore pulizie'}
+              tipo="number"
+              inputMode="decimal"
+              min={0}
+              valore={pP}
+              onChange={setPP}
+              disabilitato={!aperto}
+            />
+            <Campo
+              etichetta={settimanale ? 'Ore manutenzione ogni volta' : 'Ore manutenzione'}
+              tipo="number"
+              inputMode="decimal"
+              min={0}
+              valore={pM}
+              onChange={setPM}
+              disabilitato={!aperto}
+            />
           </div>
+          {settimanale && giorno && (
+            <p className="text-sm text-gray-600">
+              A {nomeMese(meseLavoro)} i {nomeGiorno} sono <b>{volteMese}</b>: nel mese{' '}
+              <b>{ore(Math.round((num(pP) + num(pM)) * volteMese * 100) / 100)}</b>.
+            </p>
+          )}
           <Campo
-            etichetta="Materiali dedicati (€)"
+            etichetta={settimanale ? 'Materiali dedicati nel mese (€)' : 'Materiali dedicati (€)'}
             tipo="currency"
             inputMode="decimal"
             min={0}
             valore={pMat}
             onChange={setPMat}
-            aiuto="Solo quelli di questo lavoro: il materiale di consumo è già nella tariffa."
+            aiuto={
+              tariffaPropria
+                ? 'Solo quelli di questo lavoro. I detersivi no: la struttura li compra a parte.'
+                : 'Solo quelli di questo lavoro: il materiale di consumo è già nella tariffa.'
+            }
             disabilitato={!aperto}
           />
           <p className="text-sm text-gray-700">
-            Importo preventivo: <b>{euro(prev)}</b>
+            Importo preventivo{settimanale ? ' del mese' : ''}: <b>{euro(prev)}</b>
           </p>
         </fieldset>
 
         {mostraConsuntivo && (
           <fieldset className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3 space-y-3">
-            <legend className="px-1 text-sm font-semibold text-emerald-800">Consuntivo</legend>
+            <legend className="px-1 text-sm font-semibold text-emerald-800">Consuntivo{settimanale ? ' del mese' : ''}</legend>
             <div className="grid grid-cols-2 gap-3">
               <Campo etichetta="Ore pulizie" tipo="number" inputMode="decimal" min={0} valore={cP} onChange={setCP} disabilitato={!aperto} />
               <Campo etichetta="Ore manutenzione" tipo="number" inputMode="decimal" min={0} valore={cM} onChange={setCM} disabilitato={!aperto} />

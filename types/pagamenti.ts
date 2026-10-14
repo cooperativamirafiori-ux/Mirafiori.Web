@@ -48,7 +48,7 @@ export type StatoScadenza =
  */
 export type FamigliaModalita =
   | 'bonifico'   // passa dalle code: qualcuno deve decidere e pagare
-  | 'negozio'    // contanti o carta: il denaro è già uscito
+  | 'negozio'    // carta: il denaro è già uscito (contanti no, dal 13/10/2026)
   | 'automatica' // RID, SDD, domiciliazione, MAV, PagoPA, quietanza erario
   | 'altro'
 
