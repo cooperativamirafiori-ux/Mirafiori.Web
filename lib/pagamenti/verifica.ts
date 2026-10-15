@@ -164,7 +164,7 @@ export async function confermaIban(piva: string, ibanGrezzo: string, utente: str
   const iban = normIban(ibanGrezzo)
   if (!ibanValido(iban)) throw new Error('IBAN non valido: controlla le cifre')
 
-  const { data: fatture, error: eF } = await supabase().from('fattura_passiva').select('id, fornitore').eq('piva', piva).limit(2000)
+  const { data: fatture, error: eF } = await supabase().from('fattura_passiva').select('fornitore').eq('piva', piva).limit(1)
   if (eF) throw new Error(`Lettura fatture: ${eF.message}`)
   if (!fatture?.length) throw new Error('Nessuna fattura di questo fornitore')
 
@@ -184,12 +184,24 @@ export async function confermaIban(piva: string, ibanGrezzo: string, utente: str
   )
   if (eU) throw new Error(`Salvataggio IBAN: ${eU.message}`)
 
+  // Prima si cercano le sole scadenze bloccate del fornitore (filtro via join
+  // sulla fattura), poi si aggiornano per id. Passare tutti gli id delle fatture
+  // in .in() rompeva l'URL con i fornitori grossi (Sogegross: 1.341 fatture →
+  // "Bad Request").
+  const { data: bloccate, error: eL } = await supabase()
+    .from('scadenza')
+    .select('id, fattura_passiva!inner(piva)')
+    .eq('fattura_passiva.piva', piva)
+    .not('blocco', 'is', null)
+    .in('stato', ['da_verificare', 'da_approvare', 'da_pagare'])
+  if (eL) throw new Error(`Lettura scadenze bloccate: ${eL.message}`)
+  const ids = (bloccate ?? []).map((s: { id: string }) => s.id)
+  if (!ids.length) return { sbloccate: 0 }
+
   const { data: sbloccate, error: eS } = await supabase()
     .from('scadenza')
     .update({ iban, blocco: null })
-    .in('fattura_passiva_id', fatture.map((f) => f.id))
-    .not('blocco', 'is', null)
-    .in('stato', ['da_verificare', 'da_approvare', 'da_pagare'])
+    .in('id', ids)
     .select('id')
   if (eS) throw new Error(`Sblocco scadenze: ${eS.message}`)
   return { sbloccate: sbloccate?.length ?? 0 }
