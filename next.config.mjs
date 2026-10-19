@@ -14,6 +14,9 @@ const nextConfig = {
     '/api/risorse-umane/dipendenti/[id]/scheda-socio': [
       './lib/templates/scheda-socio/**',
     ],
+    // Il logo nell'intestazione del preventivo (lib/preventivi/documento.ts)
+    '/api/preventivi/[id]/pdf': ['./public/logo-mirafiori.png'],
+    '/api/preventivi/[id]/azione': ['./public/logo-mirafiori.png'],
   },
   // Android chiede gli asset links esattamente su /.well-known/assetlinks.json, ma Next
   // NON serve le cartelle che iniziano con un punto dentro public/ (provato: 404).

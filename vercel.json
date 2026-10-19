@@ -27,6 +27,10 @@
     {
       "path": "/api/cron/fatture-sdi",
       "schedule": "15 3 * * *"
+    },
+    {
+      "path": "/api/cron/preventivi",
+      "schedule": "0 8 * * 1-5"
     }
   ]
 }

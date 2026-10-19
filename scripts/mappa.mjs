@@ -50,6 +50,13 @@ const AREE = [
     ],
   },
   {
+    nome: 'Preventivi',
+    prefissi: [
+      'app/(app)/preventivi', 'app/api/preventivi', 'app/api/cron/preventivi', 'lib/preventivi',
+      'types/preventivi', 'docs/preventivi', 'scripts/provision-preventivi', 'scripts/preventivi-env',
+    ],
+  },
+  {
     nome: 'Cura Ambienti',
     prefissi: [
       'app/(app)/controllo-gestione/cura-ambienti', 'app/api/cura-ambienti', 'lib/cura-ambienti',

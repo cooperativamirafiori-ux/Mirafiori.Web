@@ -186,6 +186,10 @@ Coerente con il resto dell'app e con il piano del controllo di gestione:
 
 ## 6. Ordine di realizzazione
 
+> **19 ottobre 2026** — riunione Dennis–Andrea sui preventivi e sui dati per la fatturazione.
+> Il passo 1 è fatto: vedi `docs/preventivi.md` (decisioni, tariffario con ISTAT, protocollo
+> `PR-NNN/AAAA`). Scelta diversa da § 5: anche il tariffario sta su SharePoint.
+
 1. **Tariffario + preventivi con tariffe bloccate** — è la decisione presa in riunione e sgrava Andrea subito. Servono prima le tariffe dal CDA.
 2. **Interventi con stati di autorizzazione e buono** — rende visibile il problema che oggi vive nella memoria di Andrea e dà i dati al regolamento CDA.
 3. **Ore del mese** al posto delle schede Excel, con conferma del responsabile.
