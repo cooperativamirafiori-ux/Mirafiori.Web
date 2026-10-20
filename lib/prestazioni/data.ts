@@ -19,7 +19,7 @@ import type {
 
 const SITE = () => process.env.SHAREPOINT_SITE_ID!
 const PRESTAZIONI_LIST = () => process.env.SP_LIST_PRESTAZIONI!
-const ROOT_FOLDER = () => process.env.SP_PRESTAZIONI_FOLDER_PATH || 'Prestazioni Occasionali'
+export const ROOT_FOLDER = () => process.env.SP_PRESTAZIONI_FOLDER_PATH || 'Prestazioni Occasionali'
 
 /** Sottocartella (a livello prestatore) con i documenti d'identità riutilizzabili */
 const DOCS_IDENTITA = 'Documenti Identità'
@@ -36,6 +36,8 @@ export interface SessioneUpload {
 // ============================================================
 // Helpers
 // ============================================================
+// ROOT_FOLDER, encodePath, getDriveId ed ensureFolder sono esportate per
+// `in-arrivo.ts` (documenti caricati prima che la pratica esista).
 
 /** Rimuove i caratteri non ammessi da SharePoint nei nomi cartella */
 export function sanitizeFolderName(s: string): string {
@@ -57,12 +59,12 @@ export function nomeSottocartella(data: string): string {
   return `Prestazione_${giorno}`
 }
 
-function encodePath(path: string): string {
+export function encodePath(path: string): string {
   return path.split('/').map(encodeURIComponent).join('/')
 }
 
 let _driveIdCache: string | null = null
-async function getDriveId(): Promise<string> {
+export async function getDriveId(): Promise<string> {
   if (process.env.SP_PRESTAZIONI_DRIVE_ID) return process.env.SP_PRESTAZIONI_DRIVE_ID
   if (_driveIdCache) return _driveIdCache
   const d = await graphGet<{ id: string }>(`/sites/${SITE()}/drive?$select=id`)
@@ -75,7 +77,7 @@ async function getDriveId(): Promise<string> {
 // ============================================================
 
 /** Crea la cartella se non esiste, altrimenti ritorna quella esistente */
-async function ensureFolder(
+export async function ensureFolder(
   driveId: string,
   parentPath: string,
   name: string,

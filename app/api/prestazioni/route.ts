@@ -15,6 +15,13 @@
  *
  * La mail parte solo al passo 3: se il caricamento dei documenti si interrompe,
  * nessuno riceve un riepilogo di una pratica incompleta.
+ *
+ * Prestatore nuovo (ott 2026): i documenti arrivano PRIMA, nel lotto
+ * `_In arrivo/{lotto}` (servono a Claude per compilare il modulo). Qui il client
+ * manda `lottoDocumenti` e i file vengono spostati in
+ * `{Cognome_Nome_CF}/Documenti Identità` PRIMA di creare il record: se poi la
+ * creazione fallisce, i documenti sono già al loro posto e al nuovo tentativo
+ * risultano "già in archivio". Basta anche un file solo (CI + CF insieme).
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -25,6 +32,7 @@ import {
   ensureCartellaPrestazione,
   haDocumentiIdentita,
 } from '@/lib/prestazioni/data'
+import { archiviaLotto, fileInArrivo, lottoValido } from '@/lib/prestazioni/in-arrivo'
 import { CASISTICHE_GDPR_KEYS } from '@/lib/prestazioni/casistiche-gdpr'
 
 const CF_REGEX = /^[A-Z]{6}\d{2}[A-EHLMPR-T]\d{2}[A-Z]\d{3}[A-Z]$/
@@ -72,6 +80,10 @@ export async function POST(req: NextRequest) {
   // "primo inserimento" prima di creare il record.
   const allegheraCf = body.allegheraCf === true
   const allegheraCi = body.allegheraCi === true
+  if (body.lottoDocumenti != null && !lottoValido(body.lottoDocumenti)) {
+    return NextResponse.json({ error: 'Lotto documenti non valido' }, { status: 400 })
+  }
+  const lotto = lottoValido(body.lottoDocumenti) ? body.lottoDocumenti : null
 
   // --- Validazione server-side ---
   const mancanti = Object.entries({
@@ -137,18 +149,23 @@ export async function POST(req: NextRequest) {
     }
 
     // 0. Documenti d'identità già archiviati per questo prestatore?
-    //    Se no e il client non ne sta caricando entrambi, blocca prima di
-    //    creare il record (per non lasciare pratiche orfane).
+    //    Se no, servono quelli del lotto (almeno un file) oppure — vecchio
+    //    percorso, ancora accettato — CF e carta caricati dopo il record.
+    //    Il controllo sta PRIMA di creare il record (niente pratiche orfane).
     const docsGiaPresenti = await haDocumentiIdentita(prestatore)
-    if (!docsGiaPresenti && (!allegheraCf || !allegheraCi)) {
+    const fileLotto = lotto ? await fileInArrivo(lotto) : []
+    if (!docsGiaPresenti && !fileLotto.length && (!allegheraCf || !allegheraCi)) {
       return NextResponse.json(
         {
           error:
-            'Primo inserimento di questo prestatore: allega sia la copia del codice fiscale sia la carta d’identità.',
+            'Primo inserimento di questo prestatore: carica i documenti d’identità (anche un file solo con carta d’identità e codice fiscale).',
         },
         { status: 400 },
       )
     }
+
+    // 0-bis. Sposta i documenti del lotto nella cartella definitiva
+    const documentiArchiviati = lotto && fileLotto.length ? await archiviaLotto(lotto, prestatore) : []
 
     // 1. Record su SharePoint + ID progressivo
     const { spItemId, numericId, dataInserimento } = await creaPrestazione(dati, responsabile)
@@ -169,7 +186,13 @@ export async function POST(req: NextRequest) {
 
     // Mail di riepilogo e log: al passo di conferma, dopo gli upload diretti.
     return NextResponse.json(
-      { idPrestazione, spItemId, cartellaUrl: cartella.webUrl, documentiGiaPresenti: docsGiaPresenti },
+      {
+        idPrestazione,
+        spItemId,
+        cartellaUrl: cartella.webUrl,
+        documentiGiaPresenti: docsGiaPresenti,
+        documentiArchiviati,
+      },
       { status: 201 },
     )
   } catch (err: any) {

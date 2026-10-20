@@ -5,6 +5,9 @@
  * mancano 3 giorni (o meno) alla data fine della prestazione, una sola volta
  * (flag PromemoriaOreInviato).
  *
+ * Nello stesso giro: verifica le firme DocuSign in sospeso e cancella i
+ * documenti d'identità "in arrivo" di pratiche mai salvate (dopo 7 giorni).
+ *
  * Sicurezza: Vercel allega automaticamente `Authorization: Bearer ${CRON_SECRET}`
  * se l'env CRON_SECRET è impostata. Se CRON_SECRET non è impostata, la route
  * resta accessibile (utile in locale) ma è comunque innocua (solo invio mail).
@@ -15,6 +18,7 @@ import { getPrestazioniAttive, aggiornaPrestazione } from '@/lib/prestazioni/dat
 import { notificaPromemoriaFoglioOre } from '@/lib/prestazioni/notifiche'
 import { dataBreve } from '@/lib/prestazioni/documenti'
 import { verificaEScaricaFirma } from '@/lib/prestazioni/firma'
+import { pulisciInArrivo } from '@/lib/prestazioni/in-arrivo'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -75,8 +79,17 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Documenti d'identità caricati per pratiche mai salvate: dopo 7 giorni via.
+    let lottiCancellati = 0
+    try {
+      lottiCancellati = await pulisciInArrivo()
+    } catch (e) {
+      console.error('[cron] pulizia documenti in arrivo fallita', e)
+    }
+
     return NextResponse.json({
       ok: true,
+      lottiCancellati,
       candidati: daAvvisare.length,
       inviati,
       firmeControllate: inAttesaFirma.length,

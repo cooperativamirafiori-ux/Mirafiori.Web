@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CASISTICHE_GDPR } from '@/lib/prestazioni/casistiche-gdpr'
 import {
@@ -12,6 +12,22 @@ import {
 import { Campo, inputCls, labelCls } from '@/components/ui/Campo'
 import { Allegato } from '@/components/ui/Allegato'
 import { Banner } from '@/components/ui/Banner'
+import {
+  DocumentiNuovoPrestatore,
+  type EsitoLetturaDocumenti,
+} from './_componenti/DocumentiNuovoPrestatore'
+
+/** Campi che la lettura automatica dei documenti può compilare */
+const CAMPI_LETTI = {
+  nome: 'Nome',
+  cognome: 'Cognome',
+  dataNascita: 'Data di nascita',
+  luogoNascita: 'Luogo di nascita',
+  codiceFiscale: 'Codice fiscale',
+  residenza: 'Residenza',
+} as const
+type CampoLetto = keyof typeof CAMPI_LETTI
+const AIUTO_LETTO = '✨ Letto dai documenti: controlla che sia giusto.'
 
 const CF_REGEX = /^[A-Z]{6}\d{2}[A-EHLMPR-T]{1}\d{2}[A-Z]{1}\d{3}[A-Z]{1}$/
 
@@ -58,12 +74,25 @@ export function NuovaPrestazioneForm() {
     casisticaGdpr: '',
   })
 
+  // La lettura dei documenti finisce qualche secondo dopo il caricamento: nel
+  // frattempo si può scrivere nel modulo, quindi serve il form più recente.
+  const formRef = useRef(form)
+  formRef.current = form
+
   // Allegati
   const [copiaCf, setCopiaCf] = useState<File | null>(null)
   const [copiaCi, setCopiaCi] = useState<File | null>(null)
   // True se il prestatore selezionato ha già i documenti d'identità in archivio
   const [documentiGiaPresenti, setDocumentiGiaPresenti] = useState(false)
   const [verificaDocumenti, setVerificaDocumenti] = useState(false)
+
+  // Documenti di un prestatore nuovo, caricati in cima (lotto "_In arrivo" su SP)
+  const [lotto, setLotto] = useState<string | null>(null)
+  const [fileLotto, setFileLotto] = useState(0)
+  const [campiLetti, setCampiLetti] = useState<CampoLetto[]>([])
+  const [avvisiLettura, setAvvisiLettura] = useState<string[]>([])
+  // Cambiarla rimonta il riquadro documenti da vuoto (dopo un salvataggio)
+  const [chiaveDocumenti, setChiaveDocumenti] = useState(0)
 
   // Anagrafica prestatori (per non reinserire i dati di chi è già noto)
   const [anagrafica, setAnagrafica] = useState<PrestatoreAnagrafica[]>([])
@@ -122,8 +151,38 @@ export function NuovaPrestazioneForm() {
     if (key === 'codiceFiscale') {
       setDocumentiGiaPresenti(false)
     }
+    // Corretto a mano: non è più "letto dai documenti"
+    setCampiLetti((c) => c.filter((k) => k !== key))
     setForm((f) => ({ ...f, [key]: value }))
   }
+
+  /**
+   * Dati letti dai documenti: compila SOLO i campi vuoti. Se un campo era già
+   * pieno con un valore diverso, non lo tocca ma lo segnala.
+   */
+  function applicaLettura(esito: EsitoLetturaDocumenti) {
+    const compilati: CampoLetto[] = []
+    const diversi: string[] = []
+    const corrente = formRef.current
+    const nuovo = { ...corrente }
+    for (const k of Object.keys(CAMPI_LETTI) as CampoLetto[]) {
+      const letto = (esito.dati?.[k] ?? '').trim()
+      if (!letto) continue
+      const attuale = corrente[k].trim()
+      if (!attuale) {
+        nuovo[k] = letto
+        compilati.push(k)
+      } else if (attuale.toUpperCase() !== letto.toUpperCase()) {
+        diversi.push(`${CAMPI_LETTI[k]}: nel modulo c'è "${attuale}", sul documento "${letto}".`)
+      }
+    }
+    setForm(nuovo)
+    setCampiLetti((c) => Array.from(new Set([...c, ...compilati])))
+    setAvvisiLettura([...(esito.avvisi ?? []), ...diversi])
+  }
+
+  const aiutoLetto = (k: CampoLetto, altrimenti?: string) =>
+    campiLetti.includes(k) ? AIUTO_LETTO : altrimenti
 
   function validate(): string | null {
     const required: [string, string][] = [
@@ -169,10 +228,8 @@ export function NuovaPrestazioneForm() {
     if (!Number.isFinite(compenso) || compenso <= 0)
       return '⚠️ Il compenso previsto deve essere un importo positivo.'
 
-    if (!documentiGiaPresenti) {
-      if (!copiaCf) return '⚠️ Allega la copia del codice fiscale.'
-      if (!copiaCi) return '⚠️ Allega la copia della carta d’identità.'
-    }
+    if (!documentiGiaPresenti && fileLotto === 0)
+      return '⚠️ Carica i documenti d’identità del prestatore (riquadro in cima al modulo).'
 
     for (const f of [copiaCf, copiaCi]) {
       if (f && f.size > MAX_UPLOAD_BYTES)
@@ -233,13 +290,14 @@ export function NuovaPrestazioneForm() {
           ...form,
           allegheraCf: !!copiaCf,
           allegheraCi: !!copiaCi,
+          lottoDocumenti: lotto && fileLotto > 0 ? lotto : undefined,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Errore durante il salvataggio')
 
       // 2. Documenti d'identità: PUT diretto a SharePoint
-      const caricati: string[] = []
+      const caricati: string[] = Array.isArray(data.documentiArchiviati) ? [...data.documentiArchiviati] : []
       if (copiaCf) caricati.push(await caricaDocumento(data.spItemId, 'cf', copiaCf))
       if (copiaCi) caricati.push(await caricaDocumento(data.spItemId, 'ci', copiaCi))
 
@@ -272,6 +330,11 @@ export function NuovaPrestazioneForm() {
       setCopiaCi(null)
       setDocumentiGiaPresenti(false)
       setRicerca('')
+      setLotto(null)
+      setFileLotto(0)
+      setCampiLetti([])
+      setAvvisiLettura([])
+      setChiaveDocumenti((k) => k + 1)
     } catch (err: any) {
       setError(err?.message ?? 'Errore imprevisto')
     } finally {
@@ -324,17 +387,46 @@ export function NuovaPrestazioneForm() {
             </ul>
           )}
           <p className="text-xs text-gray-400 mt-1">
-            Seleziona per compilare automaticamente i campi, oppure inseriscili a mano per un nuovo prestatore.
+            Seleziona per compilare automaticamente i campi, oppure carica qui sotto i documenti di un nuovo prestatore.
           </p>
         </div>
 
+        {!verificaDocumenti && !documentiGiaPresenti && (
+          <DocumentiNuovoPrestatore
+            key={chiaveDocumenti}
+            disabilitato={loading}
+            onLotto={(l, n) => {
+              setLotto(l)
+              setFileLotto(n)
+            }}
+            onLettura={applicaLettura}
+          />
+        )}
+
+        {campiLetti.length > 0 && (
+          <Banner tono="ok">
+            ✨ Compilati dai documenti: {campiLetti.map((k) => CAMPI_LETTI[k]).join(', ')}. Ricontrollali
+            prima di salvare.
+          </Banner>
+        )}
+        {avvisiLettura.length > 0 && (
+          <Banner tono="avviso">
+            <ul className="list-disc pl-4 space-y-1">
+              {avvisiLettura.map((a, i) => (
+                <li key={i}>{a}</li>
+              ))}
+            </ul>
+          </Banner>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Campo etichetta="Nome" obbligatorio valore={form.nome} onChange={(v) => set('nome', v)} />
-          <Campo etichetta="Cognome" obbligatorio valore={form.cognome} onChange={(v) => set('cognome', v)} />
+          <Campo etichetta="Nome" obbligatorio aiuto={aiutoLetto('nome')} valore={form.nome} onChange={(v) => set('nome', v)} />
+          <Campo etichetta="Cognome" obbligatorio aiuto={aiutoLetto('cognome')} valore={form.cognome} onChange={(v) => set('cognome', v)} />
           <Campo
             etichetta="Data di nascita"
             tipo="date"
             obbligatorio
+            aiuto={aiutoLetto('dataNascita')}
             valore={form.dataNascita}
             onChange={(v) => set('dataNascita', v)}
           />
@@ -342,6 +434,7 @@ export function NuovaPrestazioneForm() {
             etichetta="Luogo di nascita"
             obbligatorio
             segnaposto="Es. Torino (TO)"
+            aiuto={aiutoLetto('luogoNascita')}
             valore={form.luogoNascita}
             onChange={(v) => set('luogoNascita', v)}
           />
@@ -351,6 +444,7 @@ export function NuovaPrestazioneForm() {
             maiuscolo
             maxLength={16}
             segnaposto="RSSMRA80A01H501U"
+            aiuto={aiutoLetto('codiceFiscale')}
             valore={form.codiceFiscale}
             onChange={(v) => set('codiceFiscale', v)}
           />
@@ -359,7 +453,7 @@ export function NuovaPrestazioneForm() {
         <Campo
           etichetta="Residenza"
           obbligatorio
-          aiuto="Indirizzo, Comune e CAP"
+          aiuto={aiutoLetto('residenza', 'Indirizzo, Comune e CAP')}
           segnaposto="Es. Via Roma 12, Torino (TO), 10100"
           valore={form.residenza}
           onChange={(v) => set('residenza', v)}
@@ -488,24 +582,11 @@ export function NuovaPrestazioneForm() {
             </div>
           </Banner>
         ) : (
-          <>
-            <p className="text-xs text-gray-400">
-              Primo inserimento di questo prestatore: i documenti vengono archiviati una sola
-              volta e riutilizzati per le prestazioni successive.
-            </p>
-            <Allegato
-              etichetta="Copia codice fiscale"
-              obbligatorio
-              file={copiaCf}
-              onChange={setCopiaCf}
-            />
-            <Allegato
-              etichetta="Copia carta d'identità"
-              obbligatorio
-              file={copiaCi}
-              onChange={setCopiaCi}
-            />
-          </>
+          <p className="text-sm text-gray-500">
+            {fileLotto > 0
+              ? `✔ ${fileLotto} ${fileLotto === 1 ? 'documento caricato' : 'documenti caricati'} in cima al modulo: al salvataggio vengono archiviati nella cartella del prestatore.`
+              : 'Primo inserimento di questo prestatore: carica i documenti nel riquadro in cima al modulo, sotto la ricerca.'}
+          </p>
         )}
       </fieldset>
 
