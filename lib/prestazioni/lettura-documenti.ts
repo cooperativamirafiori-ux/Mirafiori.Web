@@ -6,9 +6,11 @@
  *
  * Scelte:
  * - **niente SDK**: una sola chiamata HTTP a /v1/messages, come per DocuSign;
- * - **uscita a schema fisso**: Claude è obbligato a "chiamare" lo strumento
- *   `dati_documenti` (tool_choice forzato), così la risposta è sempre un JSON
- *   con i campi attesi e non testo da interpretare;
+ * - **uscita a schema fisso**: Claude "chiama" lo strumento `dati_documenti`,
+ *   così la risposta è un JSON con i campi attesi. ⚠️ I modelli 5.x NON
+ *   accettano tool_choice forzato ("tool"/"any" → 400, 20 ott 2026): si usa
+ *   "auto" con l'istruzione esplicita, e se per caso risponde a testo si cerca
+ *   il JSON nel testo;
  * - **mai inventare**: un dato non leggibile torna vuoto. Il modulo compila
  *   solo i campi vuoti e li segna da ricontrollare;
  * - foto troppo pesanti o in formati non supportati (HEIC, TIFF) passano dalla
@@ -122,7 +124,8 @@ Regole:
 - Non inventare e non dedurre: se un dato non è leggibile con certezza, lascialo vuoto ("") e spiegalo in "dubbi".
 - Il codice fiscale va copiato carattere per carattere; se è presente su più documenti, confrontali.
 - La residenza compare di solito sulla carta d'identità (sul retro della CIE o all'interno della carta cartacea). Non usare indirizzi di altro tipo.
-- Se i documenti sembrano appartenere a persone diverse, segnalalo in "dubbi".`
+- Se i documenti sembrano appartenere a persone diverse, segnalalo in "dubbi".
+- Rispondi SEMPRE e SOLO chiamando lo strumento dati_documenti, senza testo prima o dopo.`
 
 /** Prepara un blocco di contenuto per un file, o null se non è utilizzabile. */
 async function bloccoPerFile(f: FileInArrivo): Promise<{ blocco: any | null; avviso?: string }> {
@@ -157,6 +160,21 @@ async function bloccoPerFile(f: FileInArrivo): Promise<{ blocco: any | null; avv
     }
   }
   return { blocco: null, avviso: `${f.nome}: formato non leggibile in automatico (usa PDF, JPG o PNG).` }
+}
+
+/** Dati dalla chiamata allo strumento; in mancanza, dal primo JSON nel testo. */
+function estraiDati(content: any[]): any | null {
+  const chiamata = content.find((c) => c?.type === 'tool_use' && c.name === STRUMENTO.name)
+  if (chiamata?.input && typeof chiamata.input === 'object') return chiamata.input
+  const testo = content.filter((c) => c?.type === 'text').map((c) => c.text).join('\n')
+  const inizio = testo.indexOf('{')
+  const fine = testo.lastIndexOf('}')
+  if (inizio < 0 || fine <= inizio) return null
+  try {
+    return JSON.parse(testo.slice(inizio, fine + 1))
+  } catch {
+    return null
+  }
 }
 
 const s = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
@@ -195,7 +213,7 @@ export async function leggiDocumentiIdentita(files: FileInArrivo[]): Promise<Esi
       max_tokens: 1500,
       system: ISTRUZIONI,
       tools: [STRUMENTO],
-      tool_choice: { type: 'tool', name: STRUMENTO.name },
+      tool_choice: { type: 'auto' },
       messages: [{ role: 'user', content: contenuto }],
     }),
     cache: 'no-store',
@@ -207,14 +225,20 @@ export async function leggiDocumentiIdentita(files: FileInArrivo[]): Promise<Esi
     console.error('[lettura-documenti] Anthropic', res.status, testo.slice(0, 300))
     if (res.status === 401) throw new Error('Chiave API Anthropic non valida.')
     if (res.status === 429 || res.status === 529) throw new Error('Servizio di lettura occupato: riprova tra un minuto.')
-    throw new Error(`Lettura automatica non riuscita (${res.status}).`)
+    let motivo = ''
+    try {
+      motivo = JSON.parse(testo)?.error?.message ?? ''
+    } catch {}
+    throw new Error(`Lettura automatica non riuscita (${res.status}${motivo ? `: ${motivo.slice(0, 160)}` : ''}).`)
   }
 
   const data = await res.json()
   const uso = data.usage
-  const chiamata = (data.content ?? []).find((c: any) => c.type === 'tool_use')
-  if (!chiamata?.input) throw new Error('Risposta di Claude senza dati.')
-  const x = chiamata.input
+  const x = estraiDati(data.content ?? [])
+  if (!x) {
+    console.error('[lettura-documenti] risposta senza dati, stop_reason:', data.stop_reason)
+    throw new Error('Claude non ha restituito i dati: riprova con "Rileggi i documenti".')
+  }
 
   const dati: DatiLetti = {
     nome: s(x.nome),
