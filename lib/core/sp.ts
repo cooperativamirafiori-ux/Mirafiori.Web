@@ -11,7 +11,7 @@
  *   - i campi lookup e persona in lettura arrivano come stringa → lookupValue()
  */
 
-import { graphGet } from '@/lib/core/graph'
+import { graphGet, graphGetOrNull, graphPost } from '@/lib/core/graph'
 
 export const SITE = () => process.env.SHAREPOINT_SITE_ID!
 
@@ -63,14 +63,64 @@ export async function getSPUserEmailByLookupId(lookupId: number | string): Promi
   return email
 }
 
-export async function getSPUserLookupId(email: string): Promise<number> {
-  const filter = encodeURIComponent(`fields/EMail eq '${email}'`)
+async function cercaInUserInfoList(email: string): Promise<number> {
+  const filter = encodeURIComponent(`fields/EMail eq '${email.replace(/'/g, "''")}'`)
   const res = await graphGet<{ value: any[] }>(
     `/sites/${SITE()}/lists/${SP_USER_INFO_LIST}/items?$select=id,fields&$expand=fields($select=id,EMail)&$filter=${filter}&$top=1`,
     { Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly' }
   )
-  if (!res.value.length) throw new Error(`Utente SP non trovato: ${email}`)
-  return Number(res.value[0].fields.id)
+  return res.value.length ? Number(res.value[0].fields.id) : 0
+}
+
+/**
+ * Cartella vuota del sito usata solo per "far conoscere" una persona a SharePoint.
+ * Una persona entra nella User Information List solo quando ha un accesso al
+ * sito: chi non ci ha mai messo piede (es. un educatore nuovo) non c'è, e ogni
+ * colonna Persona fallisce con "Utente SP non trovato". Graph non ha ensureUser:
+ * un invito in sola lettura, senza mail, su questa cartella ottiene lo stesso effetto.
+ */
+const CARTELLA_REGISTRAZIONE = '_registrazione-utenti-app'
+
+async function registraSulSito(email: string): Promise<void> {
+  const base = `/sites/${SITE()}/drive`
+  let cartella = await graphGetOrNull<{ id: string }>(`${base}/root:/${CARTELLA_REGISTRAZIONE}`)
+  if (!cartella) {
+    try {
+      cartella = await graphPost<{ id: string }>(`${base}/root/children`, {
+        name: CARTELLA_REGISTRAZIONE,
+        folder: {},
+        '@microsoft.graph.conflictBehavior': 'fail',
+      })
+    } catch {
+      // creata nel frattempo da un'altra richiesta
+      cartella = await graphGet<{ id: string }>(`${base}/root:/${CARTELLA_REGISTRAZIONE}`)
+    }
+  }
+  await graphPost(`${base}/items/${cartella.id}/invite`, {
+    recipients: [{ email }],
+    roles: ['read'],
+    requireSignIn: true,
+    sendInvitation: false,
+  })
+}
+
+export async function getSPUserLookupId(email: string): Promise<number> {
+  const trovato = await cercaInUserInfoList(email)
+  if (trovato) return trovato
+
+  // Non ancora nota al sito: la si registra e si riprova (la voce compare in pochi secondi).
+  try {
+    await registraSulSito(email)
+  } catch (err) {
+    console.error('[SP] registrazione utente sul sito fallita', email, err)
+    throw new Error(`Utente SP non trovato: ${email}`)
+  }
+  for (const attesa of [1000, 2000, 3000]) {
+    await new Promise((r) => setTimeout(r, attesa))
+    const id = await cercaInUserInfoList(email)
+    if (id) return id
+  }
+  throw new Error(`Utente SP non trovato: ${email}`)
 }
 
 /** Crea nuova richiesta — ritorna l'item appena creato */
