@@ -12,6 +12,8 @@ export type StatoPrestazione =
   | 'Notula inviata'
   | 'Notula ricevuta'
   | 'Chiusa'
+  /** Pratica abbandonata quando era ancora in Bozza (21 ott 2026): il record resta come traccia */
+  | 'Annullata'
 
 /** Dati anagrafici del prestatore (inseriti nel form o presi da anagrafica) */
 export interface DatiPrestatore {
@@ -57,6 +59,10 @@ export interface Prestazione extends DatiPrestatore, DatiPrestazione {
   promemoriaOreInviato?: boolean
   // DocuSign
   docusignEnvelopeId?: string
+  // Centro di costo (lookup sulla lista Centri di Costo, dal 21 ott 2026).
+  // Le pratiche aperte prima ne sono senza: si assegna dalla scheda.
+  centroCostoId?: number
+  centroCosto?: string
 }
 
 /** Riferimento a una cartella creata/trovata su SharePoint */

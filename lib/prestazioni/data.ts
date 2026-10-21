@@ -8,7 +8,7 @@
  *   dove ROOT = SP_PRESTAZIONI_FOLDER_PATH (default "Prestazioni Occasionali")
  */
 
-import { graphGet, graphGetOrNull, graphPost, graphPatch, graphPutBinary } from '@/lib/core/graph'
+import { graphGet, graphGetOrNull, graphPost, graphPatch, graphPutBinary, graphDelete } from '@/lib/core/graph'
 import type {
   Prestazione,
   StatoPrestazione,
@@ -121,6 +121,27 @@ export async function ensureCartellaPrestazione(
 }
 
 /**
+ * Cancella la sottocartella `Prestazione_{data}` SOLO se è vuota (serve
+ * all'annullamento: una Bozza di norma non ha file, ma se qualcuno ha già
+ * generato i documenti senza inviarli, quelli restano). Ritorna true se l'ha
+ * cancellata. Non tocca mai la cartella del prestatore né i documenti
+ * d'identità, che servono alle pratiche successive.
+ */
+export async function eliminaCartellaPrestazioneSeVuota(
+  p: Pick<DatiPrestatore, 'nome' | 'cognome' | 'codiceFiscale'> & { dataCartella: string },
+): Promise<boolean> {
+  const driveId = await getDriveId()
+  const path = `${ROOT_FOLDER()}/${nomeCartellaPrestatore(p)}/${nomeSottocartella(p.dataCartella)}`
+  const cartella = await graphGetOrNull<{ id: string; folder?: { childCount?: number } }>(
+    `/drives/${driveId}/root:/${encodePath(path)}?$select=id,folder`,
+  )
+  if (!cartella) return false
+  if ((cartella.folder?.childCount ?? 0) > 0) return false
+  await graphDelete(`/drives/${driveId}/items/${cartella.id}`)
+  return true
+}
+
+/**
  * Garantisce ROOT/{Cognome_Nome_CF}/Documenti Identità.
  * Qui vivono i documenti d'identità del prestatore, caricati una sola volta
  * e riutilizzati per tutte le prestazioni successive.
@@ -220,7 +241,7 @@ export async function uploadAllegato(
 // ============================================================
 
 const PRESTAZIONE_FIELDS =
-  'id,fields&$expand=fields($select=Title,Nome,Cognome,DataNascita,LuogoNascita,CodiceFiscale,Residenza,Ruolo,Email,Telefono,Iban,Giorni,DataInizio,DataFine,Attivita,CompensoPrevisto,CasisticaGdpr,Stato,ResponsabileEmail,ResponsabileNome,CartellaUrl,ImportoLordo,DataInserimento,NotulaToken,NotulaUrl,PromemoriaOreInviato,DocusignEnvelopeId)'
+  'id,fields&$expand=fields($select=Title,Nome,Cognome,DataNascita,LuogoNascita,CodiceFiscale,Residenza,Ruolo,Email,Telefono,Iban,Giorni,DataInizio,DataFine,Attivita,CompensoPrevisto,CasisticaGdpr,Stato,ResponsabileEmail,ResponsabileNome,CartellaUrl,ImportoLordo,DataInserimento,NotulaToken,NotulaUrl,PromemoriaOreInviato,DocusignEnvelopeId,CentroCosto,CentroCostoLookupId)'
 
 /**
  * Colonne data "solo giorno" (DataNascita, DataInizio, DataFine): vanno scritte
@@ -269,13 +290,16 @@ function mapPrestazione(item: any): Prestazione {
     notulaUrl: f.NotulaUrl ?? undefined,
     promemoriaOreInviato: f.PromemoriaOreInviato ?? false,
     docusignEnvelopeId: f.DocusignEnvelopeId ?? undefined,
+    centroCostoId: Number(f.CentroCostoLookupId ?? f.CentroCosto?.LookupId ?? 0) || undefined,
+    centroCosto:
+      (typeof f.CentroCosto === 'string' ? f.CentroCosto : f.CentroCosto?.LookupValue) || undefined,
   }
 }
 
-/** Tutte le prestazioni non chiuse (per la pagina "attive") */
+/** Tutte le prestazioni né chiuse né annullate (per la pagina "attive") */
 export async function getPrestazioniAttive(): Promise<Prestazione[]> {
   const res = await graphGet<{ value: any[] }>(
-    `${listBase()}?$select=${PRESTAZIONE_FIELDS}&$filter=fields/Stato ne 'Chiusa'&$orderby=fields/DataInserimento desc&$top=500`,
+    `${listBase()}?$select=${PRESTAZIONE_FIELDS}&$filter=fields/Stato ne 'Chiusa' and fields/Stato ne 'Annullata'&$orderby=fields/DataInserimento desc&$top=500`,
     { Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly' },
   )
   return res.value.map(mapPrestazione)
@@ -292,6 +316,7 @@ export async function getPrestazioneById(spItemId: string): Promise<Prestazione>
 export async function creaPrestazione(
   dati: DatiPrestatore & DatiPrestazione,
   responsabile: { email: string; nome: string },
+  centroCostoId?: number,
 ): Promise<{ spItemId: string; numericId: number; dataInserimento: string }> {
   const dataInserimento = new Date().toISOString()
   const fields = {
@@ -315,6 +340,7 @@ export async function creaPrestazione(
     ResponsabileEmail: responsabile.email,
     ResponsabileNome: responsabile.nome,
     DataInserimento: dataInserimento,
+    ...(centroCostoId ? { CentroCostoLookupId: centroCostoId } : {}),
   }
   const res = await graphPost<any>(listBase(), { fields })
   return {

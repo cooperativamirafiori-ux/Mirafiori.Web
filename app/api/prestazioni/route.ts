@@ -34,6 +34,7 @@ import {
 } from '@/lib/prestazioni/data'
 import { archiviaLotto, fileInArrivo, lottoValido } from '@/lib/prestazioni/in-arrivo'
 import { CASISTICHE_GDPR_KEYS } from '@/lib/prestazioni/casistiche-gdpr'
+import { getCentriDiCosto } from '@/lib/centri-costo/data'
 
 const CF_REGEX = /^[A-Z]{6}\d{2}[A-EHLMPR-T]\d{2}[A-Z]\d{3}[A-Z]$/
 
@@ -84,6 +85,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Lotto documenti non valido' }, { status: 400 })
   }
   const lotto = lottoValido(body.lottoDocumenti) ? body.lottoDocumenti : null
+  const centroCostoId = Number(body.centroCostoId) || 0
 
   // --- Validazione server-side ---
   const mancanti = Object.entries({
@@ -136,6 +138,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Casistica GDPR non valida' }, { status: 400 })
   }
 
+  // Centro di costo obbligatorio (dal 21 ott 2026), validato sull'anagrafica.
+  // Se l'anagrafica non risponde (elenco vuoto) non si blocca l'inserimento:
+  // il centro si assegna poi dalla scheda, come per le pratiche vecchie.
+  const centri = await getCentriDiCosto()
+  if (centri.length) {
+    if (!centroCostoId) {
+      return NextResponse.json({ error: 'Seleziona il centro di costo' }, { status: 400 })
+    }
+    if (!centri.some((c) => c.id === centroCostoId)) {
+      return NextResponse.json({ error: 'Centro di costo non valido' }, { status: 400 })
+    }
+  }
+
   try {
     const responsabile = {
       email: session.user.email,
@@ -168,7 +183,11 @@ export async function POST(req: NextRequest) {
     const documentiArchiviati = lotto && fileLotto.length ? await archiviaLotto(lotto, prestatore) : []
 
     // 1. Record su SharePoint + ID progressivo
-    const { spItemId, numericId, dataInserimento } = await creaPrestazione(dati, responsabile)
+    const { spItemId, numericId, dataInserimento } = await creaPrestazione(
+      dati,
+      responsabile,
+      centroCostoId || undefined,
+    )
     const anno = new Date().getFullYear()
     const idPrestazione = `PREST-${anno}-${String(numericId).padStart(3, '0')}`
 

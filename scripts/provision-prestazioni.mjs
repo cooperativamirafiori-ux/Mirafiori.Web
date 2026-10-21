@@ -45,6 +45,7 @@ const STATO_CHOICES = [
   'Notula inviata',
   'Notula ricevuta',
   'Chiusa',
+  'Annullata', // 21 ott 2026: pratica abbandonata in Bozza
 ]
 
 // Definizione colonne (i name DEVONO coincidere con quelli usati in lib/prestazioni.ts)
@@ -150,6 +151,8 @@ async function main() {
   if (found) {
     console.log(`✓ La lista esiste già. ID = ${found.id}`)
     await ensureColumns(token, site, found.id)
+    await ensureStatoChoices(token, site, found.id)
+    await ensureCentroCosto(token, site, found.id)
     printEnv(found.id)
     return
   }
@@ -161,6 +164,7 @@ async function main() {
     columns: COLUMNS,
   })
   console.log(`✓ Lista creata. ID = ${created.id}`)
+  await ensureCentroCosto(token, site, created.id)
   printEnv(created.id)
 }
 
@@ -177,6 +181,60 @@ async function ensureColumns(token, site, listId) {
     await graph(token, 'POST', `/sites/${site}/lists/${listId}/columns`, col)
     console.log(`  + colonna aggiunta: ${col.name}`)
   }
+}
+
+/** La colonna Choice "Stato" esiste già: aggiunge le scelte nuove (es. Annullata). */
+async function ensureStatoChoices(token, site, listId) {
+  const cols = await graph(token, 'GET', `/sites/${site}/lists/${listId}/columns?$select=id,name,choice&$top=200`)
+  const stato = (cols.value || []).find((c) => c.name === 'Stato')
+  if (!stato?.choice) return
+  const attuali = stato.choice.choices || []
+  const mancanti = STATO_CHOICES.filter((c) => !attuali.includes(c))
+  if (!mancanti.length) {
+    console.log('✓ Stato: scelte già complete.')
+    return
+  }
+  await graph(token, 'PATCH', `/sites/${site}/lists/${listId}/columns/${stato.id}`, {
+    choice: { ...stato.choice, choices: [...attuali, ...mancanti] },
+  })
+  console.log(`  + Stato: aggiunte le scelte ${mancanti.join(', ')}`)
+}
+
+/**
+ * Colonna lookup `CentroCosto` → lista Centri di Costo (21 ott 2026), e
+ * elenco delle pratiche aperte ancora senza centro di costo.
+ * Facoltativa su SharePoint: l'obbligo sta nell'app (form + API).
+ */
+async function ensureCentroCosto(token, site, listId) {
+  const listaCC = process.env.SP_LIST_CENTRI_COSTO
+  if (!listaCC) {
+    console.log('! SP_LIST_CENTRI_COSTO assente: colonna CentroCosto non creata.')
+    return
+  }
+  const cols = await graph(token, 'GET', `/sites/${site}/lists/${listId}/columns?$select=name&$top=200`)
+  if ((cols.value || []).some((c) => c.name === 'CentroCosto')) {
+    console.log('✓ Colonna CentroCosto già presente.')
+  } else {
+    await graph(token, 'POST', `/sites/${site}/lists/${listId}/columns`, {
+      name: 'CentroCosto',
+      lookup: { listId: listaCC, columnName: 'Title' },
+    })
+    console.log('  + colonna aggiunta: CentroCosto (lookup Centri di Costo)')
+  }
+
+  const items = await graph(
+    token,
+    'GET',
+    `/sites/${site}/lists/${listId}/items?$select=id&$expand=fields($select=Title,Nome,Cognome,Stato,CentroCostoLookupId,ResponsabileNome)&$top=999`,
+  )
+  const scoperte = (items.value || [])
+    .map((i) => i.fields || {})
+    .filter((f) => !['Chiusa', 'Annullata'].includes(f.Stato) && !f.CentroCostoLookupId)
+  console.log(`\nPratiche aperte senza centro di costo: ${scoperte.length}`)
+  for (const f of scoperte) {
+    console.log(`  · ${f.Title || '(senza numero)'} — ${f.Cognome ?? ''} ${f.Nome ?? ''} — ${f.Stato} — resp. ${f.ResponsabileNome || '?'}`)
+  }
+  if (scoperte.length) console.log('  → si assegna dalla scheda in "Prestazioni attive".')
 }
 
 function printEnv(id) {

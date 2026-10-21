@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CASISTICHE_GDPR } from '@/lib/prestazioni/casistiche-gdpr'
+import type { CentroDiCosto } from '@/lib/centri-costo/data'
 import {
   MAX_UPLOAD_BYTES,
   maxUploadMb,
@@ -44,7 +45,7 @@ interface PrestatoreAnagrafica {
   iban: string
 }
 
-export function NuovaPrestazioneForm() {
+export function NuovaPrestazioneForm({ centri }: { centri: CentroDiCosto[] }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -72,6 +73,7 @@ export function NuovaPrestazioneForm() {
     attivita: '',
     compensoPrevisto: '',
     casisticaGdpr: '',
+    centroCostoId: '',
   })
 
   // La lettura dei documenti finisce qualche secondo dopo il caricamento: nel
@@ -202,6 +204,7 @@ export function NuovaPrestazioneForm() {
       [form.attivita, 'Attività oggetto'],
       [form.compensoPrevisto, 'Compenso previsto'],
       [form.casisticaGdpr, 'Casistica GDPR'],
+      ...(centri.length ? ([[form.centroCostoId, 'Centro di costo']] as [string, string][]) : []),
     ]
     for (const [val, label] of required) {
       if (!String(val).trim()) return `⚠️ Campo obbligatorio mancante: ${label}.`
@@ -324,7 +327,7 @@ export function NuovaPrestazioneForm() {
       setForm({
         nome: '', cognome: '', dataNascita: '', luogoNascita: '', codiceFiscale: '',
         residenza: '', ruolo: '', email: '', telefono: '', iban: '', giorni: '', dataInizio: '',
-        dataFine: '', attivita: '', compensoPrevisto: '', casisticaGdpr: '',
+        dataFine: '', attivita: '', compensoPrevisto: '', casisticaGdpr: '', centroCostoId: '',
       })
       setCopiaCf(null)
       setCopiaCi(null)
@@ -500,6 +503,22 @@ export function NuovaPrestazioneForm() {
         <legend className="text-sm font-bold text-accent-purple uppercase tracking-wide">
           Prestazione
         </legend>
+
+        {centri.length > 0 && (
+          <Campo
+            etichetta="Centro di costo"
+            tipo="choice"
+            obbligatorio
+            vuoto="— Seleziona il servizio —"
+            scelte={centri.map((c) => ({
+              valore: String(c.id),
+              etichetta: c.area ? `${c.area} · ${c.nome}` : c.nome,
+            }))}
+            aiuto="Il servizio a cui va imputato il compenso."
+            valore={form.centroCostoId}
+            onChange={(v) => set('centroCostoId', v)}
+          />
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Campo

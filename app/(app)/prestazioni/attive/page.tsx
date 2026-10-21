@@ -6,6 +6,11 @@ import { GeneraDocumentiButton } from './GeneraDocumentiButton'
 import { ChiusuraNotula } from './ChiusuraNotula'
 import { VerificaFirmaButton } from './VerificaFirmaButton'
 import { ChiudiPraticaButton } from './ChiudiPraticaButton'
+import { AnnullaPraticaButton } from './AnnullaPraticaButton'
+import { CentroCostoPratica } from './CentroCostoPratica'
+import { auth } from '@/lib/core/auth'
+import { getCentriDiCosto, type CentroDiCosto } from '@/lib/centri-costo/data'
+import { puoGestirePratica } from '@/lib/prestazioni/accesso'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,9 +34,11 @@ const STATO_COLORS: Record<string, string> = {
 }
 
 export default async function PrestazioniAttivePage() {
+  const session = await auth()
   let prestazioni: Prestazione[] = []
+  let centri: CentroDiCosto[] = []
   try {
-    prestazioni = await getPrestazioniAttive()
+    ;[prestazioni, centri] = await Promise.all([getPrestazioniAttive(), getCentriDiCosto()])
   } catch (err) {
     // Lista SharePoint non ancora configurata → mostra empty state senza crashare
     console.error('[prestazioni/attive]', err)
@@ -85,6 +92,15 @@ export default async function PrestazioniAttivePage() {
                   <br />
                   {p.responsabileNome || '—'}
                 </p>
+                {centri.length > 0 && (
+                  <CentroCostoPratica
+                    spItemId={p.spItemId}
+                    centroCostoId={p.centroCostoId}
+                    centroCosto={p.centroCosto}
+                    centri={centri}
+                    modificabile={puoGestirePratica(session?.user, p)}
+                  />
+                )}
                 <p className="text-xs text-gray-400 mt-2">{p.idPrestazione}</p>
                 <p className="text-sm text-gray-500 mt-1 truncate">{p.attivita}</p>
                 <p className="text-xs text-gray-400 mt-1">
@@ -113,6 +129,9 @@ export default async function PrestazioniAttivePage() {
                 <ChiusuraNotula spItemId={p.spItemId} importoLordo={p.importoLordo} />
                 {p.stato === 'Notula ricevuta' && (
                   <ChiudiPraticaButton spItemId={p.spItemId} />
+                )}
+                {p.stato === 'Bozza' && puoGestirePratica(session?.user, p) && (
+                  <AnnullaPraticaButton spItemId={p.spItemId} idPrestazione={p.idPrestazione} />
                 )}
               </div>
             ))}

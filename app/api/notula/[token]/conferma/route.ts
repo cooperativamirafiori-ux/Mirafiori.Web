@@ -23,6 +23,7 @@ import {
 } from '@/lib/prestazioni/data'
 import { notificaNotulaCaricata } from '@/lib/prestazioni/notifiche'
 import { logAzione } from '@/lib/core/audit'
+import { riversaPrestazioneNelRegistro } from '@/lib/prestazioni/registro'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -69,6 +70,9 @@ export async function POST(
     }
 
     await aggiornaPrestazione(p.spItemId, { NotulaUrl: webUrl, Stato: 'Notula ricevuta' })
+
+    // Importo definitivo: riga di costo nel registro analitico (non blocca mai)
+    await riversaPrestazioneNelRegistro({ ...p, stato: 'Notula ricevuta' })
 
     await notificaNotulaCaricata({
       idPrestazione: p.idPrestazione,

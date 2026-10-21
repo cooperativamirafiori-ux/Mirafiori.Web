@@ -73,6 +73,7 @@ export type FonteMovimento =
   | 'incasso'           // corrispettivi diretti (registratore di cassa)
   | 'uscita_manuale'    // scadenza fuori SDI classificata come costo
   | 'manuale'           // rettifica inserita da una persona
+  | 'prestazione_occasionale' // notula ricevuta di una prestazione occasionale
 
 /**
  * Quanto ci si può credere, sull'attribuzione al centro di costo. Non è una
