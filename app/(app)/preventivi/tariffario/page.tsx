@@ -17,7 +17,7 @@ export default async function TariffarioPage() {
   if (!puoEntrare(accesso)) redirect('/home')
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <Header title="Tariffario preventivi" backHref="/preventivi" backLabel="Torna ai Preventivi" />
+      <Header title="Tariffario preventivi" backHref="/preventivi/servizi" backLabel="Torna ai Preventivi Servizi" />
       <main className="flex-1 px-4 py-6 max-w-3xl mx-auto w-full">
         <Tariffario modificabile={accesso.tutti} />
       </main>

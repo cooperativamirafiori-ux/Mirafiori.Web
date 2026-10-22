@@ -76,7 +76,7 @@ export async function notificaSollecito(to: string, elenco: Preventivo[]): Promi
       <p>Se è stato accettato ti basta aprirlo e premere <strong>«È stato accettato»</strong>:
       Andrea riceve il definitivo e sa cosa fatturare. Se l’ente ha chiesto modifiche,
       <strong>«Riapri per correggere»</strong>.</p>
-      ${BTN(`${APP()}/preventivi?stato=emesso`, 'I miei preventivi in attesa', '#00728F')}
+      ${BTN(`${APP()}/preventivi/servizi?stato=emesso`, 'I miei preventivi in attesa', '#00728F')}
     `),
   })
 }

@@ -5,11 +5,15 @@ import { auth } from '@/lib/core/auth'
 import { accessoPreventivi, puoEntrare } from './accesso'
 import { preventiviConfigurati } from './data'
 
-export async function guardPreventivi(opts: { soloTutti?: boolean } = {}) {
+/**
+ * `senzaListe`: per il catering, che non usa le tre liste dei preventivi ai
+ * servizi e deve funzionare anche se non sono collegate.
+ */
+export async function guardPreventivi(opts: { soloTutti?: boolean; senzaListe?: boolean } = {}) {
   const session = await auth()
   const email = session?.user?.email
   if (!email) return { error: NextResponse.json({ error: 'Non autenticato' }, { status: 401 }) } as const
-  if (!preventiviConfigurati()) {
+  if (!opts.senzaListe && !preventiviConfigurati()) {
     return { error: NextResponse.json({ error: 'Sezione Preventivi non ancora configurata' }, { status: 503 }) } as const
   }
   const accesso = await accessoPreventivi(session.user)

@@ -24,11 +24,11 @@ export default async function PreventivoPage({
   if (!puoEntrare(accesso)) redirect('/home')
   const { id } = await params
   const { prezzi } = await searchParams
-  if (id !== 'nuovo' && !/^\d+$/.test(id)) redirect('/preventivi')
+  if (id !== 'nuovo' && !/^\d+$/.test(id)) redirect('/preventivi/servizi')
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <Header title={id === 'nuovo' ? 'Nuovo preventivo' : 'Preventivo'} backHref="/preventivi" backLabel="Torna ai Preventivi" />
+      <Header title={id === 'nuovo' ? 'Nuovo preventivo' : 'Preventivo'} backHref="/preventivi/servizi" backLabel="Torna ai Preventivi Servizi" />
       <main className="flex-1 px-4 py-6 max-w-3xl mx-auto w-full">
         <EditorPreventivo id={id === 'nuovo' ? null : id} prezziAggiornati={Number(prezzi) || 0} />
       </main>

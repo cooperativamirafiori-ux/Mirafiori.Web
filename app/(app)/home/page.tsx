@@ -6,7 +6,6 @@ import { accessoQonto, puoVedereQonto } from '@/lib/qonto/accesso'
 import { AREA_IT } from '@/types/it'
 import { situazioneResponsabile } from '@/lib/timbrature/data'
 import { accessoPreventivi, puoEntrare as puoPreventivi } from '@/lib/preventivi/accesso'
-import { preventiviConfigurati } from '@/lib/preventivi/data'
 
 export default async function HomePage() {
   const session = await auth()
@@ -38,9 +37,10 @@ export default async function HomePage() {
   // ti ha come referente. La card compare solo a loro. Se Supabase non
   // risponde la Home deve aprirsi lo stesso: la card semplicemente non c'e'.
   // Preventivi: coordinatori dei centri di costo e Amministrazione, senza un
-  // permesso da assegnare (docs/preventivi.md). La card compare solo quando
-  // le liste SharePoint sono collegate.
-  const vedePreventivi = preventiviConfigurati() && puoPreventivi(await accessoPreventivi(session?.user))
+  // permesso da assegnare (docs/preventivi.md). Dal 22/10/2026 la card porta
+  // all'hub (Servizi + Catering): il Catering non usa le liste, quindi la card
+  // c'è anche se non sono collegate (l'hub nasconde allora solo i Servizi).
+  const vedePreventivi = puoPreventivi(await accessoPreventivi(session?.user))
 
   let responsabile: { collaboratori: number; inAttesa: number } | null = null
   if (session?.user?.email) {
@@ -131,7 +131,7 @@ export default async function HomePage() {
               emoji="📝"
               accent="emerald"
               titolo="Preventivi"
-              sottotitolo="Fai, rinnova e segna l'esito dei preventivi agli enti"
+              sottotitolo="Preventivi agli enti e preventivi catering"
             />
           )}
           <FunzioneCard

@@ -274,7 +274,7 @@ export function EditorPreventivo({ id, prezziAggiornati }: { id: string | null; 
     if (!p || !confirm('Eliminare questa bozza? Non ha ancora un numero di protocollo.')) return
     await esegui(async () => {
       await chiama(`/api/preventivi/${p.spItemId}`, 'DELETE')
-      router.push('/preventivi')
+      router.push('/preventivi/servizi')
     })
   }
 
