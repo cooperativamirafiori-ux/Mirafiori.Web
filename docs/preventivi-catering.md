@@ -21,7 +21,8 @@ con cui la Locanda nel Parco calcola i preventivi dei catering, ma più facile d
 | Trasporto | km solo andata × 2 × **€/km** |
 | Personale | persone in servizio × ore × **€/ora** |
 | Coperto | ospiti × **€/coperto** |
-| Costo totale | somma delle cinque voci |
+| Costi extra | righe scritte a mano (cosa + costo a corpo), aggiunte il 22/10/2026 |
+| Costo totale | somma delle cinque voci + costi extra |
 | Ricarico | costo totale × **ricarico %** |
 | Prezzo IVA esclusa | costo totale + ricarico |
 | Con IVA | prezzo IVA esclusa × (1 + **IVA**) |
@@ -42,5 +43,5 @@ non i prezzi di vendita: ricarico e IVA li aggiunge l'app.
 - **Chi**: entra chi entra nei Preventivi (coordinatori dei CC + Amministrazione). I parametri
   li vedono tutti, li salva solo chi ha `Amministrazione` (o admin). Ogni salvataggio va nel
   Log Attività (`preventivi.catering_parametri`, con prima/dopo).
-- Il **ricarico** si applica al costo totale (tutte e cinque le voci), prima dell'IVA.
+- Il **ricarico** si applica al costo totale (tutte le voci, **costi extra compresi**: sono costi anche loro), prima dell'IVA.
   Riga SP: `Catering - Ricarico %`.

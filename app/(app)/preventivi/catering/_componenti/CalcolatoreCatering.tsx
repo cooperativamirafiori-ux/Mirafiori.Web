@@ -22,7 +22,9 @@ import {
 const euro = (x: number) => x.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })
 const num = (x: number) => x.toLocaleString('it-IT', { maximumFractionDigits: 2 })
 
-type Chiave = keyof DatiCatering
+type Chiave = Exclude<keyof DatiCatering, 'extra'>
+
+type RigaExtra = { id: number; descrizione: string; importo: string }
 
 const CAMPI: { k: Chiave; etichetta: string; aiuto?: string; decimali?: boolean }[] = [
   { k: 'ospiti', etichetta: 'Quanti ospiti?' },
@@ -50,6 +52,7 @@ export function CalcolatoreCatering({
   modificabile: boolean
 }) {
   const [valori, setValori] = useState<Record<Chiave, string>>(VUOTO)
+  const [extra, setExtra] = useState<RigaExtra[]>([])
   const [parametri, setParametri] = useState(parametriIniziali)
   const [apriParametri, setApriParametri] = useState(false)
   const [conferma, setConferma] = useState('')
@@ -57,8 +60,14 @@ export function CalcolatoreCatering({
   const dati: DatiCatering = useMemo(() => {
     const d = {} as DatiCatering
     for (const c of CAMPI) d[c.k] = numeroDa(valori[c.k]) ?? 0
+    d.extra = extra.map((x) => ({ descrizione: x.descrizione.trim(), importo: numeroDa(x.importo) ?? 0 }))
     return d
-  }, [valori])
+  }, [valori, extra])
+
+  const cambiaExtra = (id: number, campo: 'descrizione' | 'importo', v: string) => {
+    setConferma('')
+    setExtra((righe) => righe.map((x) => (x.id === id ? { ...x, [campo]: v } : x)))
+  }
   const r = useMemo(() => calcolaCatering(dati, parametri), [dati, parametri])
 
   const voci = [
@@ -67,6 +76,9 @@ export function CalcolatoreCatering({
     { t: 'Trasporto', v: r.trasporto, come: `${num(dati.kmAndata)} km × 2 (andata e ritorno) × ${euro(parametri.costoKm)}` },
     { t: 'Personale', v: r.personale, come: `${num(dati.personale)} persone × ${num(dati.ore)} h × ${euro(parametri.costoOraPersonale)}` },
     { t: 'Coperto', v: r.coperto, come: `${num(dati.ospiti)} ospiti × ${euro(parametri.costoCoperto)}` },
+    ...(dati.extra ?? [])
+      .filter((x) => x.importo > 0 || x.descrizione)
+      .map((x, i) => ({ t: x.descrizione || `Costo extra ${i + 1}`, v: x.importo, come: 'costo extra' })),
   ]
 
   const copia = async () => {
@@ -93,7 +105,7 @@ export function CalcolatoreCatering({
       <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
         <p className="font-bold">Inserisci i COSTI, non i prezzi di vendita</p>
         <p className="text-sm mt-1">
-          Scrivi quanto ci costa produrre il catering (cibo, bere, personale, trasporto). Il ricarico del{' '}
+          Scrivi quanto ci costa produrre il catering (cibo, bere, personale, trasporto, costi extra). Il ricarico del{' '}
           {num(parametri.ricaricoPercento)}% e l’IVA vengono aggiunti in automatico: il totale in fondo è già il
           prezzo da proporre al cliente.
         </p>
@@ -138,6 +150,46 @@ export function CalcolatoreCatering({
         </div>
       </section>
 
+      <section className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-5">
+        <h2 className="font-bold text-gray-800">Costi extra</h2>
+        <p className="text-sm text-gray-500 mt-0.5 mb-3">
+          Noleggi, allestimenti, materiali particolari: scrivi quanto ci COSTANO in tutto. Prendono anche loro il ricarico.
+        </p>
+        <div className="space-y-3">
+          {extra.map((x) => (
+            <div key={x.id} className="grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_10rem_auto] gap-2 items-end rounded-xl bg-gray-50 p-3">
+              <div className="col-span-2 sm:col-span-1">
+                <Campo etichetta="Cosa" grande valore={x.descrizione} onChange={(v) => cambiaExtra(x.id, 'descrizione', v)} segnaposto="es. noleggio gazebo" />
+              </div>
+              <Campo
+                etichetta="Costo (€)"
+                tipo="number"
+                min={0}
+                inputMode="decimal"
+                grande
+                valore={x.importo}
+                onChange={(v) => cambiaExtra(x.id, 'importo', v)}
+              />
+              <button
+                type="button"
+                onClick={() => setExtra((righe) => righe.filter((y) => y.id !== x.id))}
+                aria-label="Togli questo costo"
+                className="min-h-[50px] px-4 rounded-xl border border-gray-300 bg-white text-gray-600 font-semibold"
+              >
+                Togli
+              </button>
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => setExtra((righe) => [...righe, { id: Date.now(), descrizione: '', importo: '' }])}
+          className="mt-3 w-full sm:w-auto min-h-[44px] px-4 py-2.5 rounded-xl border-2 border-dashed border-gray-300 text-gray-700 font-semibold"
+        >
+          + Aggiungi un costo extra
+        </button>
+      </section>
+
       <section className="rounded-2xl bg-[#0b1f5c] text-white p-5">
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -175,6 +227,7 @@ export function CalcolatoreCatering({
           type="button"
           onClick={() => {
             setValori(VUOTO)
+            setExtra([])
             setConferma('')
           }}
           className="grow sm:grow-0 min-h-[44px] px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-gray-700 font-semibold"

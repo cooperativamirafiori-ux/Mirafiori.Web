@@ -9,7 +9,8 @@
  *   trasporto   = km SOLO ANDATA × 2    × €/km            (foglio: 1,10 €/km)
  *   personale   = persone in servizio   × ore × €/ora      (foglio: 18,50 €/h)
  *   coperto     = ospiti                × €/coperto        (foglio: 1 €)
- *   totale      = somma delle cinque voci (COSTO di produzione)
+ *   extra       = somma dei costi extra scritti a mano     (aggiunti il 22/10/2026)
+ *   totale      = somma delle voci (COSTO di produzione): anche gli extra prendono il ricarico
  *   ricarico    = totale × ricarico %                      (aggiunto il 22/10/2026: 30%)
  *   imponibile  = totale + ricarico                        (prezzo di vendita IVA esclusa)
  *   con IVA     = imponibile × (1 + IVA)                   (foglio: 10%)
@@ -62,6 +63,13 @@ export interface DatiCatering {
   personale: number
   /** Ore di impegno, dalla partenza dalla Locanda al rientro. */
   ore: number
+  /** Costi extra a corpo (noleggi, allestimenti…): COSTI, come il resto. */
+  extra?: CostoExtra[]
+}
+
+export interface CostoExtra {
+  descrizione: string
+  importo: number
 }
 
 export interface RisultatoCatering {
@@ -70,7 +78,9 @@ export interface RisultatoCatering {
   trasporto: number
   personale: number
   coperto: number
-  /** Somma delle cinque voci: il costo di produzione. */
+  /** Somma dei costi extra. */
+  extra: number
+  /** Somma di tutte le voci, extra compresi: il costo di produzione. */
   totale: number
   ricarico: number
   /** Prezzo di vendita IVA esclusa: costo + ricarico. */
@@ -90,7 +100,8 @@ export function calcolaCatering(d: DatiCatering, p: ParametriCatering): Risultat
   const trasporto = n(d.kmAndata) * 2 * n(p.costoKm)
   const personale = n(d.personale) * n(d.ore) * n(p.costoOraPersonale)
   const coperto = ospiti * n(p.costoCoperto)
-  const totale = cibo + bere + trasporto + personale + coperto
+  const extra = (d.extra ?? []).reduce((s, x) => s + n(x.importo), 0)
+  const totale = cibo + bere + trasporto + personale + coperto + extra
   const ricarico = totale * (n(p.ricaricoPercento) / 100)
   const imponibile = totale + ricarico
   const iva = imponibile * (n(p.ivaPercento) / 100)
@@ -101,6 +112,7 @@ export function calcolaCatering(d: DatiCatering, p: ParametriCatering): Risultat
     trasporto,
     personale,
     coperto,
+    extra,
     totale,
     ricarico,
     imponibile,
