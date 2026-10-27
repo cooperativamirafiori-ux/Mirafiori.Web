@@ -168,8 +168,24 @@ async function main() {
   console.log(`  con spunta "Timbratura attiva" . ${schede.filter((s) => s.spuntata).length}`)
   console.log(`  di cui abilitabili ............. ${schede.filter((s) => s.attivo && s.email).length}`)
 
+  // --- doppioni -------------------------------------------------------------
+  // Più schede con la stessa mail (vecchia cessata + nuova): prevale quella
+  // attiva, poi quella con il rapporto in corso. Come schedePrevalenti() in
+  // lib/timbrature/sync.ts.
+  const peso = (s) => (s.attivo ? 2 : s.chiuso ? 0 : 1)
+  const prevalenti = new Map()
+  for (const s of schede) {
+    if (!s.email) continue
+    const p = prevalenti.get(s.email)
+    if (!p || peso(s) > peso(p)) prevalenti.set(s.email, s)
+  }
+  for (const s of schede) {
+    if (s.email && prevalenti.get(s.email) !== s) s.doppione = true
+  }
+
   // --- confronto ------------------------------------------------------------
   const interessanti = schede.filter((s) => {
+    if (s.doppione) return false
     if (SOLO) return `${s.nominativo} ${s.email}`.toLowerCase().includes(SOLO)
     return s.spuntata || perEmail.has(s.email)
   })

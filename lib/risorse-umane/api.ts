@@ -23,6 +23,7 @@ import {
   aggiornaItem,
   eliminaItem,
   validaInput,
+  trovaDoppione,
 } from '@/lib/risorse-umane/data'
 import { graphRU, isRiautenticazione, isAccessoNegato } from '@/lib/core/graph-delegato'
 import { sincronizzaRecordRU } from '@/lib/timbrature/sync'
@@ -108,8 +109,10 @@ export function listHandlers(entity: RUEntity) {
     if (msg) return NextResponse.json({ error: msg }, { status: 400 })
     try {
       const gc = await graphRU(g.session.user.email)
+      const doppione = await trovaDoppione(gc, body)
+      if (doppione) return NextResponse.json({ error: doppione }, { status: 409 })
       const item = await creaItem(gc, entity, body)
-      const sync = await sincronizzaRecordRU(item)
+      const sync = await sincronizzaRecordRU(item, gc)
       await logAzione({
         utente: g.session.user.email,
         nome: g.session.user.name,
@@ -275,8 +278,10 @@ export function itemHandlers(entity: RUEntity) {
     if (msg) return NextResponse.json({ error: msg }, { status: 400 })
     try {
       const gc = await graphRU(g.session.user.email)
+      const doppione = await trovaDoppione(gc, body, { entity, spItemId: id })
+      if (doppione) return NextResponse.json({ error: doppione }, { status: 409 })
       const item = await aggiornaItem(gc, entity, id, body)
-      const sync = await sincronizzaRecordRU(item)
+      const sync = await sincronizzaRecordRU(item, gc)
       await logAzione({
         utente: g.session.user.email,
         nome: g.session.user.name,

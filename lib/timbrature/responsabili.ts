@@ -26,6 +26,7 @@ import {
   nonTimbraRU,
   rapportoChiuso,
   sincronizzaRecordRU,
+  schedePrevalenti,
 } from '@/lib/timbrature/sync'
 import { supabase } from '@/lib/core/supabase'
 import { isAccessoNegato, isRiautenticazione, type GraphClient } from '@/lib/core/graph-delegato'
@@ -122,12 +123,16 @@ export async function elencoAbilitazioni(gc: GraphClient): Promise<PersonaAbilit
     conOrario(),
   ])
   const perMail = new Map(db.map((d) => [d.email.toLowerCase(), d]))
+  const prevalenti = schedePrevalenti([...dipendenti, ...tirocini])
 
   const out: PersonaAbilitazione[] = []
   const blocchi: [RUEntity, RURecord[]][] = [['dipendenti', dipendenti], ['tirocini', tirocini]]
   for (const [entity, records] of blocchi) {
     for (const rec of records) {
       const mail = mailChiave(rec)
+      // Vecchia scheda doppione di una persona che ne ha un'altra prevalente
+      // con la stessa mail: non è lei a decidere, mostrarla sarebbe solo rumore.
+      if (mail && prevalenti.get(mail) !== rec) continue
       const d = mail ? perMail.get(mail) ?? null : null
       const p = componi(entity, rec, d, d ? orari.has(d.id) : false)
       if (p.chiuso && !p.timbraturaAttiva && !p.db?.attivo) continue
@@ -199,7 +204,7 @@ export async function applicaModifica(
     if (Object.keys(campi).length === 0) return { ...base, ok: false, errore: 'Nessuna modifica.' }
 
     const dopo = await aggiornaCampiParziali(gc, m.entity, m.spItemId, campi)
-    const sync = await sincronizzaRecordRU(dopo)
+    const sync = await sincronizzaRecordRU(dopo, gc)
 
     const mail = mailChiave(dopo)
     const d = mail ? await getDipendenteByEmail(mail) : null

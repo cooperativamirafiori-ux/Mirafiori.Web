@@ -200,6 +200,48 @@ export function validaInput(input: Record<string, unknown>): string | null {
   return null
 }
 
+/**
+ * Una scheda per persona (regola decisa con Dennis il 27/10/2026).
+ *
+ * Al passaggio da dipendente a socio lavoratore le HR avevano aperto schede
+ * nuove lasciando quelle vecchie "Cessato" con lo stesso codice fiscale e la
+ * stessa mail aziendale (Corio, Dotto, Roberti, Guido, Ravelli): la mail è la
+ * chiave delle timbrature, e due schede con la stessa mail spegnevano a caso la
+ * persona. Ora il salvataggio si ferma e indica la scheda già esistente, da
+ * aggiornare invece di duplicare.
+ *
+ * Controlla Dipendenti e Tirocini; `escludi` è la scheda che si sta modificando.
+ * Restituisce il messaggio d'errore, o null se non ci sono doppioni.
+ */
+export async function trovaDoppione(
+  g: GraphClient,
+  input: Record<string, unknown>,
+  escludi?: { entity: RUEntity; spItemId: string },
+): Promise<string | null> {
+  const norm = (x: unknown) => (typeof x === 'string' ? x.trim() : '')
+  const cf = norm(input.CodiceFiscale).toUpperCase()
+  const mail = norm(input.MailAziendale).toLowerCase()
+  if (!cf && !mail) return null
+
+  const entita = Object.keys(RU_CONFIG) as RUEntity[]
+  for (const entity of entita) {
+    const records = await getItems(g, entity)
+    for (const r of records) {
+      if (escludi && escludi.entity === entity && escludi.spItemId === r.spItemId) continue
+      const stessoCf = !!cf && norm(r.CodiceFiscale).toUpperCase() === cf
+      const stessaMail = !!mail && norm(r.MailAziendale).toLowerCase() === mail
+      if (!stessoCf && !stessaMail) continue
+      const chi = `${norm(r.Cognome)} ${norm(r.Nome)}`.trim() || `scheda ${r.spItemId}`
+      const stato = norm(r.StatoRapporto) || norm(r.StatoTirocinio)
+      const dove = `${RU_CONFIG[entity].label}${stato ? `, ${stato.toLowerCase()}` : ''}`
+      const cosa = stessoCf ? 'lo stesso codice fiscale' : 'la stessa mail aziendale'
+      return `Esiste già la scheda di ${chi} (${dove}) con ${cosa}. ` +
+        'Apri quella e aggiorna il rapporto (tipo, matricola, date) invece di crearne una nuova: ogni persona ha una sola scheda.'
+    }
+  }
+  return null
+}
+
 // ==================================================================
 // Cartella personale del dipendente (document library del sito)
 // Struttura: <folderRoot()>/<Cognome Nome - Matricola>

@@ -149,6 +149,34 @@ export function nonTimbraRU(rec: RURecord): boolean {
   return str(rec.NonTimbra) === ATTIVA
 }
 
+/**
+ * Più schede RU con la stessa mail aziendale: succede quando una persona
+ * cessata viene riassunta e le HR aprono una scheda nuova invece di riaprire la
+ * vecchia (casi Dotto e Ravelli, ott 2026). In Supabase la riga è una sola per
+ * mail, quindi una scheda deve prevalere: quella che abilita, altrimenti quella
+ * con il rapporto in corso, altrimenti la prima. Senza questa scelta vinceva
+ * l'ultima letta, e l'ordine di lettura (per cognome) a parità di cognome è
+ * casuale: la scheda cessata spegneva la persona e le svuotava il referente.
+ */
+export function schedePrevalenti(records: RURecord[]): Map<string, RURecord> {
+  const peso = (r: RURecord) => (abilitazione(r).attivo ? 2 : rapportoChiuso(r) ? 0 : 1)
+  const out = new Map<string, RURecord>()
+  for (const rec of records) {
+    const email = mailChiave(rec)
+    if (!email) continue
+    const prima = out.get(email)
+    if (!prima || peso(rec) > peso(prima)) out.set(email, rec)
+  }
+  return out
+}
+
+/** Tutte le schede RU (dipendenti + tirocini). */
+async function tutteLeSchede(gc: GraphClient): Promise<RURecord[]> {
+  const entita = Object.keys(RU_CONFIG) as RUEntity[]
+  const blocchi = await Promise.all(entita.map((e) => getItems(gc, e)))
+  return blocchi.flat()
+}
+
 export interface EsitoRecord {
   ok: boolean
   /** Cosa è stato fatto sul database timbrature. */
@@ -161,7 +189,17 @@ export interface EsitoRecord {
  * Allinea UNA scheda RU. Non lancia: un problema di sincronizzazione non deve
  * far fallire il salvataggio dell'anagrafica, che è l'operazione principale.
  */
-export async function sincronizzaRecordRU(rec: RURecord): Promise<EsitoRecord> {
+export async function sincronizzaRecordRU(salvata: RURecord, gc?: GraphClient): Promise<EsitoRecord> {
+  // Se la scheda salvata non abilita, potrebbe esserci un'altra scheda attiva
+  // con la stessa mail (vecchia scheda cessata + scheda nuova): in quel caso
+  // fa fede quella attiva, altrimenti salvare la vecchia spegnerebbe la persona.
+  let rec = salvata
+  if (gc && !abilitazione(salvata).attivo && mailChiave(salvata)) {
+    try {
+      const prevalente = schedePrevalenti(await tutteLeSchede(gc)).get(mailChiave(salvata))
+      if (prevalente && abilitazione(prevalente).attivo) rec = prevalente
+    } catch { /* se la lettura fallisce si resta sulla scheda salvata */ }
+  }
   const ab = abilitazione(rec)
   const email = mailChiave(rec)
 
@@ -241,9 +279,9 @@ export async function sincronizzaTuttoRU(gc: GraphClient): Promise<EsitoSync> {
     decaduti: [], senzaMail: [], errori: [],
   }
 
-  const entita = Object.keys(RU_CONFIG) as RUEntity[]
-  for (const entity of entita) {
-    const records = await getItems(gc, entity)
+  const records = await tutteLeSchede(gc)
+  const prevalenti = schedePrevalenti(records)
+  {
     for (const rec of records) {
       out.esaminati++
       const ab = abilitazione(rec)
@@ -252,6 +290,11 @@ export async function sincronizzaTuttoRU(gc: GraphClient): Promise<EsitoSync> {
       if (!email) {
         if (ab.spuntata) out.senzaMail.push(nominativoRU(rec))
         else out.invariati++
+        continue
+      }
+      // Doppione con la stessa mail: si sincronizza solo la scheda prevalente.
+      if (prevalenti.get(email) !== rec) {
+        out.invariati++
         continue
       }
 
