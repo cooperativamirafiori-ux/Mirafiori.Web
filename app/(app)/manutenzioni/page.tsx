@@ -64,6 +64,15 @@ export default async function ManutenzioniPage() {
                 sottotitolo="Costi per struttura: manutenzioni, utenze, costi fissi"
                 badge="Admin"
               />
+
+              <ModuloCard
+                href="/manutenzioni/fornitori"
+                emoji="🏷️"
+                iconBg="bg-slate-600"
+                titolo="Fornitori"
+                sottotitolo="Anagrafica di ditte e tecnici"
+                badge="Admin"
+              />
             </>
           )}
         </section>

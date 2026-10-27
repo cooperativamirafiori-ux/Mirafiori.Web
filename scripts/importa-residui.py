@@ -58,7 +58,17 @@ PRIMA DEL PRIMO GIRO
   node scripts/aggiungi-colonna-ru.mjs MatricolaPulse testo
   node scripts/popola-matricola-pulse.mjs --conferma
 
-Richiede: pip3 install xlrd
+ANCHE DAI PDF (aggiunto 26/10/2026)
+--ferie e --flessibilita accettano anche i PDF delle stampe GENIUS
+"DA0257_RESIDUO_FERIE_ROL_FEST.SOPP_<mm.aaaa>_....pdf" e
+"DA0257_RESIDUO_FLESSIBILITA_<mm.aaaa>_....pdf": stessi numeri degli .xls,
+riconosciuti dall'estensione. Il blocco R.O.L. del PDF ferie viene letto ma non
+scritto (la tabella oggi non ha il tipo 'rol'): se un giorno non è tutto a zero,
+lo script lo segnala. Ogni riga è controllata con residuo = a.p. + maturate -
+godute prima di essere accettata.
+
+Richiede: pip3 install xlrd   (per gli .xls)
+          pip3 install pdfplumber   (per i .pdf)
 Legge da .env.local: GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET,
 SP_LIST_DIPENDENTI, SP_SITE_RU (o SHAREPOINT_SITE_ID), SUPABASE_URL,
 SUPABASE_SERVICE_ROLE_KEY.
@@ -73,10 +83,8 @@ import urllib.parse
 import urllib.request
 from datetime import date
 
-try:
-    import xlrd
-except ImportError:
-    sys.exit("✗ Manca xlrd. Installalo con:  pip3 install xlrd")
+# xlrd e pdfplumber si importano solo quando servono: chi carica i PDF non ha
+# bisogno di xlrd, e viceversa.
 
 QUI = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.dirname(QUI)
@@ -171,6 +179,10 @@ def leggi_xls(percorso, blocchi):
     righe scartate, che serve a far vedere che i totali sono stati riconosciuti
     come tali e non buttati per sbaglio.
     """
+    try:
+        import xlrd
+    except ImportError:
+        sys.exit("✗ Manca xlrd. Installalo con:  pip3 install xlrd")
     wb = xlrd.open_workbook(percorso)
     sh = wb.sheet_by_index(0)
     persone, scartate = [], []
@@ -216,6 +228,100 @@ def leggi_xls(percorso, blocchi):
         })
 
     return persone, scartate
+
+
+# ---------------------------------------------------------------- lettura pdf
+
+PDF_NUM = re.compile(r"^-?\d{1,3}(?:\.\d{3})*,\d{1,2}$")
+PDF_DATA = re.compile(r"^\d{1,2}\.\d{2}\.\d{4}$")
+PDF_DITTA = 257  # le stampe sono tutte della ditta 0257
+
+
+def numero_it(s):
+    """'1.162,63' → 1162.63"""
+    return float(s.replace(".", "").replace(",", "."))
+
+
+def leggi_pdf(percorso, tipi):
+    """
+    Come leggi_xls, ma dalla stampa PDF di GENIUS.
+
+    Ogni riga-persona comincia con la matricola a 7 cifre e ha due date
+    (assunzione e inizio rapporto); dopo l'ultima data vengono i numeri, a
+    blocchi di cinque: residuo a.p. · maturate · godute · residuo · importo.
+    `tipi` dice cosa rappresenta ciascun blocco, in ordine; None = blocco letto
+    ma non scritto (i R.O.L.). Le righe di totale non cominciano con una
+    matricola e restano fuori da sole.
+    """
+    try:
+        import pdfplumber
+    except ImportError:
+        sys.exit("✗ Manca pdfplumber. Installalo con:  pip3 install pdfplumber")
+
+    persone, scartate, al_giorno = [], [], None
+    rol_non_zero = []
+    with pdfplumber.open(percorso) as pdf:
+        for pagina in pdf.pages:
+            for riga in (pagina.extract_text() or "").splitlines():
+                m = re.search(r"\bAL (\d{2})\.(\d{2})\.(\d{4})", riga)
+                if m and not al_giorno:
+                    al_giorno = f"{m.group(3)}-{m.group(2)}-{m.group(1)}"
+                t = riga.split()
+                if not t or not re.fullmatch(r"[1-9]\d{6}", t[0]):
+                    if t and t[0] in ("OPERAI", "IMPIEGATI", "SOCI", "APPRENDISTI"):
+                        scartate.append(" ".join(t[:2]))
+                    continue
+                matr = t[0]
+                date_idx = [i for i, x in enumerate(t) if PDF_DATA.match(x)]
+                nome = []
+                for x in t[1:]:
+                    if PDF_DATA.match(x) or PDF_NUM.match(x) or re.fullmatch(r"\d+", x):
+                        break
+                    nome.append(x)
+                nome = " ".join(nome)
+                numeri = t[date_idx[-1] + 1:] if date_idx else []
+                if (len(date_idx) < 2 or len(numeri) != 5 * len(tipi)
+                        or not all(PDF_NUM.match(x) for x in numeri)):
+                    sys.exit(f"✗ Riga non riconosciuta in {os.path.basename(percorso)}:\n  {riga}")
+                v = [numero_it(x) for x in numeri]
+
+                voci = []
+                for k, tipo in enumerate(tipi):
+                    ap, mat, god, res, imp = v[5 * k:5 * k + 5]
+                    if abs(ap + mat - god - res) > 0.011:
+                        sys.exit(f"✗ {nome} ({matr}), {tipo or 'rol'}: "
+                                 f"{ap} + {mat} - {god} non fa {res}. Controlla il PDF.")
+                    if tipo is None:
+                        if any((ap, mat, god, res, imp)):
+                            rol_non_zero.append(nome)
+                        continue
+                    voci.append({"tipo": tipo, "residuo_ap": ap, "maturate": mat,
+                                 "godute": god, "residuo": res, "importo": imp})
+
+                qualifica, personale = matr[0], matr[1:]
+                persone.append({
+                    "matricola_pulse": f"{PDF_DITTA:04d}{qualifica}{personale.lstrip('0').rjust(5, '0')}",
+                    "nome": nome,
+                    "livello": "",
+                    "al_giorno": None,  # riempito sotto, la data sta nell'intestazione
+                    "voci": voci,
+                })
+
+    for p in persone:
+        p["al_giorno"] = al_giorno
+    if rol_non_zero:
+        print(f"⚠ R.O.L. non a zero per {len(rol_non_zero)} persone, NON importati "
+              f"(la tabella non ha il tipo 'rol'): {', '.join(rol_non_zero)}")
+    viste = [p["matricola_pulse"] for p in persone]
+    if len(viste) != len(set(viste)):
+        sys.exit(f"✗ Matricole ripetute in {os.path.basename(percorso)}")
+    return persone, scartate
+
+
+def leggi_file(percorso, blocchi_xls, tipi_pdf):
+    if percorso.lower().endswith(".pdf"):
+        return leggi_pdf(percorso, tipi_pdf)
+    return leggi_xls(percorso, blocchi_xls)
 
 
 # ---------------------------------------------------------------- anagrafiche
@@ -285,11 +391,14 @@ def main():
     # --- leggo i file
     letti = []
     if args.ferie:
-        p, scartate = leggi_xls(args.ferie, [("ferie", BLOCCO_FERIE),
-                                             ("festivita_soppresse", BLOCCO_FS)])
+        p, scartate = leggi_file(args.ferie,
+                                 [("ferie", BLOCCO_FERIE), ("festivita_soppresse", BLOCCO_FS)],
+                                 ["ferie", None, "festivita_soppresse"])
         letti.append((os.path.basename(args.ferie), p, scartate))
     if args.flessibilita:
-        p, scartate = leggi_xls(args.flessibilita, [("flessibilita", BLOCCO_FLESSIBILITA)])
+        p, scartate = leggi_file(args.flessibilita,
+                                 [("flessibilita", BLOCCO_FLESSIBILITA)],
+                                 ["flessibilita"])
         letti.append((os.path.basename(args.flessibilita), p, scartate))
 
     for nomefile, persone, scartate in letti:

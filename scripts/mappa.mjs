@@ -47,6 +47,7 @@ const AREE = [
     prefissi: [
       'app/(app)/manutenzioni', 'app/(app)/nuova-richiesta', 'app/(app)/mie-richieste',
       'app/(app)/dashboard', 'app/(app)/gestione', 'app/api/manutenzioni', 'lib/manutenzioni', 'lib/strutture',
+      'app/api/fornitori', 'lib/fornitori', 'types/fornitori', 'scripts/provision-fornitori',
     ],
   },
   {

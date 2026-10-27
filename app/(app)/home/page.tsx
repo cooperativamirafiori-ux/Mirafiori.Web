@@ -107,7 +107,7 @@ export default async function HomePage() {
               href="/manutenzioni"
               emoji="🔧"
               accent="cyan"
-              titolo="Richieste Manutenzione"
+              titolo="Manutenzioni"
               sottotitolo="Segnala e gestisci gli interventi"
             />
           )}
