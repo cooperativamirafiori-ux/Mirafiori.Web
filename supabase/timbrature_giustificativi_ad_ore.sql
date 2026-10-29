@@ -32,3 +32,9 @@ alter table timbratura add constraint timbratura_orari_coerenti check (
   (ora_inizio is null) = (ora_fine is null)
   and (tipo_voce <> 'lavoro' or (ora_inizio is not null and ora_fine is not null))
 );
+
+-- 4) 29/10/2026: anche Formazione e Permessi NON retribuiti ammettono le ore
+--    parziali (prima solo giornata intera, segnalato da un collega).
+update servizio set ad_ore = true
+ where nome in ('Formazione', 'Permessi NON retribuiti')
+   and tipo_voce = 'giustificativo';
