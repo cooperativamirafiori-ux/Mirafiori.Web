@@ -152,7 +152,7 @@ export function GiorniMese({
               {modificabile && onAggiungi && (
                 <button
                   onClick={() => onAggiungi(g.data)}
-                  title={chiuso ? 'Fuori dai tre giorni: solo ferie, permessi o malattia' : undefined}
+                  title={chiuso ? 'Fuori dai tre giorni: solo ferie, permessi o mutua' : undefined}
                   className={`text-sm font-semibold shrink-0 hover:underline ${chiuso ? 'text-gray-400' : 'text-brand-cyan-dark'}`}
                 >
                   + riga
@@ -166,7 +166,7 @@ export function GiorniMese({
                   <RigaVoce
                     key={t.id}
                     t={t}
-                    modificabile={modificabile && !(t.tipoVoce === 'lavoro' && chiuso)}
+                    modificabile={modificabile && !(t.tipoVoce === 'lavoro' && !t.mutua && chiuso)}
                     onModifica={onModifica}
                     onElimina={onElimina}
                   />

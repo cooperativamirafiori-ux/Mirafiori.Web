@@ -132,6 +132,9 @@ export async function listTimbratureMolti(
  *     programmano prima di partire (ed e' cosi' che si evitano i solleciti
  *     mentre si e' in vacanza) e la malattia si registra quando il certificato
  *     arriva, non entro tre giorni.
+ *   - MUTUA: una riga di lavoro con la spunta "Malattia (Mutua)" segue la
+ *     regola dei giustificativi (30 ott 2026, Dennis): anche la mutua si
+ *     registra quando arriva il certificato.
  *
  * Terza regola, per chi NON timbra: la finestra non si applica affatto. Esiste
  * per far compilare il foglio giorno per giorno, che e' esattamente la cosa che
@@ -139,14 +142,14 @@ export async function listTimbratureMolti(
  * tutto in anticipo il primo del mese. Resta invece lo stato del mese, che vale
  * per tutti.
  */
-async function assertModificabile(dipendenteId: number, dataYmd: string, tipoVoce: TipoVoce) {
+async function assertModificabile(dipendenteId: number, dataYmd: string, tipoVoce: TipoVoce, mutua = false) {
   const anno = Number(dataYmd.slice(0, 4))
   const mese = Number(dataYmd.slice(5, 7))
   const stato = await statoMese(dipendenteId, anno, mese)
   if (stato !== 'aperto') {
     throw new Error(`${MOTIVO_STATO[stato]}. Per una correzione rivolgiti al tuo responsabile.`)
   }
-  if (tipoVoce !== 'lavoro') return
+  if (tipoVoce !== 'lavoro' || mutua) return
 
   const oggi = oggiRoma()
   const limite = primaDataUtile(oggi)
@@ -189,9 +192,10 @@ export async function assertScrivibile(
   dataYmd: string,
   tipoVoce: TipoVoce,
   perConto: boolean,
+  mutua = false,
 ) {
   if (perConto) await assertModificabilePerConto(dipendenteId, dataYmd)
-  else await assertModificabile(dipendenteId, dataYmd, tipoVoce)
+  else await assertModificabile(dipendenteId, dataYmd, tipoVoce, mutua)
 }
 
 /**
@@ -205,9 +209,10 @@ async function assertScrivibileCoda(
   dataYmd: string,
   tipoVoce: TipoVoce,
   perConto: boolean,
+  mutua = false,
 ) {
   try {
-    await assertScrivibile(dipendenteId, dataYmd, tipoVoce, perConto)
+    await assertScrivibile(dipendenteId, dataYmd, tipoVoce, perConto, mutua)
   } catch (e) {
     const dettaglio = e instanceof Error ? e.message : 'non e\' scrivibile'
     throw new Error(
@@ -328,11 +333,12 @@ export async function creaTimbratura(
 ): Promise<EsitoScrittura> {
   const serv = await servizioById(input.servizioId)
   const perConto = !!opts.perConto
+  const mutua = serv.tipoVoce === 'lavoro' && !!input.mutua
   const { oraInizio, oraFine, ore } = await risolviVoce(dipendenteId, input, serv)
 
   // Giornata intera (giustificativo senza orari): niente da spezzare.
   if (!oraInizio || !oraFine) {
-    await assertScrivibile(dipendenteId, input.data, serv.tipoVoce, perConto)
+    await assertScrivibile(dipendenteId, input.data, serv.tipoVoce, perConto, mutua)
     await scavalcaGiornataTeorica(dipendenteId, serv, [{ data: input.data }], null)
     const riga = await inserisci(dipendenteId, input, serv, creataDa, perConto, {
       data: input.data,
@@ -344,9 +350,9 @@ export async function creaTimbratura(
   }
 
   const tratti = spezzaAMezzanotte(input.data, oraInizio, oraFine)
-  await assertScrivibile(dipendenteId, tratti[0].data, serv.tipoVoce, perConto)
+  await assertScrivibile(dipendenteId, tratti[0].data, serv.tipoVoce, perConto, mutua)
   for (const t of tratti.slice(1)) {
-    await assertScrivibileCoda(dipendenteId, t.data, serv.tipoVoce, perConto)
+    await assertScrivibileCoda(dipendenteId, t.data, serv.tipoVoce, perConto, mutua)
   }
 
   const avvisoTeorico = await scavalcaGiornataTeorica(dipendenteId, serv, tratti, ore)
@@ -468,6 +474,7 @@ export async function aggiornaTimbratura(
 ): Promise<EsitoScrittura> {
   const serv = await servizioById(input.servizioId)
   const perConto = !!opts.perConto
+  const mutua = serv.tipoVoce === 'lavoro' && !!input.mutua
   const { oraInizio, oraFine, ore } = await risolviVoce(dipendenteId, input, serv)
 
   const tratti: TrattoScritto[] =
@@ -475,9 +482,9 @@ export async function aggiornaTimbratura(
       ? spezzaAMezzanotte(input.data, oraInizio, oraFine)
       : [{ data: input.data, oraInizio: null, oraFine: null, ore }]
 
-  await assertScrivibile(dipendenteId, tratti[0].data, serv.tipoVoce, perConto)
+  await assertScrivibile(dipendenteId, tratti[0].data, serv.tipoVoce, perConto, mutua)
   for (const t of tratti.slice(1)) {
-    await assertScrivibileCoda(dipendenteId, t.data, serv.tipoVoce, perConto)
+    await assertScrivibileCoda(dipendenteId, t.data, serv.tipoVoce, perConto, mutua)
   }
 
   const { data, error } = await supabase()
@@ -517,7 +524,7 @@ export async function eliminaTimbratura(
 ): Promise<void> {
   const { data: row, error: e1 } = await supabase()
     .from('timbratura')
-    .select('data, tipo_voce')
+    .select('data, tipo_voce, mutua')
     .eq('id', id)
     .eq('dipendente_id', dipendenteId)
     .maybeSingle()
@@ -528,6 +535,7 @@ export async function eliminaTimbratura(
     row.data,
     (row.tipo_voce ?? 'lavoro') as TipoVoce,
     !!opts.perConto,
+    !!row.mutua,
   )
   const { error } = await supabase().from('timbratura').delete().eq('id', id).eq('dipendente_id', dipendenteId)
   if (error) throw new Error(error.message)

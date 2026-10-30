@@ -19,7 +19,10 @@ function PrioritaBadge({ p }: { p: string }) {
   if (p.startsWith('Urgente')) return <span className="text-xs font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">🚨 URGENTE</span>
   if (p.startsWith('Alta'))    return <span className="text-xs text-orange-600 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-full">⬆ Alta</span>
   if (p.startsWith('Media'))   return <span className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 px-2 py-0.5 rounded-full">➡ Media</span>
-  return <span className="text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full">⬇ Bassa</span>
+  // Le priorità del modulo sono Normale, Alta e Urgente: "Media" e "Bassa" restano solo
+  // per eventuali richieste vecchie.
+  if (p.startsWith('Bassa'))   return <span className="text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full">⬇ Bassa</span>
+  return <span className="text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full">Normale</span>
 }
 
 export function RichiestaCard({ richiesta: r, tecnici }: Props) {

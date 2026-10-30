@@ -313,13 +313,11 @@ export default function TimbratureOperatore({
     })
   }
 
-  // Fuori finestra restano solo i giustificativi: e' la regola, e il modo piu'
-  // onesto di dirla e' non offrire scelte che verrebbero rifiutate dal server.
-  const soloGiustificativi = !!form && fuoriFinestra(form.data)
-  const serviziForm = useMemo(
-    () => (soloGiustificativi ? servizi.filter((s) => s.tipoVoce === 'giustificativo') : servizi),
-    [servizi, soloGiustificativi],
-  )
+  // Fuori finestra restano i giustificativi e la MUTUA (30 ott 2026): una riga di
+  // lavoro si puo' ancora scrivere, ma solo con la spunta "Malattia (Mutua)",
+  // che qui e' imposta. Il server applica la stessa regola.
+  const fuoriFinestraForm = !!form && fuoriFinestra(form.data)
+  const serviziForm = servizi
 
   const servSelezionato = form && form.servizioId ? servizioById.get(Number(form.servizioId)) : undefined
   const isGiust = servSelezionato?.tipoVoce === 'giustificativo'
@@ -332,6 +330,8 @@ export default function TimbratureOperatore({
   const chiedeProgetto = !!servSelezionato?.chiedeProgetto && progetti.length > 0
   const adOreAttivo = puoAdOre && !!form?.adOre
   const contaOrario = !isGiust || adOreAttivo
+  // Riga di lavoro fuori dai tre giorni: puo' essere solo un giorno di mutua.
+  const soloMutua = fuoriFinestraForm && !isGiust
   // Ore della riga in compilazione: sempre derivate dagli orari, mai digitate.
   const calcForm = form && contaOrario ? oreTra(form.oraInizio, form.oraFine) : null
 
@@ -354,9 +354,9 @@ export default function TimbratureOperatore({
         oraFine: contaOrario ? form.oraFine : null,
         // Le spunte valgono solo sulle ore di lavoro: su un giustificativo il
         // server le rifiuterebbe comunque, tanto vale non mandarle.
-        notte: isGiust ? false : form.notte,
-        reperibilita: isGiust ? false : form.reperibilita,
-        mutua: isGiust ? false : form.mutua, note: form.note || null,
+        notte: isGiust || soloMutua ? false : form.notte,
+        reperibilita: isGiust || soloMutua ? false : form.reperibilita,
+        mutua: isGiust ? false : soloMutua ? true : form.mutua, note: form.note || null,
       }
       const url = form.id ? `/api/timbrature/${form.id}` : '/api/timbrature'
       const method = form.id ? 'PATCH' : 'POST'
@@ -637,7 +637,7 @@ export default function TimbratureOperatore({
               <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-xs text-gray-500">
                 ⏳ Le ore di lavoro si inseriscono entro <strong className="text-gray-700">3 giorni</strong>:
                 oggi e i due precedenti (dal {daGiorno.split('-').reverse().join('/')}). Ferie, permessi e
-                malattia si possono registrare anche prima o dopo.
+                giorni di mutua si possono registrare anche prima o dopo.
               </div>
             )}
 
@@ -756,15 +756,16 @@ export default function TimbratureOperatore({
 
             {/* Servizio */}
             <label className="block text-sm font-semibold text-gray-600 mb-2">Servizio</label>
-            {soloGiustificativi && (
+            {fuoriFinestraForm && (
               <div className="mb-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
                 Le ore di lavoro di questa giornata non sono piu&apos; modificabili (si possono inserire
                 solo entro il giorno stesso e i due successivi). Qui puoi registrare ferie, permessi o
-                malattia; per correggere le ore scrivi al tuo responsabile.
+                un giorno di malattia (mutua): per la mutua scegli il servizio, la spunta
+                «Malattia (Mutua)» resta accesa. Per correggere le ore scrivi al tuo responsabile.
               </div>
             )}
             <div className="flex flex-wrap gap-2 mb-3">
-              {!soloGiustificativi && serviziFrequenti.map((s) => (
+              {serviziFrequenti.map((s) => (
                 <button
                   key={s.id}
                   onClick={() => setForm({ ...form, servizioId: s.id })}
@@ -779,14 +780,12 @@ export default function TimbratureOperatore({
               onChange={(e) => setForm({ ...form, servizioId: e.target.value ? Number(e.target.value) : '', adOre: false })}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4 text-sm"
             >
-              <option value="">{soloGiustificativi ? '— scegli una voce —' : '— altri servizi / giustificativi —'}</option>
-              {!soloGiustificativi && (
-                <optgroup label="Servizi">
-                  {serviziForm.filter((s) => s.tipoVoce === 'lavoro').map((s) => (
-                    <option key={s.id} value={s.id}>{s.nome}</option>
-                  ))}
-                </optgroup>
-              )}
+              <option value="">— altri servizi / giustificativi —</option>
+              <optgroup label={fuoriFinestraForm ? 'Servizi (solo per la mutua)' : 'Servizi'}>
+                {serviziForm.filter((s) => s.tipoVoce === 'lavoro').map((s) => (
+                  <option key={s.id} value={s.id}>{s.nome}</option>
+                ))}
+              </optgroup>
               <optgroup label="Giustificativi">
                 {serviziForm.filter((s) => s.tipoVoce === 'giustificativo').map((s) => (
                   <option key={s.id} value={s.id}>{s.nome}</option>
@@ -900,7 +899,18 @@ export default function TimbratureOperatore({
                   ))}
                 </div>
 
-                {!isGiust && (
+                {soloMutua && (
+                  <div className="mb-4 space-y-2">
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input type="checkbox" checked disabled />
+                      Malattia (Mutua)
+                    </label>
+                    <p className="text-xs text-gray-400">
+                      Fuori dai tre giorni si registrano solo i giorni di mutua.
+                    </p>
+                  </div>
+                )}
+                {!isGiust && !soloMutua && (
                   <div className="mb-4 space-y-2">
                     <label className="flex items-center gap-2 text-sm text-gray-700">
                       <input type="checkbox" checked={form.notte} onChange={(e) => setForm({ ...form, notte: e.target.checked })} />
