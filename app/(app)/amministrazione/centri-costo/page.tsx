@@ -36,7 +36,7 @@ export default async function CentriCostoPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <Header title="Centri di costo" backHref="/amministrazione" backLabel="Torna all&apos;Amministrazione" />
+      <Header title="Coordinatori e Responsabili Centri di Costo" backHref="/amministrazione" backLabel="Torna all&apos;Amministrazione" />
       <main className="flex-1 px-4 py-6 max-w-3xl mx-auto w-full">
         <h2 className="text-xl font-bold text-gray-800 mb-1">Responsabili e coordinatori</h2>
         <p className="text-gray-500 mb-6">

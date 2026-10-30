@@ -121,20 +121,29 @@ export function ResponsabiliCentri({
         )}
       </div>
 
+      {vista === 'area' && aree.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+          <span className="text-gray-400">Legenda:</span>
+          <span className="rounded-full bg-slate-800 px-3 py-1 text-white">Area</span>
+          <span className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-indigo-800">Responsabile d&apos;area</span>
+          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-emerald-800">Servizio e coordinamento</span>
+        </div>
+      )}
+
       {vista === 'area' &&
         (aree.length === 0 ? (
           <Vuoto>Nessun centro di costo da mostrare.</Vuoto>
         ) : (
           aree.map((g) => (
-            <section key={g.area} className="rounded-2xl border border-gray-100 bg-white shadow-sm">
-              <div className="border-b border-gray-100 p-4">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h3 className="text-lg font-bold text-gray-800">{g.area}</h3>
-                  <span className="text-xs text-gray-400">
-                    {g.centri.length} {g.centri.length === 1 ? 'servizio' : 'servizi'}
-                  </span>
-                </div>
-                <p className="mt-3 mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <section key={g.area} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <div className="flex flex-wrap items-baseline justify-between gap-2 bg-slate-800 px-4 py-3">
+                <h3 className="text-lg font-bold text-white">{g.area}</h3>
+                <span className="text-xs text-slate-300">
+                  {g.centri.length} {g.centri.length === 1 ? 'servizio' : 'servizi'}
+                </span>
+              </div>
+              <div className="border-b border-indigo-100 border-l-4 border-l-indigo-500 bg-indigo-50 p-4">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-indigo-700">
                   Responsabile d&apos;area
                 </p>
                 <Persone
@@ -154,21 +163,22 @@ export function ResponsabiliCentri({
                   </p>
                 )}
               </div>
-              <ul className="divide-y divide-gray-100">
+              <ul className="space-y-3 p-3">
                 {g.centri.map((c) => (
-                  <li key={c.codice} className="p-4">
-                    <div className="mb-2 flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">
+                  <li key={c.codice} className="overflow-hidden rounded-xl border border-emerald-200">
+                    <div className="flex flex-wrap items-center gap-2 bg-emerald-100 px-4 py-2">
+                      <span className="rounded-full bg-emerald-700 px-2 py-0.5 text-[11px] font-bold text-white">
                         {c.codice}
                       </span>
-                      <span className="font-semibold text-gray-800">{c.nome}</span>
+                      <span className="font-semibold text-emerald-950">{c.nome}</span>
                       {!c.attivo && (
                         <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-500">
                           spento
                         </span>
                       )}
                     </div>
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Coordinamento</p>
+                    <div className="bg-emerald-50/60 px-4 py-3">
+                    <p className="mb-2 text-xs font-bold uppercase tracking-wide text-emerald-700">Coordinamento</p>
                     <Persone
                       email={c.coordinatori}
                       rubrica={rubrica}
@@ -179,6 +189,7 @@ export function ResponsabiliCentri({
                         salva(`cc:${c.codice}`, { tipo: 'coordinatori', codice: c.codice, email }, `Coordinamento di ${c.nome} aggiornato.`)
                       }
                     />
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -196,16 +207,16 @@ export function ResponsabiliCentri({
                 <p className="font-semibold text-gray-800">{nome(p.email)}</p>
                 <p className="mb-3 truncate text-xs text-gray-400">{p.email}</p>
                 {p.aree.length > 0 && (
-                  <p className="text-sm text-gray-700">
-                    <span className="text-gray-400">Responsabile d&apos;area:</span> {p.aree.join(', ')}
+                  <p className="rounded-lg bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
+                    <span className="font-semibold text-indigo-700">Responsabile d&apos;area:</span> {p.aree.join(', ')}
                   </p>
                 )}
                 {p.centri.length > 0 && (
-                  <div className="mt-1 text-sm text-gray-700">
-                    <span className="text-gray-400">Coordina:</span>
+                  <div className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-gray-700">
+                    <span className="font-semibold text-emerald-700">Coordina:</span>
                     <ul className="mt-1 flex flex-wrap gap-2">
                       {p.centri.map((c) => (
-                        <li key={c.codice} className="rounded-full bg-slate-50 px-3 py-1 text-xs text-slate-700">
+                        <li key={c.codice} className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs text-emerald-900">
                           {c.codice} · {c.nome}
                         </li>
                       ))}

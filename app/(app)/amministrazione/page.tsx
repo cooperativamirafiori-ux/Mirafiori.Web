@@ -49,7 +49,7 @@ export default async function AmministrazionePage() {
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl bg-slate-600/15 text-slate-700">
               🧭
             </div>
-            <h3 className="mt-4 font-bold text-gray-800 text-lg">Centri di costo</h3>
+            <h3 className="mt-4 font-bold text-gray-800 text-lg">Coordinatori e Responsabili Centri di Costo</h3>
             <p className="text-sm text-gray-500 mt-1">
               Responsabili d&apos;area e coordinatori dei servizi: chi vede conti, fatture e costi
             </p>
