@@ -113,10 +113,18 @@ for (const p of pagine) {
   if (!ESCLUSE.has(p) && !coperte.has(p)) errori.push(`pagina senza guida: ${p} (aggiungila alla scheda della guida della sua area)`)
 }
 
+// L'assistente manda tutta la guida a ogni domanda: oltre ~100.000 token il
+// prezzo per richiesta quintuplica (docs/assistente.md). ~2,45 caratteri per token.
+const caratteri = file.reduce((n, f) => n + fs.readFileSync(path.join(CARTELLA_GUIDA, f), 'utf8').length, 0)
+const tokenStimati = Math.round(caratteri / 2.45)
+if (tokenStimati > 92_000) {
+  avvisi.push(`la guida pesa circa ${tokenStimati} token: l'assistente si avvicina alla soglia dei 100.000 (vedi docs/assistente.md)`)
+}
+
 for (const a of avvisi) console.log('⚠️  ' + a)
 for (const e of errori) console.log('❌ ' + e)
 if (errori.length) {
   console.log(`\n${errori.length} errori su ${file.length} guide.`)
   process.exit(1)
 }
-console.log(`✅ Guida a posto: ${file.length} guide, ${coperte.size} pagine descritte su ${pagine.length - ESCLUSE.size}.`)
+console.log(`✅ Guida a posto: ${file.length} guide, ${coperte.size} pagine descritte su ${pagine.length - ESCLUSE.size}, circa ${tokenStimati} token.`)

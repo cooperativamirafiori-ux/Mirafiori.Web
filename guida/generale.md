@@ -91,6 +91,25 @@ In alto, dentro la barra blu, sopra il titolo della pagina, c'è sempre il link
 Premi «Esci», in alto a destra nella barra blu. Fallo sempre se usi un
 computer condiviso.
 
+## A cosa serve il bottone «?» in basso a destra?
+
+È l'**assistente**: puoi chiedergli come si fa qualcosa nell'app, scrivendo con parole
+tue. Ti dice dove andare e cosa premere e, se puoi aprire la pagina giusta, ti dà il link.
+Se la pagina richiede un permesso che non hai, te lo dice.
+
+1. Premi il bottone tondo «?» in basso a destra, su qualsiasi pagina.
+2. Scrivi la domanda e premi «Invia».
+3. Sotto la risposta puoi dire se ti è stata utile: tocca «Sì» o «No».
+
+Cose da sapere:
+
+- L'assistente **non vede i tuoi dati** (le tue ore, le tue richieste…) e non può fare le
+  cose al posto tuo: ti spiega come farle.
+- Le domande si salvano **senza il tuo nome**, per capire cosa migliorare. Non scrivere
+  dati personali.
+- Può sbagliare: se qualcosa non torna, chiedi a un collega o a chi è indicato qui sotto.
+- Per ricominciare da capo tocca «Ricomincia» in alto nella finestra.
+
 ## Chi aiuta se l'app non funziona?
 
 - Per un problema con il computer, il telefono, la stampante o la rete: apri una
@@ -106,5 +125,7 @@ computer condiviso.
   cooperativa. Se il problema resta, chiedi all'Assistenza IT.
 - **Una sezione è sparita dalla Home**: forse ti è stato tolto il permesso, o è cambiato
   il tuo ruolo. Chiedi all'ufficio amministrazione.
+- **L'assistente dice che per oggi hai fatto molte domande**: c'è un numero massimo di
+  domande al giorno per persona. Riprova domani.
 - **La pagina è lenta o resta bianca**: ricaricala. Se succede spesso, avvisa
   l'ufficio amministrazione.

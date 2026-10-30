@@ -51,6 +51,13 @@ const AREE = [
     ],
   },
   {
+    nome: 'Assistente e guida d\'uso',
+    prefissi: [
+      'lib/assistente', 'app/api/assistente', 'components/assistente', 'app/(app)/amministrazione/domande-assistente',
+      'guida/', 'docs/assistente', 'scripts/controlla-guida', 'supabase/assistente',
+    ],
+  },
+  {
     nome: 'Ammissione soci',
     prefissi: [
       'app/(app)/soci', 'app/api/soci', 'lib/soci', 'types/soci', 'lib/templates/domanda-socio',

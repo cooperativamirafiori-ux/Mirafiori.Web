@@ -34,6 +34,10 @@ pagine:
     titolo: Costi per struttura
     accesso: [permesso:Amministrazione, admin, coordinatore-cc]
     cosa: Quanto costa ogni struttura nell'anno, diviso per tipo di spesa; i coordinatori vedono solo le loro strutture.
+  - percorso: /amministrazione/domande-assistente
+    titolo: Domande all'assistente
+    accesso: [permesso:Amministrazione]
+    cosa: Le domande fatte al bottone «?», senza il nome di chi le ha fatte, con le risposte segnate utili o non utili.
 ---
 
 # Amministrazione
@@ -457,6 +461,18 @@ Se una scheda dice «⚠ … da guardare», nel dettaglio trovi gli avvisi.
   centro di costo e in questo cruscotto non compaiono.
 - Se una fonte di dati non risponde, compare un riquadro giallo: il numero non è zero,
   semplicemente quella parte manca. Riprova più tardi.
+
+## Dove vedo cosa chiedono le persone all'assistente?
+
+Apri [Domande all'assistente](/amministrazione/domande-assistente) dalla pagina
+Amministrazione.
+
+- Trovi le ultime domande fatte al bottone «?», con la data, la pagina da cui sono state
+  fatte e la risposta data (tocca «Risposta data» per leggerla).
+- Le domande sono salvate **senza il nome** di chi le ha fatte.
+- In alto vedi quante sono e quante sono state segnate utili o non utili.
+- Tocca «Solo «non utile»» per vedere solo le risposte che non sono servite: sono il
+  segnale che manca qualcosa nella guida o che una schermata non è chiara.
 
 ## Problemi comuni
 
