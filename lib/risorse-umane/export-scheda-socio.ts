@@ -19,9 +19,14 @@
  *   Codice Fiscale         -> CodiceFiscale
  *   Professione            -> Mansione
  *   Data ammissione/dimissione socio -> DataAmmissioneSocio / DataDimissioneSocio
- *   CAPITALE SOTTOSCRITTO/VERSATO -> non compilato per ora (deciso con Dennis:
- *     "lascia perdere un attimo la parte di capitale"). Le celle restano vuote,
- *     pronte per essere riprese in un secondo momento.
+ *   CAPITALE SOTTOSCRITTO/VERSATO -> non compilato dal bottone "Scheda socio"
+ *     della scheda RU (deciso con Dennis: "lascia perdere un attimo la parte di
+ *     capitale").
+ *
+ * Dal 29/10/2026 la usa anche la domanda di ammissione socio (lib/soci/), che
+ * passa `extra`: il tipo di socio scelto nella domanda — che non sempre
+ * coincide con il Tipo di rapporto della scheda RU — la professione dichiarata
+ * e la prima riga del capitale sottoscritto (data della domanda e importo).
  */
 
 import { join } from 'node:path'
@@ -68,8 +73,17 @@ function setTesto(ws: ExcelJS.Worksheet, indirizzo: string, v: RURecord[string])
   ws.getCell(indirizzo).value = testo(v)
 }
 
+export interface ExtraSchedaSocio {
+  /** Sostituisce il Tipo di rapporto della scheda RU (cella F4). */
+  tipoSocio?: string
+  /** Sostituisce la Mansione (cella A28). */
+  professione?: string
+  /** Prima riga di CAPITALE SOTTOSCRITTO (A36 data, B36 importo). */
+  capitaleSottoscritto?: { data: string; importo: number }
+}
+
 /** Costruisce il buffer .xlsx della scheda progressiva per il record indicato. */
-export async function generaSchedaSocioBuffer(record: RURecord): Promise<Buffer> {
+export async function generaSchedaSocioBuffer(record: RURecord, extra: ExtraSchedaSocio = {}): Promise<Buffer> {
   const wb = new ExcelJS.Workbook()
   await wb.xlsx.readFile(TEMPLATE_PATH)
   const ws = wb.worksheets[0]
@@ -77,7 +91,7 @@ export async function generaSchedaSocioBuffer(record: RURecord): Promise<Buffer>
   const numElenco = numero(record.NumeroElencoGenerale)
   if (numElenco != null) ws.getCell('F1').value = numElenco
 
-  setTesto(ws, 'F4', record.TipoRapporto)
+  setTesto(ws, 'F4', extra.tipoSocio ?? record.TipoRapporto)
 
   setTesto(ws, 'A8', record.Cognome)
   setTesto(ws, 'F8', record.Nome)
@@ -90,10 +104,17 @@ export async function generaSchedaSocioBuffer(record: RURecord): Promise<Buffer>
 
   setTesto(ws, 'A20', record.Nazionalita)
   setTesto(ws, 'A24', record.CodiceFiscale)
-  setTesto(ws, 'A28', record.Mansione)
+  setTesto(ws, 'A28', extra.professione ?? record.Mansione)
 
   setData(ws, 'A32', record.DataAmmissioneSocio)
   setData(ws, 'F32', record.DataDimissioneSocio)
+
+  if (extra.capitaleSottoscritto) {
+    setData(ws, 'A36', extra.capitaleSottoscritto.data)
+    const importo = ws.getCell('B36')
+    importo.value = extra.capitaleSottoscritto.importo
+    importo.numFmt = '#,##0.00 "€"'
+  }
 
   const ab = await wb.xlsx.writeBuffer()
   return Buffer.from(ab)

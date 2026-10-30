@@ -142,6 +142,13 @@ export default async function HomePage() {
             sottotitolo="PC, telefono, stampante, rete: chiedi aiuto"
           />
           <FunzioneCard
+            href="/soci"
+            emoji="🤝"
+            accent="emerald"
+            titolo="Domanda di ammissione socio"
+            sottotitolo="Diventa socio/a della cooperativa"
+          />
+          <FunzioneCard
             href="/miei-strumenti"
             emoji="💻"
             accent="cyan"

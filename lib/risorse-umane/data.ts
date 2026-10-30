@@ -186,6 +186,37 @@ export async function aggiornaCampiParziali(
   return getItem(g, entity, spItemId)
 }
 
+/**
+ * Come `aggiornaCampiParziali`, ma converte ogni valore secondo il tipo del
+ * campo nello schema (date a mezzogiorno UTC, numeri e importi come numeri).
+ *
+ * Nata per la domanda di ammissione socio (lib/soci/), che scrive insieme
+ * una scelta (`Socio`), un numero (`NumeroElencoGenerale`) e un importo
+ * (`QuotaSociale`). Stessa garanzia: tocca solo le chiavi passate.
+ */
+export async function aggiornaCampiTipizzati(
+  g: GraphClient,
+  entity: RUEntity,
+  spItemId: string,
+  campi: Record<string, unknown>,
+): Promise<RURecord> {
+  const schema = new Map(RU_CONFIG[entity].fields.map((f) => [f.key, f]))
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(campi)) {
+    const field = schema.get(k)
+    if (!field) continue
+    if (field.type === 'date') out[k] = toGraphDateOnly(v)
+    else if (field.type === 'number' || field.type === 'currency') out[k] = toNumber(v)
+    else {
+      const s = typeof v === 'string' ? v.trim() : v == null ? '' : String(v)
+      out[k] = s ? s : null
+    }
+  }
+  if (Object.keys(out).length === 0) return getItem(g, entity, spItemId)
+  await g.patch(`/sites/${SITE()}/lists/${listId(entity)}/items/${spItemId}/fields`, out)
+  return getItem(g, entity, spItemId)
+}
+
 export async function eliminaItem(g: GraphClient, entity: RUEntity, spItemId: string): Promise<void> {
   await g.del(`${listBase(entity)}/${spItemId}`)
 }
@@ -500,6 +531,94 @@ export async function caricaDocumentoInCartella(
     contentType,
   )
   return { id: res.id, nome: res.name ?? safe, url: res.webUrl, dimensione: res.size, modificato: res.lastModifiedDateTime }
+}
+
+/** Percorso relativo pulito, segmento per segmento, come in `caricaDocumentoInCartella`. */
+function percorsoPulito(cartella: string): string {
+  return cartella.split('/').map(sanitize).filter(Boolean).join('/')
+}
+
+/**
+ * Sessione di caricamento diretto (browser → SharePoint) in una cartella
+ * qualsiasi della raccolta del sito RU. È la gemella di
+ * `creaSessioneUploadDocumento` per i documenti che non stanno nella cartella
+ * personale: oggi la domanda di ammissione socio firmata, che va in
+ * `SOCI/Soci_<anno>/AMMISSIONI SOCI` con le altre.
+ *
+ * ⚠️ Stesse cautele: l'URL è pre-autorizzato e non va mai loggato.
+ */
+export async function creaSessioneUploadInCartella(
+  g: GraphClient,
+  cartellaRelativa: string,
+  filename: string,
+): Promise<SessioneUpload> {
+  const driveId = await getDriveId(g)
+  const relPath = percorsoPulito(cartellaRelativa)
+  await ensureFolderPath(g, driveId, relPath)
+  const safe = sanitize(filename) || 'documento'
+  const res = await g.post<{ uploadUrl: string; expirationDateTime: string }>(
+    `/drives/${driveId}/root:/${encodePath(`${relPath}/${safe}`)}:/createUploadSession`,
+    { item: { '@microsoft.graph.conflictBehavior': 'rename', name: safe } },
+  )
+  return { uploadUrl: res.uploadUrl, scadeIl: res.expirationDateTime, nomeFile: safe }
+}
+
+/** Un file in una cartella della raccolta RU, o null se non c'è. */
+export async function fileInCartella(
+  g: GraphClient,
+  cartellaRelativa: string,
+  nomeFile: string,
+): Promise<DocumentoDipendente | null> {
+  const driveId = await getDriveId(g)
+  const relPath = percorsoPulito(cartellaRelativa)
+  const it = await g.getOrNull<any>(
+    `/drives/${driveId}/root:/${encodePath(`${relPath}/${nomeFile}`)}?$select=id,name,webUrl,size,lastModifiedDateTime,file`,
+  )
+  if (!it || !it.file) return null
+  return { id: it.id, nome: it.name, url: it.webUrl, dimensione: it.size, modificato: it.lastModifiedDateTime }
+}
+
+/**
+ * Converte in PDF un documento generato in memoria (docx, xlsx): lo carica in
+ * una cartella di lavoro, chiede a Graph la versione PDF e cancella il file di
+ * lavoro. Stessa tecnica del preventivo e del foglio ore: nessun motore di
+ * stampa su Vercel.
+ */
+export async function pdfDaDocumento(
+  g: GraphClient,
+  cartellaLavoro: string,
+  nomeFile: string,
+  data: ArrayBuffer | Uint8Array,
+  contentType: string,
+): Promise<Buffer> {
+  const doc = await caricaDocumentoInCartella(g, cartellaLavoro, nomeFile, data, contentType)
+  const driveId = await getDriveId(g)
+  try {
+    return await g.getBinary(`/drives/${driveId}/items/${doc.id}/content?format=pdf`)
+  } finally {
+    await g.del(`/drives/${driveId}/items/${doc.id}`).catch((e) =>
+      console.error('[risorse-umane] file di lavoro non cancellato:', e),
+    )
+  }
+}
+
+/**
+ * Copia un file della raccolta RU nella cartella personale del dipendente.
+ * Graph la esegue in differita (risposta 202): qui si chiede e basta.
+ */
+export async function copiaInCartellaDipendente(
+  g: GraphClient,
+  fileId: string,
+  spItemId: string,
+  nomeFile: string,
+): Promise<void> {
+  const { path } = await ensureCartellaDipendente(g, spItemId)
+  const driveId = await getDriveId(g)
+  const cartella = await g.get<{ id: string }>(`/drives/${driveId}/root:/${encodePath(path)}?$select=id`)
+  await g.post(`/drives/${driveId}/items/${fileId}/copy?@microsoft.graph.conflictBehavior=rename`, {
+    parentReference: { driveId, id: cartella.id },
+    name: sanitize(nomeFile) || 'documento',
+  })
 }
 
 /**

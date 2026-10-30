@@ -14,6 +14,10 @@ const nextConfig = {
     '/api/risorse-umane/dipendenti/[id]/scheda-socio': [
       './lib/templates/scheda-socio/**',
     ],
+    // Domanda di ammissione socio: il modulo Word e la scheda progressiva
+    '/api/soci/domanda/[id]/pdf': ['./lib/templates/domanda-socio/**'],
+    '/api/soci/domanda/[id]/firmata': ['./lib/templates/scheda-socio/**'],
+    '/api/soci/domanda/[id]/registra': ['./lib/templates/scheda-socio/**'],
     // Il logo nell'intestazione del preventivo (lib/preventivi/documento.ts)
     '/api/preventivi/[id]/pdf': ['./public/logo-mirafiori.png'],
     '/api/preventivi/[id]/azione': ['./public/logo-mirafiori.png'],

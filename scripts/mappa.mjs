@@ -51,6 +51,13 @@ const AREE = [
     ],
   },
   {
+    nome: 'Ammissione soci',
+    prefissi: [
+      'app/(app)/soci', 'app/api/soci', 'lib/soci', 'types/soci', 'lib/templates/domanda-socio',
+      'docs/ammissione-soci', 'scripts/provision-soci',
+    ],
+  },
+  {
     nome: 'Preventivi',
     prefissi: [
       'app/(app)/preventivi', 'app/api/preventivi', 'app/api/cron/preventivi', 'lib/preventivi',
