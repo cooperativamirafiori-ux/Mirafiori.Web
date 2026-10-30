@@ -4,12 +4,15 @@
  * Crea la domanda al primo salvataggio, poi aggiorna la stessa finché non è
  * firmata: chi torna a correggere un dato non ne apre una seconda. Dopo il
  * caricamento del PDF firmato i dati non si cambiano più.
+ *
+ * Chi è già socio può salvare e scaricare il PDF: gli si blocca solo l'invio
+ * della firmata (Dennis, 30/10/2026), in .../firmata.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { logAzione } from '@/lib/core/audit'
 import { aggiornaDomanda, creaDomanda, domandaDi, graphSoci, perIlBrowser } from '@/lib/soci/data'
-import { eSocio, oggiIso, schedaDi } from '@/lib/soci/flusso'
+import { oggiIso, schedaDi } from '@/lib/soci/flusso'
 import { errore, guardSessione } from '@/lib/soci/guard'
 import { normalizzaDati, validaDati } from '@/types/soci'
 
@@ -36,7 +39,6 @@ export async function POST(req: NextRequest) {
     if (!scheda) {
       return errore('Non troviamo la tua scheda nel personale: scrivi a risorseumane@cooperativamirafiori.com.', 409)
     }
-    if (eSocio(scheda)) return errore('Risulti già socio/a della cooperativa.', 409)
 
     const esistente = await domandaDi(g, email)
     const oggi = oggiIso()

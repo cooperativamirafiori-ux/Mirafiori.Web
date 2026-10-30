@@ -2,7 +2,7 @@ import { auth } from '@/lib/core/auth'
 import { Header } from '@/components/ui/Header'
 import { Banner } from '@/components/ui/Banner'
 import { domandaDi, graphSoci, perIlBrowser, sociConfigurato } from '@/lib/soci/data'
-import { eSocio, precompila, schedaDi } from '@/lib/soci/flusso'
+import { giaSocioPerAltro, precompila, schedaDi } from '@/lib/soci/flusso'
 import { DomandaSocio } from './_componenti/DomandaSocio'
 
 export const dynamic = 'force-dynamic'
@@ -54,20 +54,18 @@ export default async function SociPage() {
   const inCorso = domanda && domanda.stato !== 'Registrata' ? domanda : null
   const registrata = domanda && domanda.stato === 'Registrata' ? domanda : null
 
-  if (eSocio(scheda) && !inCorso) {
-    const n = registrata?.numeroElencoGenerale ?? scheda.NumeroElencoGenerale
-    return guscio(
-      <Banner tono="ok">
-        Sei già socio/a della cooperativa{n ? <> (n. <strong>{String(n)}</strong> dell’Elenco Generale)</> : null}.
-        Non devi fare altro.
-      </Banner>,
-    )
-  }
+  // Chi è già socio vede tutta la procedura, con l'avviso in cima; l'invio
+  // della firmata gli è bloccato (Dennis, 30/10/2026). Il numero viene dalla
+  // sua domanda registrata, altrimenti dalla scheda RU.
+  const giaSocio = giaSocioPerAltro(scheda, inCorso)
+    ? { numero: registrata?.numeroElencoGenerale ?? (scheda.NumeroElencoGenerale ? Number(scheda.NumeroElencoGenerale) : null) }
+    : null
 
   return guscio(
     <DomandaSocio
       iniziali={inCorso ? inCorso.dati : precompila(scheda)}
       domanda={inCorso ? perIlBrowser(inCorso) : null}
+      giaSocio={giaSocio}
     />,
   )
 }

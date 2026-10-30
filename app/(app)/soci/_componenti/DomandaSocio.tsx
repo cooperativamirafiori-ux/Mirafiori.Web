@@ -31,7 +31,16 @@ type Errori = Partial<Record<keyof DatiDomanda, string>>
 
 const euro = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-export function DomandaSocio({ iniziali, domanda: domandaIniziale }: { iniziali: DatiDomanda; domanda: Domanda | null }) {
+export function DomandaSocio({
+  iniziali,
+  domanda: domandaIniziale,
+  giaSocio = null,
+}: {
+  iniziali: DatiDomanda
+  domanda: Domanda | null
+  /** Chi è già socio vede tutto ma non può inviare la firmata (30/10/2026). */
+  giaSocio?: { numero: number | null } | null
+}) {
   const [dati, setDati] = useState<DatiDomanda>(iniziali)
   const [domanda, setDomanda] = useState<Domanda | null>(domandaIniziale)
   const [passo, setPasso] = useState<Passo>(domandaIniziale ? 'firma' : 'dati')
@@ -173,6 +182,7 @@ export function DomandaSocio({ iniziali, domanda: domandaIniziale }: { iniziali:
 
   return (
     <div className="space-y-5">
+      {giaSocio && <AvvisoGiaSocio numero={giaSocio.numero} />}
       <Indicatore passo={passo} />
       <Banner tono="errore">{errore}</Banner>
 
@@ -283,17 +293,22 @@ export function DomandaSocio({ iniziali, domanda: domandaIniziale }: { iniziali:
                 file={file}
                 onChange={setFile}
                 accetta="application/pdf,image/jpeg,image/png,image/heic"
-                disabilitato={!!occupato}
+                disabilitato={!!occupato || !!giaSocio}
               />
               {avanzamento != null && (
                 <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
                   <div className="h-full bg-brand-cyan transition-all" style={{ width: `${avanzamento}%` }} />
                 </div>
               )}
+              {giaSocio && (
+                <p className="text-sm font-semibold text-amber-800">
+                  Sei già socio/a: l’invio della domanda è bloccato.
+                </p>
+              )}
               <button
                 type="button"
                 onClick={carica}
-                disabled={!file || !!occupato}
+                disabled={!file || !!occupato || !!giaSocio}
                 className="w-full rounded-xl bg-emerald-600 text-white font-bold text-base py-3.5 disabled:opacity-50"
               >
                 {occupato === 'carica' ? 'Invio in corso…' : 'Invia la domanda firmata'}
@@ -317,6 +332,29 @@ export function DomandaSocio({ iniziali, domanda: domandaIniziale }: { iniziali:
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+/** Grande e in cima: chi è già socio deve accorgersene prima di compilare. */
+function AvvisoGiaSocio({ numero }: { numero: number | null }) {
+  return (
+    <div role="status" className="rounded-2xl border-2 border-amber-400 bg-amber-50 p-5 flex gap-4 items-start">
+      <div className="text-4xl leading-none" aria-hidden>
+        ⚠️
+      </div>
+      <div>
+        <p className="text-lg font-bold text-amber-900">Sei già socio/a della cooperativa</p>
+        {numero != null && (
+          <p className="text-amber-900">
+            Il tuo numero nell’Elenco Generale è <strong>{numero}</strong>.
+          </p>
+        )}
+        <p className="text-sm text-amber-800 mt-1">
+          Puoi vedere la domanda e scaricare il modulo, ma non inviarla di nuovo. Se pensi sia un errore scrivi a{' '}
+          <a className="underline" href="mailto:risorseumane@cooperativamirafiori.com">risorseumane@cooperativamirafiori.com</a>.
+        </p>
+      </div>
     </div>
   )
 }

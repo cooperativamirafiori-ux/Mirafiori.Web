@@ -75,6 +75,23 @@ export function precompila(rec: RURecord | null): DatiDomanda {
 
 export const eSocio = (rec: RURecord | null) => !!rec && txt(rec.Socio).toLowerCase() === 'si'
 
+export const MSG_GIA_SOCIO = 'Risulti già socio/a della cooperativa: la domanda non si può inviare. Se pensi sia un errore scrivi a risorseumane@cooperativamirafiori.com.'
+
+/**
+ * Chi è già socio può vedere e compilare tutta la domanda, ma non inviarla
+ * (Dennis, 30/10/2026): si blocca solo il caricamento della firmata.
+ *
+ * Eccezione: la scheda è "socio" perché l'ha appena segnata QUESTA domanda e
+ * la registrazione si è interrotta dopo — allora "Completa la registrazione"
+ * deve poter ripartire. Lo si riconosce dal numero: è lo stesso già scritto
+ * sulla domanda.
+ */
+export function giaSocioPerAltro(rec: RURecord | null, domanda?: { numeroElencoGenerale: number | null } | null): boolean {
+  if (!eSocio(rec)) return false
+  const n = domanda?.numeroElencoGenerale
+  return !(n != null && Number(rec!.NumeroElencoGenerale) === n)
+}
+
 /** La scheda RU di chi è entrato nell'app (per mail aziendale o personale). */
 export async function schedaDi(g: GraphClient, email: string): Promise<RURecord | null> {
   return trovaSchedaPerEmail(g, email)
@@ -201,9 +218,8 @@ export async function registraSocio(
   if (!firmata) throw new Error('Non trovo la domanda firmata su SharePoint: caricala di nuovo.')
 
   const rec = await getItem(g, 'dipendenti', domanda.ruItemId)
-  const numeroGiaInScheda = Number(rec.NumeroElencoGenerale)
-  if (eSocio(rec) && Number.isFinite(numeroGiaInScheda) && numeroGiaInScheda > 0 && domanda.numeroElencoGenerale !== numeroGiaInScheda) {
-    throw new Error(`La scheda risulta già di un socio (n. ${numeroGiaInScheda} dell’Elenco Generale). Avvisa le Risorse Umane.`)
+  if (giaSocioPerAltro(rec, domanda)) {
+    throw new Error(MSG_GIA_SOCIO)
   }
 
   const numero = await assegnaNumero(g, domanda)

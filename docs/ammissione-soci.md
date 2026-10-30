@@ -50,6 +50,11 @@ Decisa il 29/10/2026 da Dennis con Claudia Carena (Risorse Umane). Codice in
   scritto in automatico spegnerebbe il foglio ore di un lavoratore.
 - **Data di ammissione vuota**: l'ammissione la delibera il CdA, la data la
   inserisce Claudia dopo.
+- **Chi è già socio** (30/10/2026) vede tutta la procedura con un avviso ben
+  visibile in cima, può salvare e scaricare il PDF, ma **l'invio della firmata è
+  bloccato** — nella schermata e nel server (`giaSocioPerAltro`). Unica
+  eccezione: la scheda è diventata "socio" per questa stessa domanda e la
+  registrazione si era interrotta, così "Completa la registrazione" riparte.
 - **Quote**: 80 quote mensili da 25 € (2.000 €), bloccate (`types/soci.ts`).
 
 ## Setup

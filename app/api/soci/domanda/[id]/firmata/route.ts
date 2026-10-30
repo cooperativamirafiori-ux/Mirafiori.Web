@@ -11,10 +11,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { logAzione } from '@/lib/core/audit'
 import { MAX_UPLOAD_BYTES, maxUploadMb } from '@/lib/core/upload-diretto'
-import { creaSessioneUploadInCartella, fileInCartella } from '@/lib/risorse-umane/data'
+import { creaSessioneUploadInCartella, fileInCartella, getItem } from '@/lib/risorse-umane/data'
 import { aggiornaDomanda, graphSoci } from '@/lib/soci/data'
 import { cartellaAmmissioni, nomeDomandaFirmata } from '@/lib/soci/documento'
-import { oggiIso, registraSocio } from '@/lib/soci/flusso'
+import { MSG_GIA_SOCIO, giaSocioPerAltro, oggiIso, registraSocio } from '@/lib/soci/flusso'
 import { errore, guardDomanda } from '@/lib/soci/guard'
 
 export const dynamic = 'force-dynamic'
@@ -41,7 +41,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (Number(body.dimensione) > MAX_UPLOAD_BYTES) return errore(`File troppo grande: il massimo è ${maxUploadMb()} MB.`)
 
   try {
-    const sessione = await creaSessioneUploadInCartella(graphSoci(), cartellaAmmissioni(anno()), nomeDomandaFirmata(d.dati, ext))
+    const g = graphSoci()
+    const scheda = d.ruItemId ? await getItem(g, 'dipendenti', d.ruItemId).catch(() => null) : null
+    if (giaSocioPerAltro(scheda, d)) return errore(MSG_GIA_SOCIO, 409)
+    const sessione = await creaSessioneUploadInCartella(g, cartellaAmmissioni(anno()), nomeDomandaFirmata(d.dati, ext))
     return NextResponse.json(sessione)
   } catch (e: any) {
     console.error(`[POST /api/soci/domanda/${id}/firmata]`, e)
