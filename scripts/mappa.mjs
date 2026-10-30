@@ -165,7 +165,7 @@ const AREE = [
   {
     nome: 'Controllo di gestione · Qonto',
     prefissi: [
-      'app/(app)/controllo-gestione/qonto', 'lib/qonto', 'types/qonto', 'docs/qonto',
+      'app/(app)/controllo-gestione/qonto', 'app/api/qonto', 'lib/qonto', 'types/qonto', 'docs/qonto',
       'scripts/_qonto', 'scripts/qonto-', 'scripts/provision-qonto', 'scripts/coordinatori-centri-costo',
       'supabase/qonto_bonifici', 'app/api/pagamenti/scadenze/qonto',
       'app/api/cron/estratti-qonto', 'scripts/estratto-qonto', 'docs/estratti-qonto',

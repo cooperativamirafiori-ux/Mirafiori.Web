@@ -36,6 +36,14 @@ mano ogni settimana.
 
 ## Invio a mano
 
+**Dall'app** (30/10/2026): Controllo di Gestione → Qonto, riquadro "Estratto
+conti settimanale" — mail già compilata con la propria (più indirizzi separati
+da virgola), bottone "Invia estratto settimanale". Manda la settimana
+precedente. Solo per chi vede tutti i conti (permesso Controllo di Gestione):
+`app/api/qonto/estratto`. Finisce nel Log Attività.
+
+**Da terminale**, anche per una settimana a scelta:
+
 ```bash
 node scripts/estratto-qonto.mjs --a=dennis.maseri@cooperativamirafiori.com
 node scripts/estratto-qonto.mjs --settimana=2026-10-19

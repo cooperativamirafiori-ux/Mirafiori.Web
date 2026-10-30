@@ -3,7 +3,7 @@
 > Generato da `npm run mappa` il 2026-10-30. **Non modificare a mano**: le decisioni e le
 > convenzioni stanno in `CLAUDE.md`, qui c'è solo la fotografia dei file.
 
-**620 file · 104.159 righe totali.**
+**622 file · 104.374 righe totali.**
 
 ## ⚠️ File oltre 500 righe — da spezzare
 
@@ -132,18 +132,18 @@ _22 file · 2366 righe_
 
 ### Ammissione soci
 
-_14 file · 1775 righe_
+_14 file · 1837 righe_
 
-- `app/(app)/soci/_componenti/DomandaSocio.tsx` (387 righe)
-- `app/(app)/soci/page.tsx` (74 righe)
-- `app/api/soci/domanda/[id]/firmata/route.ts` (100 righe)
+- `app/(app)/soci/_componenti/DomandaSocio.tsx` (425 righe)
+- `app/(app)/soci/page.tsx` (72 righe)
+- `app/api/soci/domanda/[id]/firmata/route.ts` (103 righe)
 - `app/api/soci/domanda/[id]/pdf/route.ts` (38 righe)
 - `app/api/soci/domanda/[id]/registra/route.ts` (32 righe)
-- `app/api/soci/domanda/route.ts` (66 righe)
-- `docs/ammissione-soci.md` (65 righe)
+- `app/api/soci/domanda/route.ts` (68 righe)
+- `docs/ammissione-soci.md` (70 righe)
 - `lib/soci/data.ts` (167 righe) — esporta: sociConfigurato, graphSoci, perIlBrowser, tutteLeDomande, getDomanda, domandaDi, creaDomanda, aggiornaDomanda
 - `lib/soci/documento.ts` (91 righe) — esporta: cartellaAmmissioni, cartellaSchede, nomeDomandaFirmata, nomeScheda, dataIt, generaDocxDomanda, pdfDomanda
-- `lib/soci/flusso.ts` (297 righe) — esporta: oggiIso, precompila, eSocio, schedaDi, registraSocio
+- `lib/soci/flusso.ts` (313 righe) — esporta: oggiIso, precompila, eSocio, MSG_GIA_SOCIO, giaSocioPerAltro, schedaDi, registraSocio
 - `lib/soci/guard.ts` (34 righe) — esporta: errore, guardSessione, guardDomanda
 - `lib/soci/notifiche.ts` (88 righe) — esporta: destinatariSoci, mailNuovoSocio
 - `scripts/provision-soci.mjs` (214 righe)
@@ -512,14 +512,16 @@ _11 file · 2035 righe_
 
 ### Controllo di gestione · Qonto
 
-_28 file · 2538 righe_
+_30 file · 2691 righe_
 
 - `app/(app)/controllo-gestione/qonto/_componenti/CopiaIban.tsx` (34 righe)
+- `app/(app)/controllo-gestione/qonto/_componenti/InviaEstratto.tsx` (75 righe)
 - `app/(app)/controllo-gestione/qonto/[id]/page.tsx` (155 righe)
-- `app/(app)/controllo-gestione/qonto/page.tsx` (98 righe)
+- `app/(app)/controllo-gestione/qonto/page.tsx` (101 righe)
 - `app/api/cron/estratti-qonto/route.ts` (52 righe)
 - `app/api/pagamenti/scadenze/qonto/route.ts` (51 righe)
-- `docs/estratti-qonto.md` (48 righe)
+- `app/api/qonto/estratto/route.ts` (63 righe)
+- `docs/estratti-qonto.md` (56 righe)
 - `docs/qonto-bonifici.md` (63 righe)
 - `docs/qonto.md` (65 righe)
 - `lib/qonto/accesso.ts` (43 righe) — esporta: accessoQonto, puoVedereQonto, contiVisibili
@@ -532,7 +534,7 @@ _28 file · 2538 righe_
 - `lib/qonto/oauth.ts` (148 righe) — esporta: qontoOAuthConfigurato, qontoOAuth, mantieniVivo
 - `scripts/_qonto.mjs` (98 righe)
 - `scripts/coordinatori-centri-costo.mjs` (196 righe)
-- `scripts/estratto-qonto.mjs` (59 righe)
+- `scripts/estratto-qonto.mjs` (63 righe)
 - `scripts/provision-qonto-sottoconti.mjs` (141 righe)
 - `scripts/qonto-diagnosi.mjs` (44 righe)
 - `scripts/qonto-env-vercel.mjs` (48 righe)
@@ -688,8 +690,8 @@ candidati da spezzare per area o da spostare in `lib/core/` (vedi `CLAUDE.md` §
 
 | Modulo `lib/` | Aree che lo usano | N. file | Importato da |
 |---|---|---:|---|
-| `lib/core/auth` 🔴 | (non mappato) · Accesso / login · Acquisti · Amministrazione (hub) · Amministrazione · Password · Amministrazione · Permessi · Amministrazione · Software · Ammissione soci · Controllo di gestione · Cruscotto · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Costi strutture · Cura Ambienti · Home / hub · Infrastruttura condivisa (core) · Inventario beni · Manutenzioni · Prestazioni occasionali · Preventivi · Richiesta fattura · Risorse Umane · Timbrature · Foglio ore · Utenze · Costi per struttura | 88 | app/(app)/acquisti/gestione/page.tsx, app/(app)/acquisti/mie/page.tsx, app/(app)/acquisti/page.tsx, app/(app)/amministrazione/centri-costo/page.tsx, app/(app)/amministrazione/costi-fissi/page.tsx, app/(app)/amministrazione/costi-strutture/page.tsx, … |
-| `lib/core/audit` 🔴 | (non mappato) · Acquisti · Amministrazione · Password · Amministrazione · Permessi · Amministrazione · Software · Ammissione soci · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Costi strutture · Cura Ambienti · Inventario beni · Manutenzioni · Prestazioni occasionali · Preventivi · Richiesta fattura · Risorse Umane · Timbrature · Foglio ore · Utenze · Costi per struttura | 82 | app/api/acquisti/[id]/route.ts, app/api/acquisti/route.ts, app/api/assistenza/[id]/route.ts, app/api/assistenza/route.ts, app/api/centri-costo/fatture/route.ts, app/api/centri-costo/ruoli/route.ts, … |
+| `lib/core/auth` 🔴 | (non mappato) · Accesso / login · Acquisti · Amministrazione (hub) · Amministrazione · Password · Amministrazione · Permessi · Amministrazione · Software · Ammissione soci · Controllo di gestione · Cruscotto · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Costi strutture · Cura Ambienti · Home / hub · Infrastruttura condivisa (core) · Inventario beni · Manutenzioni · Prestazioni occasionali · Preventivi · Richiesta fattura · Risorse Umane · Timbrature · Foglio ore · Utenze · Costi per struttura | 89 | app/(app)/acquisti/gestione/page.tsx, app/(app)/acquisti/mie/page.tsx, app/(app)/acquisti/page.tsx, app/(app)/amministrazione/centri-costo/page.tsx, app/(app)/amministrazione/costi-fissi/page.tsx, app/(app)/amministrazione/costi-strutture/page.tsx, … |
+| `lib/core/audit` 🔴 | (non mappato) · Acquisti · Amministrazione · Password · Amministrazione · Permessi · Amministrazione · Software · Ammissione soci · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Costi strutture · Cura Ambienti · Inventario beni · Manutenzioni · Prestazioni occasionali · Preventivi · Richiesta fattura · Risorse Umane · Timbrature · Foglio ore · Utenze · Costi per struttura | 83 | app/api/acquisti/[id]/route.ts, app/api/acquisti/route.ts, app/api/assistenza/[id]/route.ts, app/api/assistenza/route.ts, app/api/centri-costo/fatture/route.ts, app/api/centri-costo/ruoli/route.ts, … |
 | `lib/core/graph` 🔴 | (non mappato) · Acquisti · Amministrazione · Password · Amministrazione · Permessi · Amministrazione · Software · Controllo di gestione · Flussi fatture · Costi strutture · Infrastruttura condivisa (core) · Inventario beni · Manutenzioni · Prestazioni occasionali · Preventivi · Richiesta fattura · Risorse Umane · Utenze · Costi per struttura | 33 | app/api/debug-fields/route.ts, lib/acquisti/data.ts, lib/assistenza/allegati.ts, lib/assistenza/data.ts, lib/centri-costo/data.ts, lib/clienti/data.ts, … |
 | `lib/centri-costo/data` 🔴 | (non mappato) · Acquisti · Amministrazione (hub) · Amministrazione · Software · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Costi strutture · Cura Ambienti · Prestazioni occasionali · Preventivi · Richiesta fattura · Utenze · Costi per struttura | 33 | app/(app)/acquisti/nuova/NuovaRichiestaAcquistoForm.tsx, app/(app)/acquisti/nuova/page.tsx, app/(app)/amministrazione/centri-costo/_componenti/ResponsabiliCentri.tsx, app/(app)/amministrazione/centri-costo/_componenti/raggruppa.ts, app/(app)/amministrazione/centri-costo/page.tsx, app/(app)/amministrazione/software/GestioneSoftware.tsx, … |
 | `lib/core/sp` 🔴 | (non mappato) · Acquisti · Amministrazione · Permessi · Amministrazione · Software · Controllo di gestione · Flussi fatture · Costi strutture · Manutenzioni · Preventivi · Utenze · Costi per struttura | 26 | app/api/acquisti/[id]/route.ts, app/api/acquisti/route.ts, app/api/assistenza/[id]/allegato/route.ts, app/api/assistenza/[id]/route.ts, app/api/assistenza/route.ts, app/api/manutenzioni/[id]/route.ts, … |
@@ -700,7 +702,7 @@ candidati da spezzare per area o da spostare in `lib/core/` (vedi `CLAUDE.md` §
 | `lib/core/supabase` 🔴 | Controllo di gestione · Cruscotto · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Controllo di gestione · Registro · Cura Ambienti · Timbrature · Foglio ore · Utenze · Costi per struttura | 22 | lib/cura-ambienti/data.ts, lib/gestione/cruscotto.ts, lib/gestione/registro.ts, lib/gestione/voci.ts, lib/pagamenti/assegnazione.ts, lib/pagamenti/data.ts, … |
 | `lib/strutture/data` 🔴 | (non mappato) · Acquisti · Costi strutture · Cura Ambienti · Inventario beni · Manutenzioni · Utenze · Costi per struttura | 14 | app/(app)/acquisti/gestione/page.tsx, app/(app)/assistenza/nuova/page.tsx, app/(app)/cruscotto-costi/page.tsx, app/(app)/dashboard/page.tsx, app/(app)/gestione/[id]/page.tsx, app/(app)/inserisci-costo/page.tsx, … |
 | `lib/core/rubrica` 🔴 | (non mappato) · Amministrazione (hub) · Amministrazione · Permessi · Timbrature · Foglio ore | 9 | app/(app)/amministrazione/centri-costo/page.tsx, app/(app)/amministrazione/permessi/page.tsx, app/(app)/it/AreaITSchermo.tsx, app/(app)/it/ModaleAssegna.tsx, app/(app)/it/SchedaDispositivo.tsx, app/(app)/it/SchedaSim.tsx, … |
-| `lib/qonto/accesso` 🔴 | Controllo di gestione · Cruscotto · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Home / hub | 6 | app/(app)/controllo-gestione/cruscotto/page.tsx, app/(app)/controllo-gestione/page.tsx, app/(app)/controllo-gestione/qonto/[id]/page.tsx, app/(app)/controllo-gestione/qonto/page.tsx, app/(app)/home/page.tsx, lib/pagamenti/assegnazione.ts |
+| `lib/qonto/accesso` 🔴 | Controllo di gestione · Cruscotto · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Home / hub | 7 | app/(app)/controllo-gestione/cruscotto/page.tsx, app/(app)/controllo-gestione/page.tsx, app/(app)/controllo-gestione/qonto/[id]/page.tsx, app/(app)/controllo-gestione/qonto/page.tsx, app/(app)/home/page.tsx, app/api/qonto/estratto/route.ts, … |
 | `lib/costi/data` 🔴 | Acquisti · Costi strutture · Manutenzioni · Utenze · Costi per struttura | 6 | app/(app)/cruscotto-costi/page.tsx, app/(app)/inserisci-costo/page.tsx, app/api/costi/route.ts, app/api/manutenzioni/[id]/route.ts, lib/acquisti/data.ts, lib/costi-strutture/data.ts |
 | `lib/core/graph-delegato` 🔴 | Ammissione soci · Risorse Umane · Timbrature · Foglio ore | 17 | app/(app)/risorse-umane/PaginaRU.tsx, app/api/risorse-umane/dipendenti/[id]/cartella/route.ts, app/api/risorse-umane/dipendenti/[id]/documenti/[docId]/route.ts, app/api/risorse-umane/dipendenti/[id]/documenti/conferma/route.ts, app/api/risorse-umane/dipendenti/[id]/documenti/route.ts, app/api/timbrature/hr/profilo/allegato/route.ts, … |
 | `lib/inventario/data` 🔴 | (non mappato) · Acquisti · Inventario beni | 14 | app/(app)/acquisti/gestione/page.tsx, app/(app)/inventario/page.tsx, app/(app)/it/page.tsx, app/api/acquisti/[id]/route.ts, app/api/inventario/[id]/documento/conferma/route.ts, app/api/inventario/[id]/documento/route.ts, … |
@@ -716,9 +718,9 @@ candidati da spezzare per area o da spostare in `lib/core/` (vedi `CLAUDE.md` §
 | `lib/it/flusso` | (non mappato) · Inventario beni | 7 | app/api/inventario/[id]/route.ts, app/api/it/assegnazioni/[id]/route.ts, app/api/it/assegnazioni/route.ts, app/api/it/dispositivi/[id]/route.ts, app/api/it/dispositivi/route.ts, app/api/it/sim/[id]/route.ts, … |
 | `lib/manutenzioni/data` | Manutenzioni · Utenze · Costi per struttura | 6 | app/(app)/dashboard/page.tsx, app/(app)/gestione/[id]/page.tsx, app/(app)/mie-richieste/page.tsx, app/api/manutenzioni/[id]/route.ts, app/api/manutenzioni/route.ts, lib/costi-strutture/data.ts |
 | `lib/prestazioni/notifiche` | Prestazioni occasionali · Timbrature · Foglio ore | 6 | app/api/cron/promemoria-ore/route.ts, app/api/notula/[token]/conferma/route.ts, app/api/prestazioni/[spItemId]/conferma/route.ts, app/api/prestazioni/[spItemId]/documenti/route.ts, app/api/prestazioni/[spItemId]/notula/route.ts, lib/prestazioni/firma.ts |
+| `lib/qonto/client` | Controllo di gestione · Cruscotto · Controllo di gestione · Qonto | 5 | app/(app)/controllo-gestione/qonto/[id]/page.tsx, app/(app)/controllo-gestione/qonto/page.tsx, app/api/cron/estratti-qonto/route.ts, app/api/qonto/estratto/route.ts, lib/gestione/cruscotto.ts |
 | `lib/clienti/data` | (non mappato) · Richiesta fattura | 5 | app/(app)/richiesta-fattura/page.tsx, app/api/clienti/[id]/route.ts, app/api/fatture/route.ts, app/api/nuovo-cliente/route.ts, lib/clienti/pubblico.ts |
 | `lib/cura-ambienti/data` | Cura Ambienti · Utenze · Costi per struttura | 5 | app/api/cura-ambienti/lavori/[id]/route.ts, app/api/cura-ambienti/lavori/route.ts, app/api/cura-ambienti/prepara-mese/route.ts, app/api/cura-ambienti/ricorrenze/[id]/route.ts, lib/costi-strutture/data.ts |
-| `lib/qonto/client` | Controllo di gestione · Cruscotto · Controllo di gestione · Qonto | 4 | app/(app)/controllo-gestione/qonto/[id]/page.tsx, app/(app)/controllo-gestione/qonto/page.tsx, app/api/cron/estratti-qonto/route.ts, lib/gestione/cruscotto.ts |
 | `lib/qonto/data` | Controllo di gestione · Cruscotto · Controllo di gestione · Qonto | 4 | app/(app)/controllo-gestione/qonto/[id]/page.tsx, app/(app)/controllo-gestione/qonto/page.tsx, lib/gestione/cruscotto.ts, lib/qonto/bonifici.ts |
 | `lib/qonto/oauth` | Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto | 4 | app/api/cron/fatture-sdi/route.ts, app/api/pagamenti/scadenze/qonto/route.ts, app/api/pagamenti/scadenze/route.ts, lib/qonto/bonifici.ts |
 | `lib/prestazioni/in-arrivo` | Prestazioni occasionali · Timbrature · Foglio ore | 4 | app/api/cron/promemoria-ore/route.ts, app/api/prestazioni/in-arrivo/leggi/route.ts, app/api/prestazioni/in-arrivo/route.ts, app/api/prestazioni/route.ts |
@@ -771,6 +773,8 @@ candidati da spezzare per area o da spostare in `lib/core/` (vedi `CLAUDE.md` §
 | `lib/qonto/formato` | Controllo di gestione · Qonto | 2 | app/(app)/controllo-gestione/qonto/[id]/page.tsx, app/(app)/controllo-gestione/qonto/page.tsx |
 | `lib/preventivi/catering-calcoli` | Preventivi | 2 | app/(app)/preventivi/catering/_componenti/CalcolatoreCatering.tsx, app/api/preventivi/catering/parametri/route.ts |
 | `lib/preventivi/catering` | Preventivi | 2 | app/(app)/preventivi/catering/page.tsx, app/api/preventivi/catering/parametri/route.ts |
+| `lib/qonto/estratto` | Controllo di gestione · Qonto | 2 | app/api/cron/estratti-qonto/route.ts, app/api/qonto/estratto/route.ts |
+| `lib/qonto/notifiche` | Controllo di gestione · Qonto | 2 | app/api/cron/estratti-qonto/route.ts, app/api/qonto/estratto/route.ts |
 | `lib/it/verbali` | (non mappato) | 2 | app/api/it/assegnazioni/[id]/verbale/conferma/route.ts, app/api/it/assegnazioni/[id]/verbale/route.ts |
 | `lib/it/dispositivi` | (non mappato) | 2 | app/api/it/dispositivi/[id]/route.ts, app/api/it/dispositivi/route.ts |
 | `lib/manutenzioni/notifiche` | Manutenzioni | 2 | app/api/manutenzioni/[id]/route.ts, app/api/manutenzioni/route.ts |
@@ -785,8 +789,6 @@ candidati da spezzare per area o da spostare in `lib/core/` (vedi `CLAUDE.md` §
 | `lib/gestione/cruscotto` | Controllo di gestione · Cruscotto | 1 | app/(app)/controllo-gestione/cruscotto/page.tsx |
 | `lib/fatture/centri-di-costo` | Richiesta fattura | 1 | app/(app)/richiesta-fattura/page.tsx |
 | `lib/clienti/vies` | Richiesta fattura | 1 | app/api/clienti/partita-iva/[numero]/route.ts |
-| `lib/qonto/estratto` | Controllo di gestione · Qonto | 1 | app/api/cron/estratti-qonto/route.ts |
-| `lib/qonto/notifiche` | Controllo di gestione · Qonto | 1 | app/api/cron/estratti-qonto/route.ts |
 | `lib/preventivi/notifiche` | Preventivi | 1 | app/api/cron/preventivi/route.ts |
 | `lib/fatture/notifiche` | Richiesta fattura | 1 | app/api/fatture/route.ts |
 | `lib/clienti/pubblico` | (non mappato) | 1 | app/api/nuovo-cliente/route.ts |

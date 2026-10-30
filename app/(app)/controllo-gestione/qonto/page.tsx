@@ -18,6 +18,7 @@ import { qontoConfigurato } from '@/lib/qonto/client'
 import { getContiQonto } from '@/lib/qonto/data'
 import { euro, ibanLeggibile, ora } from '@/lib/qonto/formato'
 import type { ContoQonto } from '@/types/qonto'
+import { InviaEstratto } from './_componenti/InviaEstratto'
 
 // Niente `dynamic = 'force-dynamic'`: la pagina è già dinamica perché legge la
 // sessione, e quell'opzione spegnerebbe la cache di 60 secondi delle letture
@@ -85,6 +86,8 @@ export default async function QontoPage() {
             </li>
           ))}
         </ul>
+
+        {accesso.tutti && !errore && <InviaEstratto emailIniziale={session?.user?.email ?? ''} />}
 
         {conti.length > 0 && (
           <p className="text-xs text-gray-400 text-center">

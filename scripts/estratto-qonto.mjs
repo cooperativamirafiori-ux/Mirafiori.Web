@@ -15,7 +15,8 @@
  * --settimana = un giorno qualsiasi della settimana (lun–dom). Senza: quella appena finita.
  * Senza --a va ai destinatari normali (Alessandro).
  *
- * Richiede in .env.local: CRON_SECRET (lo stesso che sta su Vercel), APP_BASE_URL.
+ * Richiede in .env.local: CRON_SECRET (lo stesso che sta su Vercel). Chiama sempre
+ * https://mirafiori-web.vercel.app (un APP_BASE_URL su localhost si ignora); --url= per cambiarlo.
  */
 
 import { readFileSync } from 'node:fs'
@@ -31,7 +32,10 @@ try {
 } catch { /* variabili già nell'ambiente */ }
 
 const arg = (nome) => process.argv.find((a) => a.startsWith(`--${nome}=`))?.split('=').slice(1).join('=') ?? ''
-const base = (process.env.APP_BASE_URL || 'https://mirafiori-web.vercel.app').replace(/\/+$/, '')
+// Sempre l'app pubblicata: in .env.local APP_BASE_URL di solito è localhost
+// (serve a npm run dev), e lì il cron non gira. --url= per forzarne un'altra.
+const daEnv = process.env.APP_BASE_URL || ''
+const base = (arg('url') || (/localhost|127\.0\.0\.1/.test(daEnv) ? '' : daEnv) || 'https://mirafiori-web.vercel.app').replace(/\/+$/, '')
 const q = new URLSearchParams()
 if (arg('settimana')) q.set('settimana', arg('settimana'))
 if (arg('a')) q.set('a', arg('a'))
