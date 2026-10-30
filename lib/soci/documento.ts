@@ -21,7 +21,7 @@ import PizZip from 'pizzip'
 import Docxtemplater from 'docxtemplater'
 import type { GraphClient } from '@/lib/core/graph-delegato'
 import { pdfDaDocumento } from '@/lib/risorse-umane/data'
-import { IMPORTO_QUOTA, NUMERO_QUOTE, totaleQuote, type DatiDomanda } from '@/types/soci'
+import { IMPORTO_QUOTA, quoteDi, totaleQuote, type DatiDomanda } from '@/types/soci'
 
 const MODELLO = join(process.cwd(), 'lib', 'templates', 'domanda-socio', 'Domanda_Ammissione_Socio_TEMPLATE.docx')
 const CT_DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
@@ -73,9 +73,9 @@ export function generaDocxDomanda(dati: DatiDomanda, dataDomanda: string): Buffe
     cLav: casella(dati.tipoSocio === 'lavoratore'),
     cVol: casella(dati.tipoSocio === 'volontario'),
     cSov: casella(dati.tipoSocio === 'sovventore'),
-    numeroQuote: String(NUMERO_QUOTE),
+    numeroQuote: String(quoteDi(dati)),
     importoQuota: euro(IMPORTO_QUOTA),
-    totale: euro(totaleQuote()),
+    totale: euro(totaleQuote(quoteDi(dati))),
     cTratt: casella(dati.modalita === 'trattenute'),
     cCassa: casella(dati.modalita === 'cassa'),
     dataDomanda: dataIt(dataDomanda),

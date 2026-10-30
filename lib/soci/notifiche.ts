@@ -10,7 +10,7 @@
  */
 
 import { BOX, BTN, RIGA, TABELLA, sendEmail } from '@/lib/core/mailer'
-import { etichettaTipo, MODALITA_VERSAMENTO, NUMERO_QUOTE, totaleQuote, type DatiDomanda } from '@/types/soci'
+import { etichettaTipo, MODALITA_VERSAMENTO, quoteDi, totaleQuote, type DatiDomanda } from '@/types/soci'
 
 const CT_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
@@ -63,7 +63,7 @@ export async function mailNuovoSocio(p: {
         RIGA('Tipo di socio', esc(etichettaTipo(d.tipoSocio))) +
         RIGA('Codice fiscale', esc(d.codiceFiscale)) +
         RIGA('Data della domanda', dataIt(p.dataDomanda)) +
-        RIGA('Capitale sottoscritto', `${NUMERO_QUOTE} quote = ${euro(totaleQuote())}`) +
+        RIGA('Capitale sottoscritto', `${quoteDi(d)} quote da 25 € = ${euro(totaleQuote(quoteDi(d)))}`) +
         RIGA('Versamento', esc(modalita)),
     )}
     <p>Nella scheda RU ho segnato <em>Socio: Sì</em>, il numero e la quota sottoscritta${

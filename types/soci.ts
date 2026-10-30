@@ -24,13 +24,19 @@ export const MODALITA_VERSAMENTO = [
 export type ModalitaVersamento = (typeof MODALITA_VERSAMENTO)[number]['valore']
 
 /**
- * Quote: 80 quote mensili da 25 €, bloccate per ora (Dennis, 29/10/2026).
- * Il giorno che diventano sceglibili si cambia qui e il form le sblocca.
+ * Quote da 25 € l'una: il NUMERO lo scrive il socio nel modulo (Dennis,
+ * 30/10/2026; dal 29/10 erano 80 fisse). NUMERO_QUOTE resta solo come ripiego
+ * per le domande salvate prima, che il numero non ce l'hanno.
  */
-export const NUMERO_QUOTE = 80
 export const IMPORTO_QUOTA = 25
-export const QUOTE_BLOCCATE = true
-export const totaleQuote = (n: number = NUMERO_QUOTE) => n * IMPORTO_QUOTA
+export const NUMERO_QUOTE = 80
+export const MAX_QUOTE = 9999
+/** Il numero di quote della domanda (ripiego 80 per le domande vecchie). */
+export const quoteDi = (d: { numeroQuote?: string }) => {
+  const n = Number(d.numeroQuote)
+  return Number.isInteger(n) && n > 0 ? n : NUMERO_QUOTE
+}
+export const totaleQuote = (n: number) => n * IMPORTO_QUOTA
 
 export const STATI_DOMANDA = ['In attesa di firma', 'Firmata', 'Registrata'] as const
 export type StatoDomanda = (typeof STATI_DOMANDA)[number]
@@ -51,13 +57,15 @@ export interface DatiDomanda {
   indirizzo: string
   telefono: string
   tipoSocio: TipoSocio | ''
+  /** Quante quote da 25 € sottoscrive: lo scrive lui. */
+  numeroQuote: string
   modalita: ModalitaVersamento | ''
 }
 
 export const DATI_VUOTI: DatiDomanda = {
   cognome: '', nome: '', luogoNascita: '', provNascita: '', dataNascita: '',
   codiceFiscale: '', cittadinanza: '', professione: '', comuneResidenza: '',
-  provResidenza: '', indirizzo: '', telefono: '', tipoSocio: '', modalita: '',
+  provResidenza: '', indirizzo: '', telefono: '', tipoSocio: '', numeroQuote: '', modalita: '',
 }
 
 /** Una domanda come la vede il form. */
@@ -96,6 +104,7 @@ export function normalizzaDati(input: unknown): DatiDomanda {
     indirizzo: s('indirizzo'),
     telefono: s('telefono'),
     tipoSocio: TIPI_SOCIO.some((t) => t.valore === tipo) ? (tipo as TipoSocio) : '',
+    numeroQuote: s('numeroQuote').replace(/\D/g, '').replace(/^0+/, ''),
     modalita: MODALITA_VERSAMENTO.some((m) => m.valore === mod) ? (mod as ModalitaVersamento) : '',
   }
 }
@@ -113,6 +122,9 @@ export function validaDati(d: DatiDomanda): Partial<Record<keyof DatiDomanda, st
   if (d.provResidenza && !PROV.test(d.provResidenza)) e.provResidenza = 'Sigla di 2 lettere (es. TO)'
   if (d.dataNascita && !/^\d{4}-\d{2}-\d{2}$/.test(d.dataNascita)) e.dataNascita = 'Data non valida'
   if (!d.tipoSocio) e.tipoSocio = 'Scegli come vuoi essere ammesso/a'
+  const nq = Number(d.numeroQuote)
+  if (!d.numeroQuote) e.numeroQuote = 'Scrivi quante quote vuoi sottoscrivere'
+  else if (!Number.isInteger(nq) || nq < 1 || nq > MAX_QUOTE) e.numeroQuote = `Un numero da 1 a ${MAX_QUOTE}`
   if (!d.modalita) e.modalita = 'Scegli come versare le quote'
   return e
 }

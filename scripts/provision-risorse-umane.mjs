@@ -168,6 +168,7 @@ const DIPENDENTI_SPEC = [
   { name: 'FondoPensioneDettaglio', ...text() },
   { name: 'Socio', ...choice(SINO) },
   { name: 'NumeroElencoGenerale', ...number() },
+  { name: 'PaginaLibroSoci', ...text() },
   { name: 'DataAmmissioneSocio', ...dateOnly() },
   { name: 'QuotaSociale', ...currency() },
   { name: 'QuotaSocialeVersata', ...currency() },

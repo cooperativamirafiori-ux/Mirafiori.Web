@@ -7,8 +7,8 @@ import { Campo } from '@/components/ui/Campo'
 import { caricaDirettamente, erroreRisposta } from '@/lib/core/upload-diretto'
 import {
   IMPORTO_QUOTA,
+  MAX_QUOTE,
   MODALITA_VERSAMENTO,
-  NUMERO_QUOTE,
   TIPI_SOCIO,
   totaleQuote,
   validaDati,
@@ -225,9 +225,27 @@ export function DomandaSocio({
             }}
           />
 
-          <div className="rounded-xl bg-gray-50 border border-gray-200 px-4 py-3 text-sm text-gray-700">
-            Mi impegno a sottoscrivere e versare <strong>{NUMERO_QUOTE} quote mensili</strong> da{' '}
-            <strong>{euro(IMPORTO_QUOTA)} €</strong>, per un totale di <strong>{euro(totaleQuote())} €</strong>.
+          <div className="space-y-2">
+            <Campo
+              etichetta={`Quante quote da ${euro(IMPORTO_QUOTA)} € vuoi sottoscrivere`}
+              tipo="number"
+              inputMode="numeric"
+              min={1}
+              max={MAX_QUOTE}
+              segnaposto="Es. 80"
+              {...campo('numeroQuote')}
+            />
+            <div className="rounded-xl bg-gray-50 border border-gray-200 px-4 py-3 text-sm text-gray-700">
+              {Number(dati.numeroQuote) > 0 ? (
+                <>
+                  Mi impegno a sottoscrivere e versare <strong>{Number(dati.numeroQuote)} quote mensili</strong> da{' '}
+                  <strong>{euro(IMPORTO_QUOTA)} €</strong>, per un totale di{' '}
+                  <strong>{euro(totaleQuote(Number(dati.numeroQuote)))} €</strong>.
+                </>
+              ) : (
+                <>Ogni quota vale {euro(IMPORTO_QUOTA)} €: scrivi quante ne vuoi sottoscrivere e qui vedi il totale.</>
+              )}
+            </div>
           </div>
 
           <Scelte

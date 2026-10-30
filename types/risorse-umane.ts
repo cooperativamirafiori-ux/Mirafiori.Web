@@ -275,6 +275,9 @@ const DIPENDENTI_SPECIFICI: readonly RUField[] = [
 
   { key: 'Socio', label: 'Socio', type: 'choice', choices: SINO, section: 'Socio' },
   { key: 'NumeroElencoGenerale', label: 'N. Elenco Generale', type: 'number', section: 'Socio' },
+  // Testo e non numero: una scheda può stare su due pagine ("12-13"). Nessuno
+  // la compila in automatico, la scrive a mano chi tiene il libro (Dennis, 30/10/2026).
+  { key: 'PaginaLibroSoci', label: 'Pagina Libro Soci', type: 'text', section: 'Socio' },
   { key: 'DataAmmissioneSocio', label: 'Data ammissione socio', type: 'date', section: 'Socio' },
   { key: 'QuotaSociale', label: 'Quota sociale sottoscritta', type: 'currency', section: 'Socio' },
   { key: 'QuotaSocialeVersata', label: 'Quota sociale già versata', type: 'currency', section: 'Socio' },

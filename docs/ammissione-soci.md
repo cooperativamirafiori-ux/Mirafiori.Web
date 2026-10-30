@@ -22,8 +22,9 @@ Decisa il 29/10/2026 da Dennis con Claudia Carena (Risorse Umane). Codice in
      `SOCI_PRIMO_NUMERO` (234, il primo libero indicato da Claudia). Il campo
      delle schede RU **non** fa da base: al 30/10/2026 era compilato su 2
      schede sole, una con 262019;
-   - scheda RU: `Socio = Si`, `NumeroElencoGenerale`, `QuotaSociale = 2000`,
-     e i dati del modulo **nei campi vuoti**;
+   - scheda RU: `Socio = Si`, `NumeroElencoGenerale`, `QuotaSociale` (quote
+     scelte × 25 €) e i dati del modulo **nei campi vuoti**. `PaginaLibroSoci`
+     resta vuota: la scrive a mano chi tiene il libro;
    - genera la **scheda progressiva** (`COGNOME_<numero>.xlsx`, stesso modello
      di sempre) in `SOCI/Soci_<anno>/SCHEDE PROGRESSIVE DA STAMPARE`;
    - copia la domanda firmata nella cartella personale;
@@ -55,7 +56,7 @@ Decisa il 29/10/2026 da Dennis con Claudia Carena (Risorse Umane). Codice in
   bloccato** — nella schermata e nel server (`giaSocioPerAltro`). Unica
   eccezione: la scheda è diventata "socio" per questa stessa domanda e la
   registrazione si era interrotta, così "Completa la registrazione" riparte.
-- **Quote**: 80 quote mensili da 25 € (2.000 €), bloccate (`types/soci.ts`).
+- **Quote** (30/10/2026): da 25 € l'una, il **numero lo scrive il socio** nel modulo (prima erano 80 fisse); il totale va nel modulo, in `QuotaSociale` della scheda RU e nel capitale sottoscritto della scheda progressiva. Le domande salvate prima senza numero valgono 80 (`quoteDi` in `types/soci.ts`).
 
 ## Setup
 

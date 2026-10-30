@@ -3,7 +3,7 @@
 > Generato da `npm run mappa` il 2026-10-30. **Non modificare a mano**: le decisioni e le
 > convenzioni stanno in `CLAUDE.md`, qui c'è solo la fotografia dei file.
 
-**622 file · 104.374 righe totali.**
+**622 file · 104.410 righe totali.**
 
 ## ⚠️ File oltre 500 righe — da spezzare
 
@@ -132,22 +132,22 @@ _22 file · 2366 righe_
 
 ### Ammissione soci
 
-_14 file · 1837 righe_
+_14 file · 1869 righe_
 
-- `app/(app)/soci/_componenti/DomandaSocio.tsx` (425 righe)
+- `app/(app)/soci/_componenti/DomandaSocio.tsx` (443 righe)
 - `app/(app)/soci/page.tsx` (72 righe)
 - `app/api/soci/domanda/[id]/firmata/route.ts` (103 righe)
 - `app/api/soci/domanda/[id]/pdf/route.ts` (38 righe)
 - `app/api/soci/domanda/[id]/registra/route.ts` (32 righe)
 - `app/api/soci/domanda/route.ts` (68 righe)
-- `docs/ammissione-soci.md` (70 righe)
+- `docs/ammissione-soci.md` (71 righe)
 - `lib/soci/data.ts` (167 righe) — esporta: sociConfigurato, graphSoci, perIlBrowser, tutteLeDomande, getDomanda, domandaDi, creaDomanda, aggiornaDomanda
 - `lib/soci/documento.ts` (91 righe) — esporta: cartellaAmmissioni, cartellaSchede, nomeDomandaFirmata, nomeScheda, dataIt, generaDocxDomanda, pdfDomanda
-- `lib/soci/flusso.ts` (313 righe) — esporta: oggiIso, precompila, eSocio, MSG_GIA_SOCIO, giaSocioPerAltro, schedaDi, registraSocio
+- `lib/soci/flusso.ts` (314 righe) — esporta: oggiIso, precompila, eSocio, MSG_GIA_SOCIO, giaSocioPerAltro, schedaDi, registraSocio
 - `lib/soci/guard.ts` (34 righe) — esporta: errore, guardSessione, guardDomanda
 - `lib/soci/notifiche.ts` (88 righe) — esporta: destinatariSoci, mailNuovoSocio
 - `scripts/provision-soci.mjs` (214 righe)
-- `types/soci.ts` (122 righe)
+- `types/soci.ts` (134 righe)
 
 ### Preventivi
 
@@ -368,7 +368,7 @@ _47 file · 5570 righe_
 
 ### Risorse Umane
 
-_55 file · 13399 righe_
+_55 file · 13400 righe_
 
 - `app/(app)/risorse-umane/CartellaDipendente.tsx` (269 righe)
 - `app/(app)/risorse-umane/collaboratori/page.tsx` (13 righe)
@@ -421,7 +421,7 @@ _55 file · 13399 righe_
 - `scripts/migrate-dipendenti-socio-2026-07.mjs` (126 righe)
 - `scripts/migrate-ru-storico-2026-07.mjs` (221 righe)
 - `scripts/migrate-unifica-collaboratori-2026-07.mjs` (233 righe)
-- `scripts/provision-risorse-umane.mjs` (315 righe)
+- `scripts/provision-risorse-umane.mjs` (316 righe)
 - `scripts/ru-assetto.mjs` (171 righe)
 - `scripts/ru-chi-ha-scritto.mjs` (167 righe)
 - `scripts/vercel-env-ru.sh` (128 righe)
@@ -633,7 +633,7 @@ _3 file · 68 righe_
 
 ### Infrastruttura condivisa (core)
 
-_46 file · 7707 righe_
+_46 file · 7710 righe_
 
 - `app/api/debug-fields/route.ts` (45 righe)
 - `components/timbrature/CompilaDaProfilo.tsx` (133 righe)
@@ -678,7 +678,7 @@ _46 file · 7707 righe_
 - `types/manutenzioni.ts` (173 righe)
 - `types/nuovo-cliente.ts` (140 righe)
 - `types/prestazioni.ts` (74 righe)
-- `types/risorse-umane.ts` (325 righe)
+- `types/risorse-umane.ts` (328 righe)
 - `types/software.ts` (84 righe)
 - `types/timbrature.ts` (527 righe) ⚠️
 

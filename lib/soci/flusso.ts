@@ -31,7 +31,7 @@ import {
 } from '@/lib/risorse-umane/data'
 import { generaSchedaSocioBuffer } from '@/lib/risorse-umane/export-scheda-socio'
 import type { RURecord } from '@/types/risorse-umane'
-import { DATI_VUOTI, etichettaTipo, tipoRU, totaleQuote, type DatiDomanda } from '@/types/soci'
+import { DATI_VUOTI, etichettaTipo, quoteDi, tipoRU, totaleQuote, type DatiDomanda } from '@/types/soci'
 import { aggiornaDomanda, tutteLeDomande, type DomandaInterna } from './data'
 import { cartellaAmmissioni, cartellaSchede, nomeScheda } from './documento'
 import { mailNuovoSocio } from './notifiche'
@@ -227,9 +227,10 @@ export async function registraSocio(
   // --- scheda RU: da non socio a socio ---
   const { campi, differenze } = completamenti(rec, d)
   const socio: Record<string, unknown> = { Socio: 'Si', NumeroElencoGenerale: numero }
-  if (!txt(rec.QuotaSociale)) socio.QuotaSociale = totaleQuote()
-  else if (Number(rec.QuotaSociale) !== totaleQuote()) {
-    differenze.push({ campo: 'Quota sociale sottoscritta', scheda: txt(rec.QuotaSociale), domanda: String(totaleQuote()) })
+  const capitale = totaleQuote(quoteDi(d))
+  if (!txt(rec.QuotaSociale)) socio.QuotaSociale = capitale
+  else if (Number(rec.QuotaSociale) !== capitale) {
+    differenze.push({ campo: 'Quota sociale sottoscritta', scheda: txt(rec.QuotaSociale), domanda: String(capitale) })
   }
   // Il tipo di rapporto si aggiorna solo nel caso ovvio: un dipendente che
   // diventa socio lavoratore. Negli altri casi si avvisa e basta, perché il
@@ -262,7 +263,7 @@ export async function registraSocio(
     {
       tipoSocio: tipoNuovo,
       professione: d.professione,
-      capitaleSottoscritto: { data: domanda.dataDomanda ?? oggiIso(), importo: totaleQuote() },
+      capitaleSottoscritto: { data: domanda.dataDomanda ?? oggiIso(), importo: capitale },
     },
   )
   const scheda = await caricaDocumentoInCartella(g, cartellaSchede(anno), nome, xlsx, CT_XLSX)
