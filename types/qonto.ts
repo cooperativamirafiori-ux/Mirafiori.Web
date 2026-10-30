@@ -19,6 +19,8 @@ export interface ContoQonto {
   /** Tolti i pagamenti con carta ancora in attesa: quello che si può spendere adesso. */
   saldoDisponibile: number | null
   valuta: string
+  /** Conto chiuso su Qonto: compare solo dove si chiedono anche i chiusi (estratto settimanale). */
+  chiuso?: boolean
 }
 
 export interface MovimentoQonto {

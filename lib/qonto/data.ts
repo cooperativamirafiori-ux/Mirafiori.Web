@@ -33,13 +33,13 @@ interface QontoBankAccount {
  * `/v2/organization` lo manda come numero (25/09/2026): i centesimi sono
  * l'unico campo coerente, e un intero non ha arrotondamenti.
  */
-function importo(cents: number | null | undefined, euro: number | string | null | undefined): number | null {
+export function importo(cents: number | null | undefined, euro: number | string | null | undefined): number | null {
   if (typeof cents === 'number' && Number.isFinite(cents)) return cents / 100
   const n = typeof euro === 'string' ? Number(euro) : euro
   return typeof n === 'number' && Number.isFinite(n) ? n : null
 }
 
-interface QontoTransaction {
+export interface QontoTransaction {
   id: string
   amount: number | string
   amount_cents?: number
@@ -74,14 +74,21 @@ function mappaConto(a: QontoBankAccount): ContoQonto {
     saldo: importo(a.balance_cents, a.balance),
     saldoDisponibile: importo(a.authorized_balance_cents, a.authorized_balance),
     valuta: a.currency ?? 'EUR',
+    chiuso: a.status === 'closed',
   }
 }
 
-/** Conti attivi: prima il principale, poi i sottoconti in ordine di codice. */
-export async function getContiQonto(): Promise<ContoQonto[]> {
+/**
+ * Conti attivi: prima il principale, poi i sottoconti in ordine di codice.
+ *
+ * `ancheChiusi` serve all'estratto settimanale (estratto.ts): un sottoconto
+ * chiuso a metà settimana ha comunque movimenti in quei giorni, e sparirebbe
+ * dall'Excel di Alessandro.
+ */
+export async function getContiQonto(opzioni: { ancheChiusi?: boolean } = {}): Promise<ContoQonto[]> {
   const res = await qontoGet<{ bank_accounts: QontoBankAccount[] }>('/bank_accounts?per_page=100')
   return (res.bank_accounts ?? [])
-    .filter((a) => (a.status ?? 'active') !== 'closed')
+    .filter((a) => opzioni.ancheChiusi || (a.status ?? 'active') !== 'closed')
     .map(mappaConto)
     .sort((a, b) => {
       if (a.principale !== b.principale) return a.principale ? -1 : 1
@@ -112,33 +119,38 @@ export async function getMovimentiQonto(
   q.append('status[]', 'pending')
   q.append('status[]', 'completed')
   const res = await qontoGet<{ transactions: QontoTransaction[] }>(`/transactions?${q.toString()}`)
-  const perIban = new Map(contiNostri.filter((c) => c.iban).map((c) => [soloLettere(c.iban), c]))
+  const perIban = mappaIban(contiNostri)
+  return (res.transactions ?? []).map((t) => mappaMovimento(t, perIban))
+}
 
-  return (res.transactions ?? []).map((t) => {
-    const entrata = t.side === 'credit'
-    const ibanControparte = soloLettere(t.transfer?.counterparty_account_number ?? t.income?.counterparty_account_number ?? '')
-    const contoNostro = ibanControparte ? perIban.get(ibanControparte) : undefined
-    const nome = (t.clean_counterparty_name || t.label || '—').trim()
-    // Ripiego se Qonto non porta l'IBAN: la controparte è la cooperativa stessa.
-    const giroconto = Boolean(contoNostro) || /cooperativa sociale mirafiori/i.test(nome)
-    const controparte = giroconto
-      ? `Giroconto ${entrata ? 'da' : 'verso'} ${contoNostro?.nome ?? 'un altro conto della cooperativa'}`
-      : nome
-    return {
-      id: t.id,
-      data: t.settled_at ?? t.emitted_at,
-      controparte,
-      importo: (entrata ? 1 : -1) * Math.abs(importo(t.amount_cents, t.amount) ?? 0),
-      stato: t.status,
-      tipo: t.operation_type,
-      nota: t.note ?? null,
-      riferimento: t.reference ?? null,
-      conAllegato: (t.attachment_ids?.length ?? 0) > 0,
-      // Lo scontrino si chiede solo per le spese vere: Qonto lo segna come
-      // "richiesto" anche sulle ricariche e sulle entrate, dove non esiste.
-      allegatoObbligatorio: Boolean(t.attachment_required) && !entrata && !giroconto,
-      carta: t.card_last_digits ?? null,
-      giroconto,
-    }
-  })
+export const mappaIban = (conti: ContoQonto[]) =>
+  new Map(conti.filter((c) => c.iban).map((c) => [soloLettere(c.iban), c]))
+
+/** Un movimento Qonto come lo usa l'app (scheda Qonto ed estratto settimanale). */
+export function mappaMovimento(t: QontoTransaction, perIban: Map<string, ContoQonto>): MovimentoQonto {
+  const entrata = t.side === 'credit'
+  const ibanControparte = soloLettere(t.transfer?.counterparty_account_number ?? t.income?.counterparty_account_number ?? '')
+  const contoNostro = ibanControparte ? perIban.get(ibanControparte) : undefined
+  const nome = (t.clean_counterparty_name || t.label || '—').trim()
+  // Ripiego se Qonto non porta l'IBAN: la controparte è la cooperativa stessa.
+  const giroconto = Boolean(contoNostro) || /cooperativa sociale mirafiori/i.test(nome)
+  const controparte = giroconto
+    ? `Giroconto ${entrata ? 'da' : 'verso'} ${contoNostro?.nome ?? 'un altro conto della cooperativa'}`
+    : nome
+  return {
+    id: t.id,
+    data: t.settled_at ?? t.emitted_at,
+    controparte,
+    importo: (entrata ? 1 : -1) * Math.abs(importo(t.amount_cents, t.amount) ?? 0),
+    stato: t.status,
+    tipo: t.operation_type,
+    nota: t.note ?? null,
+    riferimento: t.reference ?? null,
+    conAllegato: (t.attachment_ids?.length ?? 0) > 0,
+    // Lo scontrino si chiede solo per le spese vere: Qonto lo segna come
+    // "richiesto" anche sulle ricariche e sulle entrate, dove non esiste.
+    allegatoObbligatorio: Boolean(t.attachment_required) && !entrata && !giroconto,
+    carta: t.card_last_digits ?? null,
+    giroconto,
+  }
 }
