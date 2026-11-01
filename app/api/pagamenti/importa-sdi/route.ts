@@ -9,6 +9,8 @@ import { NextResponse } from 'next/server'
 import { guardPagamento } from '@/lib/pagamenti/guard'
 import { importaFattureSdi } from '@/lib/pagamenti/sdi/import'
 import { logAzione } from '@/lib/core/audit'
+import { riconciliaQonto } from '@/lib/qonto/riconciliazione'
+import { qontoConfigurato } from '@/lib/qonto/client'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -17,7 +19,7 @@ export async function POST() {
   const g = await guardPagamento()
   if (g.error) return g.error
   try {
-    const ricevuta = await importaFattureSdi({ utente: g.email, budgetMs: 240_000 })
+    const ricevuta = await importaFattureSdi({ utente: g.email, budgetMs: 200_000 })
     await logAzione({
       utente: g.email,
       nome: g.session.user?.name,
@@ -33,7 +35,18 @@ export async function POST() {
         primoImport: ricevuta.primoImport,
       },
     })
-    return NextResponse.json({ ricevuta })
+    // Le fatture appena arrivate si confrontano subito con le uscite di Qonto:
+    // chi ha premuto vuole vedere le code già giuste.
+    let riconciliazione: unknown = null
+    if (qontoConfigurato()) {
+      try {
+        riconciliazione = await riconciliaQonto()
+      } catch (e: any) {
+        console.error('[importa-sdi] riconciliazione', e)
+        riconciliazione = { errore: e?.message }
+      }
+    }
+    return NextResponse.json({ ricevuta, riconciliazione })
   } catch (e: any) {
     console.error('[importa-sdi]', e)
     return NextResponse.json({ error: e?.message ?? 'Import non riuscito' }, { status: 500 })

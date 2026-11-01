@@ -27,6 +27,17 @@
  *
  * Sopra tutto: ⚠️ una fattura già pagata non deve MAI finire in una coda di
  * pagamento. Nel dubbio si va in "da verificare", mai in "da pagare".
+ *
+ * Dal 1/11/2026 (PARTENZA_QONTO, decisione di Dennis) per le fatture datate da
+ * quel giorno il pagato si controlla su Qonto, non su quello che dice la
+ * fattura: carta (regola 3), contanti (non ce ne sono più) e fornitori che si
+ * pagano al momento (regola 5) nascono "da pagare" con l'avviso
+ * `pagata_senza_movimento`. Subito dopo l'import gira l'abbinamento con le
+ * uscite di Qonto (lib/qonto/riconciliazione.ts): se il movimento c'è, la
+ * fattura si chiude da sola; se no resta in coda a Claudia con l'avviso.
+ * Unica eccezione voluta alla regola sopra: Dennis ha scelto di vederle in
+ * coda piuttosto che darle per pagate senza prova. RID/SDD restano come sono.
+ * Vedi docs/riconciliazione-qonto.md.
  */
 
 import type { FamigliaModalita, StatoScadenza } from '@/types/pagamenti'
@@ -57,7 +68,12 @@ export interface ScadenzaNuova {
   /** Per le nate pagate: la data da scrivere come data di pagamento. */
   pagata: boolean
   segnalazione: string | null
+  /** La fattura dice "già pagata" ma (ancora) nessun movimento su Qonto. */
+  alert: 'pagata_senza_movimento' | null
 }
+
+/** Da questa data di fattura il pagato si controlla su Qonto. */
+export const PARTENZA_QONTO = '2026-11-01'
 
 /** 30 del mese successivo alla data della fattura (l'ultimo, se il mese è più corto). */
 export function scadenzaStimata(dataFattura: string): string {
@@ -96,6 +112,7 @@ export function scadenzeDa(f: FatturaSdi, c: Contesto): ScadenzaNuova[] {
       blocco: null,
       pagata: false,
       segnalazione: 'nota di credito: da appaiare alla fattura che riduce',
+      alert: null,
     }]
   }
 
@@ -123,20 +140,28 @@ export function scadenzeDa(f: FatturaSdi, c: Contesto): ScadenzaNuova[] {
     let stato: StatoScadenza
     let motivo: ScadenzaNuova['motivo_verifica'] = null
     let pagata = false
+    let alert: ScadenzaNuova['alert'] = null
+    // Dal 1/11/2026 niente contanti: «contanti» in fattura vale come «già pagata».
+    const conQonto = !!f.data && f.data >= PARTENZA_QONTO
+    const giaPagataSecondoFattura =
+      famiglia === 'negozio' ||
+      (conQonto && contanti) ||
+      ((senzaModalita || contanti) && !!c.fornitore?.pagaAlMomento)
 
-    if (famiglia === 'negozio') {
-      stato = 'pagata'
-      pagata = true
+    if (giaPagataSecondoFattura) {
+      if (conQonto) {
+        // La prova la dà Qonto: finché il movimento non c'è, va in coda a Claudia.
+        stato = 'da_pagare'
+        alert = 'pagata_senza_movimento'
+      } else {
+        stato = 'pagata'
+        pagata = true
+      }
     } else if (famiglia === 'automatica') {
       stato = 'automatica'
     } else if (senzaModalita || contanti) {
-      if (c.fornitore?.pagaAlMomento) {
-        stato = 'pagata'
-        pagata = true
-      } else {
-        stato = 'da_verificare'
-        motivo = 'senza_modalita'
-      }
+      stato = 'da_verificare'
+      motivo = 'senza_modalita'
     } else if (c.primoImport && r.data <= c.oggi) {
       stato = 'da_verificare'
       motivo = 'primo_import'
@@ -178,6 +203,7 @@ export function scadenzeDa(f: FatturaSdi, c: Contesto): ScadenzaNuova[] {
       blocco,
       pagata,
       segnalazione: note,
+      alert,
     }
   })
 }

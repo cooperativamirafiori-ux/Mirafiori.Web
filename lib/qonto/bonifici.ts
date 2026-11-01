@@ -25,6 +25,7 @@ import { supabase } from '@/lib/core/supabase'
 import { getContiQonto } from '@/lib/qonto/data'
 import { qontoOAuth } from '@/lib/qonto/oauth'
 import { ibanValido, normIban } from '@/lib/pagamenti/verifica'
+import { giaPagateSuQonto } from './riconciliazione'
 
 interface Riga {
   id: string
@@ -35,6 +36,7 @@ interface Riga {
   qonto_stato: string | null
   fattura_passiva: {
     fornitore: string
+    piva: string | null
     numero_fornitore: string | null
     data_fornitore: string | null
     cc_codice: string | null
@@ -57,13 +59,28 @@ export async function inviaAQonto(ids: string[], utente: string): Promise<EsitoI
   const db = supabase()
   const { data, error } = await db
     .from('scadenza')
-    .select('id, stato, importo, iban, blocco, qonto_stato, fattura_passiva ( fornitore, numero_fornitore, data_fornitore, cc_codice )')
+    .select('id, stato, importo, iban, blocco, qonto_stato, fattura_passiva ( fornitore, piva, numero_fornitore, data_fornitore, cc_codice )')
     .in('id', ids)
   if (error) throw new Error(`Lettura scadenze: ${error.message}`)
   const righe = (data ?? []) as unknown as Riga[]
 
   const conti = await getContiQonto()
   const sottoconto = new Map(conti.filter((c) => c.ccCodice).map((c) => [c.ccCodice!.toLowerCase(), c]))
+
+  // Già uscita da Qonto senza passare dall'app (bonifico fatto a mano, carta)?
+  // Allora non si paga una seconda volta: la si abbina in "Da abbinare".
+  const giaUscite = await giaPagateSuQonto(
+    righe
+      .filter((r) => r.stato === 'da_pagare' && r.fattura_passiva)
+      .map((r) => ({
+        id: r.id,
+        importo: Number(r.importo),
+        iban: r.iban,
+        piva: r.fattura_passiva!.piva,
+        fornitore: r.fattura_passiva!.fornitore,
+        dataRif: r.fattura_passiva!.data_fornitore ?? new Date().toISOString().slice(0, 10),
+      })),
+  )
 
   // Chi può partire, e da dove.
   const buone: Array<{ r: Riga; conto: (typeof conti)[number]; iban: string }> = []
@@ -76,6 +93,10 @@ export async function inviaAQonto(ids: string[], utente: string): Promise<EsitoI
     else if (r.qonto_stato && !['declined', 'canceled'].includes(r.qonto_stato)) no(r.id, 'già inviata a Qonto')
     else if (!f) no(r.id, 'uscita senza fattura: si paga a mano')
     else if (Number(r.importo) <= 0) no(r.id, 'importo non positivo')
+    else if (giaUscite.has(r.id)) {
+      const u = giaUscite.get(r.id)!
+      no(r.id, `su Qonto c’è già un’uscita di ${u.importo.toFixed(2)} € del ${u.data.split('-').reverse().join('/')}${u.controparte ? ` (${u.controparte})` : ''}: abbinala in «Da abbinare (Qonto)» invece di pagarla di nuovo`)
+    }
     else if (r.blocco) no(r.id, r.blocco === 'iban_cambiato' ? 'IBAN cambiato: va confermato' : 'manca l’IBAN')
     else if (!iban || !ibanValido(iban)) no(r.id, 'IBAN assente o non valido')
     else if (!f.cc_codice) no(r.id, 'manca il servizio: sceglilo sulla riga')

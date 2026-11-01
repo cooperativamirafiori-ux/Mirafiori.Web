@@ -140,13 +140,20 @@ export interface RigaScadenza {
   tipoDocumento: TipoDocumento
   stato: StatoScadenza
   stimata: boolean
-  alert: 'possibile_doppio_pagamento' | null
+  /**
+   * possibile_doppio_pagamento: avviso da storico (non usato).
+   * pagata_senza_movimento: la fattura dice "già pagata" (carta, contanti) ma
+   * su Qonto il movimento non c'è ancora — docs/riconciliazione-qonto.md.
+   */
+  alert: 'possibile_doppio_pagamento' | 'pagata_senza_movimento' | null
   segnalazione: string | null
   scomparsa: boolean
   dataPagamento: string | null
   pagataDa: string | null
   /** Chi ha detto che è pagata: il clic, lo stato del gestionale, la banca. */
   originePagamento: 'app' | 'gestionale' | 'banca' | null
+  /** Collegata a un'uscita di Qonto (abbinamento automatico o a mano). */
+  qontoMovimentoId: string | null
   approvataDa: string | null
   approvataIl: string | null
   /** Giorni di attesa in coda: rende visibile il silenzio di chi non decide. */

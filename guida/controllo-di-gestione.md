@@ -9,7 +9,7 @@ pagine:
   - percorso: /controllo-gestione/flussi-fatture
     titolo: Flussi fatture
     accesso: [permesso:Pagamenti, permesso:Approvazione Pagamenti]
-    cosa: Fatture e uscite da pagare, da approvare, da verificare; segnare pagato, mandare i bonifici a Qonto.
+    cosa: Fatture e uscite da pagare, da approvare, da verificare; segnare pagato, mandare i bonifici a Qonto, abbinare le uscite di Qonto alle fatture.
   - percorso: /controllo-gestione/fatture
     titolo: Fatture del servizio
     accesso: [permesso:Controllo di Gestione, permesso:Pagamenti, coordinatore-cc]
@@ -100,6 +100,8 @@ smista in quattro elenchi (le linguette in alto):
 - «Da approvare» — fatture sopra soglia in attesa di approvazione. Ogni riga dice
   «in attesa da N giorni».
 - «Escono da sole» — addebiti automatici, solo da guardare.
+- «Da abbinare (Qonto)» — solo con il permesso Pagamenti: le uscite di Qonto che l'app non
+  ha saputo collegare da sola a una fattura. È arancione quando c'è qualcosa.
 
 Le fatture scadute stanno sempre in cima, con la scritta rossa «scaduta da N gg».
 
@@ -148,15 +150,65 @@ Se hai appena aggiunto dei file e non vuoi aspettare (serve il permesso Pagament
 
 Dove va ogni fattura lo decide l'app:
 
-- pagata con carta → nasce già pagata;
+- pagata con carta (e, dal 1° novembre 2026, anche «contanti», che non si usano più) →
+  per le fatture **dal 1° novembre 2026** l'app cerca il pagamento su Qonto: se lo trova la
+  chiude, altrimenti la mette in «Da pagare» con la scritta rossa «la fattura dice già
+  pagata, ma su Qonto non trovo il movimento». Le fatture più vecchie nascono già pagate;
 - RID, SDD, domiciliazione → «Escono da sole»;
 - note di credito → non vanno in coda;
-- non dice come si paga → pagata se il fornitore è uno che si paga sempre al momento,
-  altrimenti «Da verificare»;
-- pagamento in contanti → «Da verificare» (in fattura lo scrivono anche quando non è vero);
+- non dice come si paga → se il fornitore è uno che si paga sempre al momento vale come la
+  carta (sopra), altrimenti «Da verificare»;
+- pagamento in contanti, fatture di ottobre 2026 e prima → «Da verificare» (in fattura lo
+  scrivono anche quando non è vero);
 - tutto il resto → «Da approvare» se sopra soglia, «Da pagare» se sotto.
 - Se la fattura non ha la data di scadenza, l'app mette il 30 del mese dopo e scrive
   «scadenza stimata».
+
+## Come fa l'app a sapere che una fattura è stata pagata con Qonto?
+
+Dal 1° novembre 2026 il pagato si controlla su **quello che è uscito da Qonto**, non su
+quello che dice la fattura. Ogni notte (e quando premi «Importa adesso») l'app legge le
+uscite di tutti i conti Qonto e le confronta con le fatture aperte.
+
+Chiude una fattura **da sola** solo quando è sicura: stesso importo al centesimo, stesso
+fornitore (riconosciuto dall'IBAN del bonifico o dal nome sulla carta), date vicine, e una
+sola fattura possibile per quell'uscita. Vale anche per un bonifico che salda più fatture
+dello stesso fornitore, se una sola combinazione fa l'importo. La fattura chiusa così dice
+«pagata il … · da Qonto».
+
+Il **servizio** lo decide il conto Qonto da cui è partito il pagamento: una spesa fatta con la
+carta del conto «cc18» va su cc18. Se la fattura era su un altro servizio, l'app la sposta e
+lo scrive sulla riga («centro di costo cambiato da … a …»).
+
+Le fatture Amazon portano il centro di costo scritto nella fattura: l'app lo usa per
+scegliere fra due fatture dello stesso importo. Se il centro di costo in fattura è diverso
+dal conto della carta, non decide da sola.
+
+RID, SDD e domiciliazioni per ora restano come prima («Escono da sole»).
+
+## Come abbino a mano un'uscita di Qonto?
+
+Serve il permesso Pagamenti.
+
+1. Apri la linguetta «Da abbinare (Qonto)».
+2. Ogni uscita mostra data, carta o bonifico, conto, controparte e importo, e sotto le
+   «Fatture possibili» con le scritte «stesso importo» e «stesso fornitore».
+3. Spunta la fattura giusta (o più fatture, se un bonifico ne paga più d'una) e premi
+   «Abbina (N)». Se la somma non torna l'app lo scrive, ma ti lascia fare.
+4. La fattura si chiude come pagata con la data dell'uscita. L'app **impara** la
+   controparte: la prossima volta riconosce il fornitore da sola.
+5. Se un'uscita non avrà mai una fattura (stipendio, commissione, rimborso), premi «Non serve
+   fattura», scrivi il perché e, se vale sempre per quella controparte, spunta «Anche le
+   prossime volte».
+6. «Nessuna fattura aperta gli somiglia» di solito vuol dire che la fattura non è ancora
+   arrivata: lascia stare, l'app riprova ogni notte.
+
+Il tasto «Controlla Qonto adesso» rilegge Qonto subito invece di aspettare la notte. Accanto
+c'è l'ora dell'ultima lettura.
+
+Per correggere un errore apri «Sistemati negli ultimi 30 giorni», trova l'uscita e premi
+«Annulla», poi «Sì, annulla»: la fattura torna nella coda in cui era, e quell'uscita da quel
+momento si abbina solo a mano.
 
 ## Come rispondo alle fatture «da verificare»?
 
@@ -221,7 +273,8 @@ la riga mostra «rifiutata su Qonto» o «annullata su Qonto» e si può inviare
 
 Una fattura **non parte** se: non è ancora approvata; è già stata inviata; è un'uscita
 inserita a mano; manca l'IBAN o è cambiato; non ha il servizio; il servizio non ha un conto
-Qonto. I messaggi sono in fondo, in «Problemi comuni».
+Qonto; su Qonto c'è già un'uscita dello stesso importo verso lo stesso fornitore non ancora
+abbinata (allora va abbinata in «Da abbinare (Qonto)», non pagata di nuovo). I messaggi sono in fondo, in «Problemi comuni».
 
 ## Come scelgo o correggo il servizio di una fattura?
 

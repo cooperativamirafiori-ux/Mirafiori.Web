@@ -28,7 +28,7 @@ const CAMPI = `
   id, posizione, data_scadenza, importo, modalita, famiglia_modalita, stimata,
   stato, data_pagamento, pagata_da, pagata_il, origine_pagamento, approvata_da, approvata_il,
   alert, segnalazione, scomparsa, creata_il,
-  oggetto, natura, origine, inserita_da, note, iban, motivo_verifica, blocco, qonto_stato, qonto_inviata_il,
+  oggetto, natura, origine, inserita_da, note, iban, motivo_verifica, blocco, qonto_stato, qonto_inviata_il, qonto_movimento_id,
   fattura_passiva (
     id, fornitore, piva, numero_fornitore, data_fornitore, tipo_documento,
     protocollo_numero, protocollo_suffisso, protocollo_data, file_sdi_url, pdf_url, cc_codice
@@ -64,6 +64,7 @@ interface Row {
   blocco: string | null
   qonto_stato: string | null
   qonto_inviata_il: string | null
+  qonto_movimento_id: string | null
   /** Nulla sulle righe inserite a mano: il join è esterno. */
   fattura_passiva: {
     id: string
@@ -122,6 +123,7 @@ function aRiga(r: Row, oggi: string): RigaScadenza {
     dataPagamento: r.data_pagamento,
     pagataDa: r.pagata_da,
     originePagamento: (r.origine_pagamento as RigaScadenza['originePagamento']) ?? null,
+    qontoMovimentoId: r.qonto_movimento_id ?? null,
     approvataDa: r.approvata_da,
     approvataIl: r.approvata_il,
     // Da quando la riga aspetta una decisione: è il modo di far vedere il

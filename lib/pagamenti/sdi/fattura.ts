@@ -14,6 +14,7 @@ import { leggiForniture } from './forniture'
 import type { FornituraSdi } from '@/types/utenze'
 import { cerca, leggiXml, numero, testo, trova, tutti, type Elemento } from './xml'
 import type { FamigliaModalita } from '@/types/pagamenti'
+import { ccDaTesti } from '@/lib/qonto/abbina'
 
 /** Cosa fare del documento, deciso dal TipoDocumento. */
 export type NaturaDocumento =
@@ -57,6 +58,12 @@ export interface FatturaSdi {
   daPagare: number
   rate: RataSdi[]
   causale: string | null
+  /**
+   * Centro di costo scritto nei riferimenti della fattura ("cc18"): Amazon lo
+   * porta dal 1/11/2026 (causale, numero d'ordine). Null se non c'è o se ce
+   * n'è più d'uno. Vedi docs/riconciliazione-qonto.md.
+   */
+  ccIndicato: string | null
   /** Le prime righe di dettaglio, per capire cos'è senza aprire il documento. */
   descrizione: string | null
   /** Riferimenti testuali nelle righe (es. "C04749 LOCANDA NEL PARCO"): aiutano a indovinare il servizio. */
@@ -202,6 +209,15 @@ function unaFattura(nomeFile: string, header: Elemento | undefined, body: Elemen
 
   const causale = tutti(doc, 'Causale').map((c) => testo(c)).filter(Boolean).join(' ') || null
 
+  const generali = trova(body, 'DatiGenerali')
+  const ccIndicato = ccDaTesti([
+    causale,
+    ...tutti(generali, 'IdDocumento').map((x) => testo(x)),
+    ...tutti(generali, 'CodiceCommessaConvenzione').map((x) => testo(x)),
+    ...tutti(header, 'RiferimentoAmministrazione').map((x) => testo(x)),
+    ...linee.flatMap((l) => tutti(l, 'AltriDatiGestionali')).map((a) => testo(a, 'RiferimentoTesto')),
+  ])
+
   const allegati: AllegatoSdi[] = tutti(body, 'Allegati').map((a) => ({
     nome: testo(a, 'NomeAttachment') ?? 'allegato',
     formato: testo(a, 'FormatoAttachment'),
@@ -226,6 +242,7 @@ function unaFattura(nomeFile: string, header: Elemento | undefined, body: Elemen
     daPagare,
     rate,
     causale,
+    ccIndicato,
     descrizione,
     riferimenti,
     allegati,

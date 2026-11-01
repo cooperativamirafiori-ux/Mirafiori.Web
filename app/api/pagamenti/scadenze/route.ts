@@ -21,6 +21,7 @@ import {
 import { getCentriDiCosto } from '@/lib/centri-costo/data'
 import { sincronizzaQonto } from '@/lib/qonto/bonifici'
 import { qontoOAuthConfigurato } from '@/lib/qonto/oauth'
+import { contaDaAbbinare } from '@/lib/qonto/riconciliazione'
 
 // Chi apre la pagina vede le richieste Qonto approvate già come pagate, senza
 // aspettare la notte. Al massimo una volta al minuto per istanza.
@@ -42,7 +43,7 @@ export async function GET() {
   if (g.error) return g.error
   try {
     await forseSincronizza()
-    const [daVerificare, daApprovare, daPagare, automatiche, tot, anzianita, ultimo, cdc] = await Promise.all([
+    const [daVerificare, daApprovare, daPagare, automatiche, tot, anzianita, ultimo, cdc, qontoDaAbbinare] = await Promise.all([
       listaScadenze(['da_verificare']),
       listaScadenze(['da_approvare']),
       listaScadenze(['da_pagare']),
@@ -51,6 +52,8 @@ export async function GET() {
       scadutoPerAnzianita(),
       ultimoImport(),
       getCentriDiCosto(),
+      // Null se la tabella non c'è ancora o non risponde: la scheda si nasconde.
+      contaDaAbbinare().catch(() => null),
     ])
     return NextResponse.json({
       daVerificare,
@@ -63,6 +66,7 @@ export async function GET() {
       // Per il servizio su ogni riga: codice minuscolo (come in fattura_passiva) e nome.
       centri: cdc.filter((c) => c.codice).map((c) => ({ codice: c.codice.toLowerCase(), nome: c.nome })),
       permessi: g.permessi,
+      qontoDaAbbinare,
     })
   } catch (e) {
     return NextResponse.json(

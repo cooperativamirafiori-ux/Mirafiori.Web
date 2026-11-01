@@ -28,6 +28,7 @@ import { StatoDati, ImportaSdi } from './Testata'
 import { NuovaUscita } from './NuovaUscita'
 import { IbanRiga } from './IbanRiga'
 import { ServizioRiga, type Centro } from './ServizioRiga'
+import { AbbinaQonto } from './AbbinaQonto'
 import type { EsitoVerifica, RicevutaImport, RigaScadenza, TotaliCoda } from '@/types/pagamenti'
 
 type Coda = 'da_verificare' | 'da_pagare' | 'da_approvare' | 'automatiche'
@@ -41,6 +42,8 @@ interface Dati {
   anzianita: Array<{ fascia: string; righe: number; importo: number }>
   ultimoImport: RicevutaImport | null
   centri: Centro[]
+  /** Uscite Qonto senza fattura; null se la riconciliazione non è attiva. */
+  qontoDaAbbinare: number | null
 }
 
 const euro = (n: number) =>
@@ -91,7 +94,13 @@ export function FlussiFatture({
   const [caricando, setCaricando] = useState(true)
   const [errore, setErrore] = useState('')
   const [messaggio, setMessaggio] = useState('')
-  const [coda, setCoda] = useState<Coda>(puoApprovare && !puoPagare ? 'da_approvare' : 'da_pagare')
+  const [coda, setCodaGrezza] = useState<Coda>(puoApprovare && !puoPagare ? 'da_approvare' : 'da_pagare')
+  // La scheda "Da abbinare (Qonto)" non è una coda di scadenze: ha la sua vista.
+  const [qontoAperta, setQontoAperta] = useState(false)
+  const setCoda = (c: Coda) => {
+    setQontoAperta(false)
+    setCodaGrezza(c)
+  }
   const [scelte, setScelte] = useState<Set<string>>(new Set())
   const [dataPagamento, setDataPagamento] = useState(oggiISO())
   const [inCorso, setInCorso] = useState(false)
@@ -146,7 +155,7 @@ export function FlussiFatture({
     } satisfies Record<Coda, RigaScadenza[]>
   }, [dati, cerca])
 
-  const righe = filtrate[coda]
+  const righe = qontoAperta ? [] : filtrate[coda]
   const ricercaAttiva = cerca.trim().length > 0
 
   // Le fatture già chiuse non sono fra le code: si chiedono al server, con un
@@ -180,7 +189,7 @@ export function FlussiFatture({
   // si preme un tasto su righe che non si stanno guardando.
   useEffect(() => {
     setScelte(new Set())
-  }, [coda, cerca])
+  }, [coda, cerca, qontoAperta])
 
   const selezionate = righe.filter((r) => scelte.has(r.id))
   const totaleSelezione = selezionate.reduce((s, r) => s + r.importo, 0)
@@ -449,22 +458,29 @@ export function FlussiFatture({
 
       <div className="flex flex-wrap gap-2">
         {dati && dati.daVerificare.length > 0 && (
-          <Tab attivo={coda === 'da_verificare'} onClick={() => setCoda('da_verificare')} avviso>
+          <Tab attivo={!qontoAperta && coda === 'da_verificare'} onClick={() => setCoda('da_verificare')} avviso>
             Da verificare ({filtrate.da_verificare.length})
           </Tab>
         )}
-        <Tab attivo={coda === 'da_pagare'} onClick={() => setCoda('da_pagare')}>
+        <Tab attivo={!qontoAperta && coda === 'da_pagare'} onClick={() => setCoda('da_pagare')}>
           Da pagare {dati ? `(${filtrate.da_pagare.length})` : ''}
         </Tab>
-        <Tab attivo={coda === 'da_approvare'} onClick={() => setCoda('da_approvare')}>
+        <Tab attivo={!qontoAperta && coda === 'da_approvare'} onClick={() => setCoda('da_approvare')}>
           Da approvare {dati ? `(${filtrate.da_approvare.length})` : ''}
         </Tab>
-        <Tab attivo={coda === 'automatiche'} onClick={() => setCoda('automatiche')}>
+        <Tab attivo={!qontoAperta && coda === 'automatiche'} onClick={() => setCoda('automatiche')}>
           Escono da sole {dati ? `(${filtrate.automatiche.length})` : ''}
         </Tab>
+        {puoPagare && dati && dati.qontoDaAbbinare != null && (
+          <Tab attivo={qontoAperta} onClick={() => setQontoAperta(true)} avviso={dati.qontoDaAbbinare > 0}>
+            Da abbinare (Qonto) ({dati.qontoDaAbbinare})
+          </Tab>
+        )}
       </div>
 
-      {coda === 'da_verificare' && (
+      {qontoAperta && <AbbinaQonto onCambiato={carica} />}
+
+      {!qontoAperta && coda === 'da_verificare' && (
         <p className="text-sm text-gray-500">
           Fatture di cui l’app non sa se vanno ancora pagate: o la fattura non dice come si paga
           (scontrini fatti fattura, parcelle), o è un bonifico già scaduto quando l’app ha
@@ -473,20 +489,20 @@ export function FlussiFatture({
         </p>
       )}
 
-      {coda === 'automatiche' && (
+      {!qontoAperta && coda === 'automatiche' && (
         <p className="text-sm text-gray-500">
           RID, SDD e domiciliazioni: nessuno le paga, se ne vanno da sole alla scadenza.
           Stanno qui perché il denaro esce comunque e chi guarda la cassa deve saperlo.
         </p>
       )}
 
-      {caricando && <p className="text-sm text-gray-500">Caricamento…</p>}
+      {caricando && !qontoAperta && <p className="text-sm text-gray-500">Caricamento…</p>}
 
-      {!caricando && righe.length === 0 && !ricercaAttiva && (
+      {!caricando && !qontoAperta && righe.length === 0 && !ricercaAttiva && (
         <Vuoto>{coda === 'da_approvare' ? 'Niente da approvare.' : 'Niente in coda.'}</Vuoto>
       )}
 
-      {!caricando && righe.length === 0 && ricercaAttiva && (
+      {!caricando && !qontoAperta && righe.length === 0 && ricercaAttiva && (
         <AltroveRicerca filtrate={filtrate} onScegli={setCoda} />
       )}
 
@@ -544,7 +560,7 @@ export function FlussiFatture({
         </>
       )}
 
-      {ricercaAttiva && cerca.trim().length >= 2 && (
+      {!qontoAperta && ricercaAttiva && cerca.trim().length >= 2 && (
         <section className="space-y-2 pt-2">
           <h3 className="text-sm font-semibold text-gray-700">
             Già pagate o chiuse
@@ -728,6 +744,9 @@ function Riga({
           {r.alert === 'possibile_doppio_pagamento' && (
             <Pill text="verifica: forse già pagata in negozio" tono="ambra" />
           )}
+          {r.alert === 'pagata_senza_movimento' && r.stato !== 'pagata' && (
+            <Pill text="la fattura dice già pagata, ma su Qonto non trovo il movimento" tono="rosso" dot="bg-red-500" />
+          )}
         </div>
         <p className="text-sm text-gray-500 mt-0.5">
           {r.origine === 'manuale'
@@ -779,6 +798,7 @@ function Riga({
           <p className="text-xs text-gray-400">
             pagata il {dataIt(r.dataPagamento)}
             {r.originePagamento === 'gestionale' && ' · secondo il gestionale'}
+            {r.originePagamento === 'banca' && ' · da Qonto'}
           </p>
         )}
         {onElimina && (
