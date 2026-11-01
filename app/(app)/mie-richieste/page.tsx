@@ -2,18 +2,32 @@ import { redirect } from 'next/navigation'
 import { auth } from '@/lib/core/auth'
 import { puoRichiedereManutenzione } from '@/lib/core/permessi'
 import { getRichiesteByEmail } from '@/lib/manutenzioni/data'
+import { nonLettiPerRichiesta } from '@/lib/manutenzioni/pratica'
 import { Header } from '@/components/ui/Header'
-import { StatoBadge } from '@/components/ui/StatoBadge'
 import Link from 'next/link'
+import { RichiestaRichiedente } from './RichiestaRichiedente'
 
 export const dynamic = 'force-dynamic'
 
-export default async function MieRichiestePage() {
+export default async function MieRichiestePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ r?: string }>
+}) {
   const session = await auth()
   if (!puoRichiedereManutenzione(session?.user)) redirect('/home')
   const email = session?.user?.email ?? ''
+  // ?r=<id> arriva dal link della mail: apre quella richiesta.
+  const { r: daAprire } = await searchParams
 
-  const richieste = await getRichiesteByEmail(email)
+  const [richieste, nonLetti] = await Promise.all([
+    getRichiesteByEmail(email),
+    // I messaggi sono un di più: se non si leggono, l'elenco c'è lo stesso.
+    nonLettiPerRichiesta('gestione').catch((e) => {
+      console.error('[mie-richieste] messaggi non letti:', e)
+      return {} as Record<string, number>
+    }),
+  ])
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -34,38 +48,12 @@ export default async function MieRichiestePage() {
         ) : (
           <div className="space-y-3">
             {richieste.map((r) => (
-              <div
+              <RichiestaRichiedente
                 key={r.spItemId}
-                className="bg-white rounded-xl shadow px-5 py-4 space-y-2"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <span className="font-semibold text-primary-dark">{r.idRichiesta}</span>
-                    <span className="text-gray-400 text-xs ml-2">
-                      {r.dataRichiesta
-                        ? new Date(r.dataRichiesta).toLocaleDateString('it-IT')
-                        : '—'}
-                    </span>
-                  </div>
-                  <StatoBadge stato={r.stato} />
-                </div>
-
-                <p className="text-sm text-gray-600 font-medium">{r.struttura.value}</p>
-                <p className="text-sm text-gray-500">
-                  {r.tipoIntervento} · {r.priorita}
-                </p>
-                <p className="text-sm text-gray-500 line-clamp-2">{r.descrizione}</p>
-
-                {r.tecnico && (
-                  <p className="text-xs text-gray-400">
-                    Tecnico assegnato: {r.tecnico.value}
-                    {r.tecnicoTelefono ? ` · 📞 ${r.tecnicoTelefono}` : ''}
-                  </p>
-                )}
-
-                {/* Separatore giallo — riprende il design Power Apps */}
-                <div className="h-0.5 bg-accent-yellow rounded-full mt-1" />
-              </div>
+                richiesta={r}
+                nonLetti={nonLetti[r.spItemId] ?? 0}
+                apertaAllInizio={daAprire === r.spItemId}
+              />
             ))}
           </div>
         )}

@@ -11,7 +11,7 @@ import type { Struttura, Tecnico, RichiestaManutenzione } from '@/types/manutenz
 // Person columns (Richiedente) ritornano come oggetto { DisplayName, Email, LookupId }
 // Lookup columns (Struttura, Tecnico) ritornano come oggetto { Value, LookupId }
 const RICHIESTA_FIELDS =
-  'id,fields&$expand=fields($select=Title,Richiedente,RichiedenteLookupId,DataRichiesta,TipoIntervento,Priorita,Stato,Struttura,StrutturaLookupId,Descrizione,NoteDennis,DataIntervento,ImportoFattura,DataPagamento,Pagato,OrePulizia,Tecnico,TecnicoLookupId,NumeroFattura)'
+  'id,fields&$expand=fields($select=Title,Richiedente,RichiedenteLookupId,DataRichiesta,TipoIntervento,Priorita,Stato,Struttura,StrutturaLookupId,Descrizione,NoteDennis,DataIntervento,ImportoFattura,DataPagamento,Pagato,OrePulizia,Tecnico,TecnicoLookupId,NumeroFattura,LungoCorso,PrevisioneLungoCorso)'
 
 function mapRichiesta(item: any): RichiestaManutenzione {
   const f = item.fields
@@ -49,6 +49,8 @@ function mapRichiesta(item: any): RichiestaManutenzione {
     dataPagamento: f.DataPagamento ?? undefined,
     pagato: f.Pagato ?? false,
     noteResponsabile: f.NoteDennis ?? undefined,
+    lungoCorso: f.LungoCorso === true,
+    previsioneLungoCorso: f.PrevisioneLungoCorso || undefined,
   }
 }
 
@@ -88,9 +90,14 @@ export async function getRichiestaById(spItemId: string): Promise<RichiestaManut
 }
 
 /**
- * Restituisce il lookup ID (intero) dell'utente nella User Information List di SP.
- * Necessario per impostare campi Person via Graph API.
+ * È questa persona ad aver aperto la richiesta? Il confronto è sul lookup id
+ * della User Information List, perché Graph non espone l'email del campo persona.
  */
+export async function eRichiedente(r: RichiestaManutenzione, email: string): Promise<boolean> {
+  if (!r.richiedente.lookupId || !email) return false
+  const mio = await getSPUserLookupId(email).catch(() => 0)
+  return mio > 0 && mio === Number(r.richiedente.lookupId)
+}
 
 export async function creaRichiesta(fields: {
   StrutturaId: number

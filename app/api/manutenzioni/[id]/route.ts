@@ -26,6 +26,7 @@ import { getParametro, getSPUserEmailByLookupId } from '@/lib/core/sp'
 import { creaCosto } from '@/lib/costi/data'
 import { centroCostoDiStruttura } from '@/lib/strutture/data'
 import { notificaTecnicoAssegnato, notificaChiusuraTicket } from '@/lib/manutenzioni/notifiche'
+import { annotaInConversazione } from '@/lib/manutenzioni/pratica'
 import { logAzione } from '@/lib/core/audit'
 import type { AggiornaRichiestaPayload } from '@/types/manutenzioni'
 
@@ -82,6 +83,16 @@ export async function PATCH(
         tecnicoTelefono: '',
         note: body.noteResponsabile,
       }).catch(console.error)
+
+      // Resta nella conversazione della richiesta, con la nota se c'era.
+      await annotaInConversazione({
+        richiesta,
+        lato: 'gestione',
+        tipo: 'tecnico_assegnato',
+        testo: `Tecnico assegnato: ${body.tecnicoNome}${body.noteResponsabile ? `\n\n${body.noteResponsabile}` : ''}`,
+        autoreEmail: session.user.email,
+        autoreNome: session.user.name,
+      })
 
       await logAzione({
         utente: session.user.email,
@@ -165,6 +176,15 @@ export async function PATCH(
         richiedenteEmail: richiedenteEmailChiusura,
         richiedenteNome: richiesta.richiedente.displayName,
       }).catch(console.error)
+
+      await annotaInConversazione({
+        richiesta,
+        lato: 'gestione',
+        tipo: 'chiusura',
+        testo: 'Richiesta completata.',
+        autoreEmail: session.user.email,
+        autoreNome: session.user.name,
+      })
 
       await logAzione({
         utente: session.user.email,

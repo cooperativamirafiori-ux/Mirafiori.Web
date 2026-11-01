@@ -2,6 +2,7 @@ import type { StatoRichiesta } from '@/types/manutenzioni'
 
 const colors: Record<StatoRichiesta, string> = {
   Aperta: 'bg-red-100 text-red-700',
+  'Presa in carico': 'bg-sky-100 text-sky-800',
   'In lavorazione': 'bg-orange-100 text-orange-700',
   Completata: 'bg-green-100 text-green-700',
 }

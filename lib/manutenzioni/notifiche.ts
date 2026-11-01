@@ -1,7 +1,84 @@
 /** Mail dell'area Manutenzioni. */
 
-import { sendEmail, ADMIN_EMAIL } from '@/lib/core/mailer'
+import { sendEmail, ADMIN_EMAIL, BOX, BTN } from '@/lib/core/mailer'
 import type { Struttura, Tecnico } from '@/types/manutenzioni'
+
+const APP = () => (process.env.APP_BASE_URL || 'https://mirafiori-web.vercel.app').replace(/\/+$/, '')
+
+/**
+ * Chi riceve le risposte dei richiedenti: chi gestisce le manutenzioni, non la
+ * casella di sistema (31 ott 2026, decisione di Dennis).
+ */
+const GESTIONE_MAIL_TO = () =>
+  (process.env.MANUTENZIONI_MAIL_TO || 'dennis.maseri@cooperativamirafiori.com')
+    .split(/[;,]/).map((s) => s.trim()).filter(Boolean)
+
+/** Il testo scritto da una persona finisce in HTML: va neutralizzato. */
+function esc(t: string): string {
+  return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+const CITAZIONE = (testo: string) =>
+  `<p style="margin:12px 0;padding:10px 12px;background:#f6f7f9;border-left:3px solid #c9ced6;white-space:pre-line">${esc(testo)}</p>`
+
+// ============================================================
+// Pratica — presa in carico e conversazione (31 ott 2026)
+// ============================================================
+
+/** La gestione ha visto la richiesta: al richiedente, senza tecnico. */
+export async function notificaPresaInCarico(opts: {
+  spItemId: string
+  idRichiesta: string
+  struttura: string
+  richiedenteEmail: string
+  richiedenteNome: string
+  nota: string
+  lungoCorso: boolean
+  previsione?: string
+}): Promise<void> {
+  const tempi = opts.lungoCorso
+    ? `<p>È un lavoro che richiede tempo${opts.previsione ? `: la previsione è <strong>${esc(opts.previsione)}</strong>` : ''}. Ti aggiorneremo nella richiesta.</p>`
+    : ''
+  await sendEmail({
+    to: opts.richiedenteEmail,
+    subject: `Richiesta ${opts.idRichiesta} — Presa in carico`,
+    html: BOX(`
+      <p>Ciao ${esc(opts.richiedenteNome)},</p>
+      <p>abbiamo visto la tua richiesta <strong>${opts.idRichiesta}</strong> (${esc(opts.struttura)}) e l'abbiamo presa in carico.</p>
+      ${CITAZIONE(opts.nota)}
+      ${tempi}
+      <p>Puoi rispondere dalla richiesta, nell'app:</p>
+      ${BTN(`${APP()}/mie-richieste?r=${encodeURIComponent(opts.spItemId)}`, 'Apri la richiesta', '#1f4e79')}
+    `),
+  })
+}
+
+/**
+ * Nuovo messaggio nella conversazione. Se scrive la gestione la mail va al
+ * richiedente, se scrive il richiedente va alla gestione.
+ */
+export async function notificaNuovoMessaggio(opts: {
+  spItemId: string
+  idRichiesta: string
+  struttura: string
+  daGestione: boolean
+  autoreNome: string
+  richiedenteEmail: string
+  testo: string
+}): Promise<void> {
+  const link = opts.daGestione
+    ? `${APP()}/mie-richieste?r=${encodeURIComponent(opts.spItemId)}`
+    : `${APP()}/dashboard?r=${encodeURIComponent(opts.spItemId)}`
+  await sendEmail({
+    to: opts.daGestione ? opts.richiedenteEmail : GESTIONE_MAIL_TO(),
+    subject: `Richiesta ${opts.idRichiesta} — Nuovo messaggio`,
+    html: BOX(`
+      <p>Hai un nuovo messaggio sulla richiesta <strong>${opts.idRichiesta}</strong> (${esc(opts.struttura)}) da <strong>${esc(opts.autoreNome)}</strong>:</p>
+      ${CITAZIONE(opts.testo.length > 800 ? `${opts.testo.slice(0, 800)}…` : opts.testo)}
+      ${BTN(link, 'Rispondi nella richiesta', '#1f4e79')}
+    `),
+  })
+}
 
 export async function notificaNuovaRichiesta(opts: {
   idRichiesta: string

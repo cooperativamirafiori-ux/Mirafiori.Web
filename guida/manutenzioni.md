@@ -1,6 +1,6 @@
 ---
 area: Manutenzioni
-descrizione: Segnalare un guasto o un intervento in una struttura e seguirlo fino alla chiusura; per gli amministratori, assegnare i tecnici, chiudere i ticket e registrare i costi.
+descrizione: Segnalare un guasto o un intervento in una struttura, scriversi con chi gestisce le manutenzioni e seguirlo fino alla chiusura; per gli amministratori, prendere in carico, tenere i lavori di lungo corso, assegnare i tecnici, chiudere i ticket e registrare i costi.
 pagine:
   - percorso: /manutenzioni
     titolo: Manutenzioni
@@ -13,11 +13,11 @@ pagine:
   - percorso: /mie-richieste
     titolo: Le mie richieste
     accesso: [permesso:Manutenzioni, admin]
-    cosa: Elenco delle richieste che hai inviato, con lo stato e il tecnico assegnato.
+    cosa: Elenco delle richieste che hai inviato, con lo stato, il tecnico assegnato, i messaggi e le cose da fare.
   - percorso: /dashboard
     titolo: Pannello di controllo
     accesso: [admin]
-    cosa: Tutte le richieste non ancora completate, con assegnazione del tecnico e chiusura del ticket.
+    cosa: Tutte le richieste non ancora completate, con presa in carico, lungo corso, messaggi, cose da fare, assegnazione del tecnico e chiusura del ticket.
   - percorso: /manutenzioni/fornitori
     titolo: Fornitori
     accesso: [admin]
@@ -94,10 +94,14 @@ Il modulo si svuota, così puoi inviarne subito un'altra.
 2. Parte una mail di avviso per gli amministratori delle manutenzioni. Se hai scelto la
    priorità «Urgente (esecuzione in giornata)», l'oggetto della mail comincia con
    «[URGENTE]».
-3. Un amministratore assegna un tecnico: la richiesta passa a **In lavorazione** e **ti
+3. Quando un amministratore vede la richiesta, può **prenderla in carico** anche prima di
+   avere un tecnico: la richiesta passa a **Presa in carico** e **ti arriva una mail**
+   «Presa in carico» con una sua nota. Se è un lavoro che richiede mesi, nella mail e
+   nella richiesta leggi «Lavoro di lungo corso» e, se c'è, la previsione.
+4. Un amministratore assegna un tecnico: la richiesta passa a **In lavorazione** e **ti
    arriva una mail** «Tecnico assegnato» con il nome del tecnico ed eventuali note del
    responsabile. Puoi contattare il tecnico per concordare giorno e ora.
-4. Quando l'intervento è fatto, l'amministratore chiude il ticket: la richiesta passa a
+5. Quando l'intervento è fatto, l'amministratore chiude il ticket: la richiesta passa a
    **Completata** e **ti arriva una mail** «Completata».
 
 ## Dove vedo lo stato delle mie richieste?
@@ -106,18 +110,50 @@ Il modulo si svuota, così puoi inviarne subito un'altra.
 2. In alto leggi quante richieste hai («… richieste trovate»).
 3. Per ogni richiesta vedi il numero, la data, la struttura, il tipo, la priorità, la
    descrizione e un'etichetta colorata con lo stato:
-   - **Aperta** (rossa): non ha ancora un tecnico;
+   - **Aperta** (rossa): nessuno l'ha ancora presa in carico;
+   - **Presa in carico** (azzurra): è stata vista, ma non c'è ancora un tecnico;
    - **In lavorazione** (arancione): il tecnico è stato assegnato;
    - **Completata** (verde): l'intervento è chiuso.
 4. Se c'è un tecnico, leggi «Tecnico assegnato:» con il suo nome e, se c'è, il telefono.
+5. Se è un lavoro lungo leggi «⏳ Lavoro di lungo corso» e, se c'è, la previsione.
+6. Sotto ogni richiesta c'è il tasto «Messaggi e cose da fare». Se ci sono messaggi che
+   non hai ancora letto, accanto compare «1 nuovo» o «… nuovi».
 
 Se non hai mai inviato richieste leggi «Nessuna richiesta trovata.» e il collegamento
 «Inserisci la prima».
 
+## Come scrivo a chi gestisce le manutenzioni?
+
+1. Apri [Le mie richieste](/mie-richieste).
+2. Sotto la richiesta tocca «Messaggi e cose da fare».
+3. Nel riquadro «Messaggi» leggi quello che ti hanno scritto: i tuoi messaggi sono a
+   destra, quelli degli amministratori a sinistra.
+4. Scrivi nel campo «Scrivi a chi gestisce le manutenzioni…» e tocca «Invia messaggio».
+
+A chi gestisce le manutenzioni arriva una mail «Nuovo messaggio». Quando ti rispondono
+arriva una mail anche a te, con il tasto «Rispondi nella richiesta» che apre direttamente
+quella richiesta.
+
+Puoi scrivere anche su una richiesta già **Completata**, per esempio se il problema è
+tornato.
+
+## La mia richiesta contiene più lavori: come li elenco?
+
+Nel riquadro «Cose da fare» puoi scrivere i lavori uno per riga (per esempio «luce
+fulminata in camera», «tubo del doccino», «asse del water»).
+
+1. Apri [Le mie richieste](/mie-richieste) e tocca «Messaggi e cose da fare».
+2. Scrivi un lavoro nel campo sotto «Cose da fare» e tocca «Aggiungi».
+3. Ripeti per ogni lavoro.
+
+Quando un lavoro è fatto, l'amministratore lo spunta: lo vedi con il segno ✓ e la data, e
+in alto leggi «… di … fatte». Tu non puoi spuntare né togliere le righe. Su una richiesta
+completata non si aggiungono più righe.
+
 ## Posso modificare o cancellare una richiesta già inviata?
 
 No, dall'app non si può. Se hai sbagliato qualcosa o il problema si è risolto da solo,
-avvisa gli amministratori delle manutenzioni. Puoi anche inviare una nuova richiesta con i
+scrivilo nei messaggi della richiesta (vedi sopra). Puoi anche inviare una nuova richiesta con i
 dati giusti.
 
 ## Il tecnico non si è fatto sentire, cosa faccio?
@@ -135,13 +171,71 @@ contatta gli amministratori delle manutenzioni.
 1. Da [Manutenzioni](/manutenzioni) tocca «Pannello di controllo».
 2. In alto ci sono quattro numeri: «Aperte», «In lavorazione», «Urgenti», «Da assegnare».
 3. Sotto c'è l'elenco «Richieste attive»: tutte le richieste **non ancora completate**, le
-   più recenti prima. Le completate qui non compaiono.
+   più recenti prima, tranne quelle di lungo corso.
+4. Più in basso c'è la sezione «⏳ Lungo corso», con i lavori di mesi.
+5. Se un richiedente ha scritto su una richiesta già completata, compare anche la sezione
+   «Completate, con messaggi».
 
 Ogni richiesta mostra numero, struttura, stato, priorità, da quanti giorni è aperta (in
 rosso se più di 7), richiedente e tecnico. Se il tecnico manca leggi «⚠ Tecnico da
-assegnare».
+assegnare». Se il richiedente ti ha scritto e non hai ancora letto, compare «✉ 1 messaggio
+nuovo»: si toglie quando apri la richiesta.
+
+«Da assegnare» conta le richieste Aperte o Prese in carico senza tecnico, fuori dal lungo
+corso.
 
 Se non c'è nulla da fare leggi «Nessuna richiesta attiva 🎉».
+
+## Come avviso il richiedente che ho visto la richiesta, senza assegnare un tecnico?
+
+1. Nel [Pannello di controllo](/dashboard) tocca la richiesta (deve essere **Aperta**).
+2. Nel riquadro «Prendi in carico» scrivi la nota per il richiedente, per esempio «Abbiamo
+   visto la richiesta, ci vorranno alcuni mesi perché…».
+3. Se è un lavoro di mesi, spunta «Lavoro di lungo corso» e, se vuoi, scrivi la
+   previsione (per esempio «primavera 2027»).
+4. Tocca «Prendi in carico e avvisa».
+
+Compare «Presa in carico: il richiedente riceve la mail». La richiesta passa a **Presa in
+carico**, la nota resta nei messaggi della richiesta e al richiedente arriva una mail.
+Il tecnico lo assegni quando vuoi, come sempre.
+
+## Cos'è la sezione «Lungo corso» e come ci metto una richiesta?
+
+Serve a tenere da parte i lavori che richiedono mesi, così non affollano le richieste
+attive. «Lungo corso» non è uno stato: una richiesta può essere di lungo corso e intanto
+Presa in carico o In lavorazione.
+
+- Se la richiesta è **Aperta**, spunta «Lavoro di lungo corso» mentre la prendi in carico
+  (vedi sopra).
+- Altrimenti apri la richiesta, nel riquadro «Lungo corso» spunta «Lavoro di lungo corso»,
+  scrivi la previsione se vuoi e tocca «Salva».
+
+Per toglierla dalla sezione togli la spunta e tocca «Salva». Spostarla non manda mail:
+se vuoi avvisare il richiedente, scrivigli un messaggio.
+
+## Come scrivo al richiedente?
+
+1. Apri la richiesta nel [Pannello di controllo](/dashboard).
+2. Nel riquadro «Messaggi» scrivi nel campo «Scrivi al richiedente…».
+3. Tocca «Invia messaggio».
+
+Al richiedente arriva una mail «Nuovo messaggio» con il tasto per aprire la richiesta. Le
+sue risposte compaiono qui, e a te arriva una mail con il tasto «Rispondi nella
+richiesta», che apre direttamente quella richiesta nel Pannello.
+
+Nei messaggi restano anche la presa in carico, l'assegnazione del tecnico (con la nota)
+e la chiusura, così la storia della richiesta sta tutta in un posto.
+
+Le «Note responsabile» del riquadro «Chiudi ticket» invece sono **interne**: il
+richiedente non le vede.
+
+## Come gestisco le cose da fare di una richiesta?
+
+Quando una richiesta contiene più lavori, nel riquadro «Cose da fare»:
+
+- scrivi un lavoro e tocca «Aggiungi» (anche il richiedente può aggiungerne);
+- spunta la casella quando il lavoro è fatto (la vede anche il richiedente);
+- tocca «Togli» per eliminare una riga.
 
 ## Come assegno un tecnico a una richiesta?
 
@@ -264,6 +358,14 @@ L'elenco delle strutture lo gestisce l'amministrazione: chiedi di aggiungerla.
 **«Richiesta già completata»** (amministratori)
 Il ticket è già stato chiuso, magari da un altro amministratore. Ricarica il Pannello di
 controllo.
+
+**«Non riesco a caricare la conversazione: …»**
+I messaggi non si sono caricati. Il resto della richiesta funziona lo stesso: chiudi e
+riapri la richiesta, o ricarica la pagina. Se il messaggio torna, avvisa l'ufficio
+amministrazione.
+
+**«Scrivi una nota per il richiedente»** (amministratori)
+Per prendere in carico una richiesta serve la nota che arriva al richiedente.
 
 **«Inserisci almeno importo o ore»** (amministratori)
 Per chiudere un ticket serve almeno l'importo della fattura o le ore di lavoro interno.

@@ -1,13 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { RichiestaManutenzione, Tecnico } from '@/types/manutenzioni'
 import { StatoBadge } from '@/components/ui/StatoBadge'
+import { Pratica } from '@/components/manutenzioni/Pratica'
+import { PresaInCarico } from './PresaInCarico'
 
 interface Props {
   richiesta: RichiestaManutenzione
   tecnici: Tecnico[]
+  /** Messaggi del richiedente non ancora letti dalla gestione. */
+  nonLetti?: number
+  /** Aperta all'arrivo, dal link della mail (?r=…). */
+  apertaAllInizio?: boolean
 }
 
 function daysSince(dateStr?: string): number | null {
@@ -25,9 +31,15 @@ function PrioritaBadge({ p }: { p: string }) {
   return <span className="text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full">Normale</span>
 }
 
-export function RichiestaCard({ richiesta: r, tecnici }: Props) {
+export function RichiestaCard({ richiesta: r, tecnici, nonLetti = 0, apertaAllInizio = false }: Props) {
   const router = useRouter()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(apertaAllInizio)
+  const [daLeggere, setDaLeggere] = useState(nonLetti)
+  const segnaLetti = useCallback(() => setDaLeggere(0), [])
+  const scheda = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (apertaAllInizio) scheda.current?.scrollIntoView({ block: 'start' })
+  }, [apertaAllInizio])
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
@@ -101,7 +113,7 @@ export function RichiestaCard({ richiesta: r, tecnici }: Props) {
   const inputCls = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-50'
 
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 border-l-4 ${borderColor} overflow-hidden`}>
+    <div ref={scheda} className={`bg-white rounded-xl shadow-sm border border-gray-100 border-l-4 ${borderColor} overflow-hidden scroll-mt-4`}>
       {/* ── Header sempre visibile ── */}
       <button
         className="w-full text-left px-4 py-4 hover:bg-gray-50 transition-colors"
@@ -114,6 +126,16 @@ export function RichiestaCard({ richiesta: r, tecnici }: Props) {
             <span className="font-semibold text-gray-700">📍 {r.struttura.value || '—'}</span>
             <StatoBadge stato={r.stato} />
             <PrioritaBadge p={r.priorita} />
+            {r.lungoCorso && (
+              <span className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
+                ⏳ Lungo corso{r.previsioneLungoCorso ? ` · ${r.previsioneLungoCorso}` : ''}
+              </span>
+            )}
+            {daLeggere > 0 && (
+              <span className="text-xs font-semibold text-white bg-primary px-2 py-0.5 rounded-full">
+                ✉ {daLeggere === 1 ? '1 messaggio nuovo' : `${daLeggere} messaggi nuovi`}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {giorni !== null && (
@@ -164,6 +186,11 @@ export function RichiestaCard({ richiesta: r, tecnici }: Props) {
               <p className="text-sm text-gray-700 bg-white rounded-lg p-3 border border-gray-200 whitespace-pre-line">{r.descrizione}</p>
             </div>
           )}
+
+          {!isCompletata && <PresaInCarico richiesta={r} />}
+
+          {/* Cose da fare + messaggi con il richiedente */}
+          <Pratica spItemId={r.spItemId} come="gestione" completata={isCompletata} onLetti={segnaLetti} />
 
           {!isCompletata && (
             <>

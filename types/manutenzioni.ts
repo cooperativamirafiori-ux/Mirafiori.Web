@@ -16,7 +16,11 @@
  */
 export const AREA_MANUTENZIONI = 'Manutenzioni'
 
-export type StatoRichiesta = 'Aperta' | 'In lavorazione' | 'Completata'
+/**
+ * "Presa in carico" (31 ott 2026): la gestione ha visto la richiesta e l'ha
+ * detto al richiedente, ma non c'è ancora un tecnico. Vedi docs/manutenzioni-piano.md.
+ */
+export type StatoRichiesta = 'Aperta' | 'Presa in carico' | 'In lavorazione' | 'Completata'
 
 export interface Struttura {
   id: number
@@ -71,6 +75,44 @@ export interface RichiestaManutenzione {
   dataPagamento?: string
   pagato: boolean
   noteResponsabile?: string
+  /** Lavoro di mesi: sta nella sezione "Lungo corso" del Pannello. È una spunta, non uno stato. */
+  lungoCorso: boolean
+  /** Testo libero, es. "primavera 2027". */
+  previsioneLungoCorso?: string
+}
+
+// ============================================================
+// Pratica: conversazione e cose da fare (Supabase)
+// ============================================================
+
+/** Da che parte sta chi scrive: la gestione (admin) o chi ha aperto la richiesta. */
+export type LatoPratica = 'gestione' | 'richiedente'
+
+export type TipoMessaggio = 'messaggio' | 'presa_in_carico' | 'tecnico_assegnato' | 'chiusura'
+
+export interface MessaggioPratica {
+  id: string
+  lato: LatoPratica
+  tipo: TipoMessaggio
+  testo: string
+  autoreNome: string
+  creatoIl: string
+  lettoIl: string | null
+}
+
+export interface VocePratica {
+  id: string
+  testo: string
+  fatta: boolean
+  fattaIl: string | null
+  creataDaLato: LatoPratica
+  creataIl: string
+}
+
+/** Quello che la finestra della richiesta carica. */
+export interface Pratica {
+  messaggi: MessaggioPratica[]
+  voci: VocePratica[]
 }
 
 export interface CostoStruttura {
@@ -169,4 +211,16 @@ export interface AggiornaRichiestaPayload {
   oreLavoro?: number
   dataIntervento?: string
   noteResponsabile?: string
+}
+
+export interface PresaInCaricoPayload {
+  /** Arriva al richiedente per mail e resta nella conversazione. */
+  nota: string
+  lungoCorso?: boolean
+  previsione?: string
+}
+
+export interface LungoCorsoPayload {
+  lungoCorso: boolean
+  previsione?: string
 }
