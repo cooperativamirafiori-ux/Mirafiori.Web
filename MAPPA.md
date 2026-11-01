@@ -3,7 +3,7 @@
 > Generato da `npm run mappa` il 2026-11-01. **Non modificare a mano**: le decisioni e le
 > convenzioni stanno in `CLAUDE.md`, qui c'è solo la fotografia dei file.
 
-**649 file · 108.064 righe totali.**
+**664 file · 109.597 righe totali.**
 
 ## ⚠️ File oltre 500 righe — da spezzare
 
@@ -216,6 +216,26 @@ _37 file · 5304 righe_
 - `scripts/preventivi-env-vercel.sh` (19 righe)
 - `scripts/provision-preventivi.mjs` (291 righe)
 - `types/preventivi.ts` (292 righe)
+
+### Servizi interni
+
+_15 file · 1507 righe_
+
+- `app/(app)/controllo-gestione/addebiti-interni/_componenti/AddebitiInterni.tsx` (392 righe)
+- `app/(app)/controllo-gestione/addebiti-interni/page.tsx` (32 righe)
+- `app/(app)/controllo-gestione/costi-generali/_componenti/Percentuali.tsx` (179 righe)
+- `app/(app)/controllo-gestione/costi-generali/page.tsx` (27 righe)
+- `app/api/servizi-interni/addebiti/[id]/route.ts` (91 righe)
+- `app/api/servizi-interni/addebiti/[id]/visto/route.ts` (60 righe)
+- `app/api/servizi-interni/addebiti/route.ts` (77 righe)
+- `app/api/servizi-interni/ripartizione/route.ts` (71 righe)
+- `docs/servizi-interni-piano.md` (125 righe)
+- `lib/servizi-interni/accesso.ts` (35 righe) — esporta: accessoServiziInterni, puoUsareServiziInterni, puoScrivereDa, puoVistare, puoRipartire
+- `lib/servizi-interni/data.ts` (199 righe) — esporta: getForfait, getCentriScelta, getAddebiti, getAddebito, creaAddebito, aggiornaAddebito, eliminaAddebito, vistaAddebito, getRipartizioni, salvaRipartizione
+- `lib/servizi-interni/flusso.ts` (73 righe) — esporta: GIORNO_CHIUSURA, bloccato, totaleAddebito, forfaitDelMese, validaAddebito, validaQuote
+- `lib/servizi-interni/guard.ts` (18 righe) — esporta: guardServiziInterni
+- `lib/servizi-interni/notifiche.ts` (67 righe) — esporta: notificaAddebito, notificaNonTorna
+- `types/servizi-interni.ts` (61 righe)
 
 ### Cura Ambienti
 
@@ -574,7 +594,7 @@ _30 file · 2691 righe_
 
 ### Controllo di gestione · Flussi fatture
 
-_44 file · 8528 righe_
+_44 file · 8546 righe_
 
 - `app/(app)/controllo-gestione/fatture/FattureCentro.tsx` (264 righe)
 - `app/(app)/controllo-gestione/fatture/page.tsx` (29 righe)
@@ -584,7 +604,7 @@ _44 file · 8528 righe_
 - `app/(app)/controllo-gestione/flussi-fatture/page.tsx` (31 righe)
 - `app/(app)/controllo-gestione/flussi-fatture/ServizioRiga.tsx` (90 righe)
 - `app/(app)/controllo-gestione/flussi-fatture/Testata.tsx` (133 righe)
-- `app/(app)/controllo-gestione/page.tsx` (148 righe)
+- `app/(app)/controllo-gestione/page.tsx` (166 righe)
 - `app/api/centri-costo/fatture/route.ts` (133 righe)
 - `app/api/cron/fatture-sdi/route.ts` (45 righe)
 - `app/api/pagamenti/fornitori/iban/route.ts` (43 righe)
@@ -660,7 +680,7 @@ _3 file · 68 righe_
 
 ### Infrastruttura condivisa (core)
 
-_48 file · 8454 righe_
+_48 file · 8462 righe_
 
 - `app/api/debug-fields/route.ts` (45 righe)
 - `components/manutenzioni/CostiRichiesta.tsx` (343 righe)
@@ -692,7 +712,7 @@ _48 file · 8454 righe_
 - `lib/core/upload-diretto.ts` (146 righe) — esporta: BLOCCO_UPLOAD, MAX_UPLOAD_BYTES, maxUploadMb, inviaFileABlocchi, erroreRisposta, caricaDirettamente
 - `next.config.mjs` (39 righe)
 - `scripts/get-site-id.mjs` (122 righe)
-- `scripts/mappa.mjs` (397 righe)
+- `scripts/mappa.mjs` (405 righe)
 - `scripts/pulisci-choice.mjs` (146 righe)
 - `scripts/riordino.mjs` (457 righe)
 - `scripts/setup-env-locale.mjs` (322 righe)
@@ -719,19 +739,20 @@ candidati da spezzare per area o da spostare in `lib/core/` (vedi `CLAUDE.md` §
 
 | Modulo `lib/` | Aree che lo usano | N. file | Importato da |
 |---|---|---:|---|
-| `lib/core/auth` 🔴 | (non mappato) · Accesso / login · Acquisti · Amministrazione (hub) · Amministrazione · Password · Amministrazione · Permessi · Amministrazione · Software · Ammissione soci · Assistente e guida d'uso · Controllo di gestione · Cruscotto · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Costi strutture · Cura Ambienti · Home / hub · Infrastruttura condivisa (core) · Inventario beni · Manutenzioni · Prestazioni occasionali · Preventivi · Richiesta fattura · Risorse Umane · Timbrature · Foglio ore · Utenze · Costi per struttura | 93 | app/(app)/acquisti/gestione/page.tsx, app/(app)/acquisti/mie/page.tsx, app/(app)/acquisti/page.tsx, app/(app)/amministrazione/centri-costo/page.tsx, app/(app)/amministrazione/costi-fissi/page.tsx, app/(app)/amministrazione/costi-strutture/page.tsx, … |
-| `lib/core/audit` 🔴 | (non mappato) · Acquisti · Amministrazione · Password · Amministrazione · Permessi · Amministrazione · Software · Ammissione soci · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Costi strutture · Cura Ambienti · Inventario beni · Manutenzioni · Prestazioni occasionali · Preventivi · Richiesta fattura · Risorse Umane · Timbrature · Foglio ore · Utenze · Costi per struttura | 90 | app/api/acquisti/[id]/route.ts, app/api/acquisti/route.ts, app/api/assistenza/[id]/route.ts, app/api/assistenza/route.ts, app/api/centri-costo/fatture/route.ts, app/api/centri-costo/ruoli/route.ts, … |
+| `lib/core/auth` 🔴 | (non mappato) · Accesso / login · Acquisti · Amministrazione (hub) · Amministrazione · Password · Amministrazione · Permessi · Amministrazione · Software · Ammissione soci · Assistente e guida d'uso · Controllo di gestione · Cruscotto · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Costi strutture · Cura Ambienti · Home / hub · Infrastruttura condivisa (core) · Inventario beni · Manutenzioni · Prestazioni occasionali · Preventivi · Richiesta fattura · Risorse Umane · Servizi interni · Timbrature · Foglio ore · Utenze · Costi per struttura | 96 | app/(app)/acquisti/gestione/page.tsx, app/(app)/acquisti/mie/page.tsx, app/(app)/acquisti/page.tsx, app/(app)/amministrazione/centri-costo/page.tsx, app/(app)/amministrazione/costi-fissi/page.tsx, app/(app)/amministrazione/costi-strutture/page.tsx, … |
+| `lib/core/audit` 🔴 | (non mappato) · Acquisti · Amministrazione · Password · Amministrazione · Permessi · Amministrazione · Software · Ammissione soci · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Costi strutture · Cura Ambienti · Inventario beni · Manutenzioni · Prestazioni occasionali · Preventivi · Richiesta fattura · Risorse Umane · Servizi interni · Timbrature · Foglio ore · Utenze · Costi per struttura | 94 | app/api/acquisti/[id]/route.ts, app/api/acquisti/route.ts, app/api/assistenza/[id]/route.ts, app/api/assistenza/route.ts, app/api/centri-costo/fatture/route.ts, app/api/centri-costo/ruoli/route.ts, … |
 | `lib/core/graph` 🔴 | (non mappato) · Acquisti · Amministrazione · Password · Amministrazione · Permessi · Amministrazione · Software · Controllo di gestione · Flussi fatture · Costi strutture · Infrastruttura condivisa (core) · Inventario beni · Manutenzioni · Prestazioni occasionali · Preventivi · Richiesta fattura · Risorse Umane · Utenze · Costi per struttura | 33 | app/api/debug-fields/route.ts, lib/acquisti/data.ts, lib/assistenza/allegati.ts, lib/assistenza/data.ts, lib/centri-costo/data.ts, lib/clienti/data.ts, … |
-| `lib/centri-costo/data` 🔴 | (non mappato) · Acquisti · Amministrazione (hub) · Amministrazione · Software · Assistente e guida d'uso · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Costi strutture · Cura Ambienti · Prestazioni occasionali · Preventivi · Richiesta fattura · Utenze · Costi per struttura | 34 | app/(app)/acquisti/nuova/NuovaRichiestaAcquistoForm.tsx, app/(app)/acquisti/nuova/page.tsx, app/(app)/amministrazione/centri-costo/_componenti/ResponsabiliCentri.tsx, app/(app)/amministrazione/centri-costo/_componenti/raggruppa.ts, app/(app)/amministrazione/centri-costo/page.tsx, app/(app)/amministrazione/software/GestioneSoftware.tsx, … |
+| `lib/centri-costo/data` 🔴 | (non mappato) · Acquisti · Amministrazione (hub) · Amministrazione · Software · Assistente e guida d'uso · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Costi strutture · Cura Ambienti · Prestazioni occasionali · Preventivi · Richiesta fattura · Servizi interni · Utenze · Costi per struttura | 36 | app/(app)/acquisti/nuova/NuovaRichiestaAcquistoForm.tsx, app/(app)/acquisti/nuova/page.tsx, app/(app)/amministrazione/centri-costo/_componenti/ResponsabiliCentri.tsx, app/(app)/amministrazione/centri-costo/_componenti/raggruppa.ts, app/(app)/amministrazione/centri-costo/page.tsx, app/(app)/amministrazione/software/GestioneSoftware.tsx, … |
+| `lib/core/supabase` 🔴 | Assistente e guida d'uso · Controllo di gestione · Cruscotto · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Controllo di gestione · Registro · Cura Ambienti · Manutenzioni · Servizi interni · Timbrature · Foglio ore · Utenze · Costi per struttura | 26 | lib/assistente/registro.ts, lib/cura-ambienti/data.ts, lib/gestione/cruscotto.ts, lib/gestione/registro.ts, lib/gestione/voci.ts, lib/manutenzioni/costi.ts, … |
+| `lib/core/mailer` 🔴 | (non mappato) · Acquisti · Ammissione soci · Controllo di gestione · Qonto · Manutenzioni · Prestazioni occasionali · Preventivi · Richiesta fattura · Servizi interni · Timbrature · Foglio ore | 10 | lib/acquisti/notifiche.ts, lib/assistenza/notifiche.ts, lib/fatture/notifiche.ts, lib/manutenzioni/notifiche.ts, lib/prestazioni/notifiche.ts, lib/preventivi/notifiche.ts, … |
 | `lib/core/sp` 🔴 | (non mappato) · Acquisti · Amministrazione · Permessi · Amministrazione · Software · Controllo di gestione · Flussi fatture · Costi strutture · Manutenzioni · Preventivi · Utenze · Costi per struttura | 28 | app/api/acquisti/[id]/route.ts, app/api/acquisti/route.ts, app/api/assistenza/[id]/allegato/route.ts, app/api/assistenza/[id]/route.ts, app/api/assistenza/route.ts, app/api/manutenzioni/[id]/pratica/route.ts, … |
-| `lib/core/supabase` 🔴 | Assistente e guida d'uso · Controllo di gestione · Cruscotto · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Controllo di gestione · Registro · Cura Ambienti · Manutenzioni · Timbrature · Foglio ore · Utenze · Costi per struttura | 25 | lib/assistente/registro.ts, lib/cura-ambienti/data.ts, lib/gestione/cruscotto.ts, lib/gestione/registro.ts, lib/gestione/voci.ts, lib/manutenzioni/costi.ts, … |
 | `lib/core/upload-diretto` 🔴 | (non mappato) · Acquisti · Amministrazione · Software · Ammissione soci · Infrastruttura condivisa (core) · Inventario beni · Prestazioni occasionali · Risorse Umane · Timbrature · Foglio ore | 21 | app/(app)/acquisti/gestione/GestioneAcquisti.tsx, app/(app)/amministrazione/software/GestioneSoftware.tsx, app/(app)/assistenza/nuova/NuovaRichiestaAssistenzaForm.tsx, app/(app)/it/Storico.tsx, app/(app)/it/azioni.ts, app/(app)/prestazioni/nuova/NuovaPrestazioneForm.tsx, … |
-| `lib/core/mailer` 🔴 | (non mappato) · Acquisti · Ammissione soci · Controllo di gestione · Qonto · Manutenzioni · Prestazioni occasionali · Preventivi · Richiesta fattura · Timbrature · Foglio ore | 9 | lib/acquisti/notifiche.ts, lib/assistenza/notifiche.ts, lib/fatture/notifiche.ts, lib/manutenzioni/notifiche.ts, lib/prestazioni/notifiche.ts, lib/preventivi/notifiche.ts, … |
 | `lib/core/api-guard` 🔴 | (non mappato) · Acquisti · Amministrazione · Password · Amministrazione · Permessi · Amministrazione · Software · Inventario beni · Risorse Umane · Utenze · Costi per struttura | 36 | app/api/acquisti/route.ts, app/api/assistenza/route.ts, app/api/centri-costo/ruoli/route.ts, app/api/costi-fissi/[id]/route.ts, app/api/costi-fissi/[id]/termina/route.ts, app/api/costi-fissi/[id]/varia/route.ts, … |
 | `lib/core/permessi` 🔴 | (non mappato) · Acquisti · Amministrazione · Permessi · Controllo di gestione · Flussi fatture · Home / hub · Infrastruttura condivisa (core) · Manutenzioni · Timbrature · Foglio ore | 16 | app/(app)/acquisti/gestione/page.tsx, app/(app)/amministrazione/permessi/page.tsx, app/(app)/assistenza/gestione/page.tsx, app/(app)/controllo-gestione/flussi-fatture/page.tsx, app/(app)/controllo-gestione/page.tsx, app/(app)/home/page.tsx, … |
 | `lib/strutture/data` 🔴 | (non mappato) · Acquisti · Costi strutture · Cura Ambienti · Inventario beni · Manutenzioni · Utenze · Costi per struttura | 12 | app/(app)/acquisti/gestione/page.tsx, app/(app)/assistenza/nuova/page.tsx, app/(app)/cruscotto-costi/page.tsx, app/(app)/dashboard/page.tsx, app/(app)/inserisci-costo/page.tsx, app/(app)/inventario/page.tsx, … |
 | `lib/core/rubrica` 🔴 | (non mappato) · Amministrazione (hub) · Amministrazione · Permessi · Timbrature · Foglio ore | 9 | app/(app)/amministrazione/centri-costo/page.tsx, app/(app)/amministrazione/permessi/page.tsx, app/(app)/it/AreaITSchermo.tsx, app/(app)/it/ModaleAssegna.tsx, app/(app)/it/SchedaDispositivo.tsx, app/(app)/it/SchedaSim.tsx, … |
 | `lib/qonto/accesso` 🔴 | Controllo di gestione · Cruscotto · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Home / hub | 7 | app/(app)/controllo-gestione/cruscotto/page.tsx, app/(app)/controllo-gestione/page.tsx, app/(app)/controllo-gestione/qonto/[id]/page.tsx, app/(app)/controllo-gestione/qonto/page.tsx, app/(app)/home/page.tsx, app/api/qonto/estratto/route.ts, … |
+| `lib/gestione/registro` 🔴 | Controllo di gestione · Cruscotto · Costi strutture · Prestazioni occasionali · Servizi interni | 4 | lib/costi/data.ts, lib/gestione/cruscotto.ts, lib/prestazioni/registro.ts, lib/servizi-interni/data.ts |
 | `lib/timbrature/data` 🔴 | Assistente e guida d'uso · Home / hub · Timbrature · Foglio ore | 30 | app/(app)/home/page.tsx, app/(app)/risorse-umane/timbrature/progetti/page.tsx, app/(app)/timbrature/page.tsx, app/(app)/timbrature/validazione/page.tsx, app/api/cron/sollecito-timbrature/route.ts, app/api/cron/timbrature-alert/route.ts, … |
 | `lib/core/graph-delegato` 🔴 | Ammissione soci · Risorse Umane · Timbrature · Foglio ore | 17 | app/(app)/risorse-umane/PaginaRU.tsx, app/api/risorse-umane/dipendenti/[id]/cartella/route.ts, app/api/risorse-umane/dipendenti/[id]/documenti/[docId]/route.ts, app/api/risorse-umane/dipendenti/[id]/documenti/conferma/route.ts, app/api/risorse-umane/dipendenti/[id]/documenti/route.ts, app/api/timbrature/hr/profilo/allegato/route.ts, … |
 | `lib/inventario/data` 🔴 | (non mappato) · Acquisti · Inventario beni | 14 | app/(app)/acquisti/gestione/page.tsx, app/(app)/inventario/page.tsx, app/(app)/it/page.tsx, app/api/acquisti/[id]/route.ts, app/api/inventario/[id]/documento/conferma/route.ts, app/api/inventario/[id]/documento/route.ts, … |
@@ -739,12 +760,12 @@ candidati da spezzare per area o da spostare in `lib/core/` (vedi `CLAUDE.md` §
 | `lib/utenze/data` 🔴 | Controllo di gestione · Flussi fatture · Manutenzioni · Utenze · Costi per struttura | 8 | app/(app)/amministrazione/costi-fissi/page.tsx, app/(app)/amministrazione/utenze/page.tsx, app/api/utenze/[id]/route.ts, app/api/utenze/collega/route.ts, app/api/utenze/route.ts, lib/costi-strutture/data.ts, … |
 | `lib/cura-ambienti/data` 🔴 | Cura Ambienti · Manutenzioni · Utenze · Costi per struttura | 6 | app/api/cura-ambienti/lavori/[id]/route.ts, app/api/cura-ambienti/lavori/route.ts, app/api/cura-ambienti/prepara-mese/route.ts, app/api/cura-ambienti/ricorrenze/[id]/route.ts, lib/costi-strutture/data.ts, lib/manutenzioni/costi.ts |
 | `lib/costi/data` 🔴 | Acquisti · Costi strutture · Utenze · Costi per struttura | 5 | app/(app)/cruscotto-costi/page.tsx, app/(app)/inserisci-costo/page.tsx, app/api/costi/route.ts, lib/acquisti/data.ts, lib/costi-strutture/data.ts |
-| `lib/gestione/registro` 🔴 | Controllo di gestione · Cruscotto · Costi strutture · Prestazioni occasionali | 3 | lib/costi/data.ts, lib/gestione/cruscotto.ts, lib/prestazioni/registro.ts |
 | `lib/prestazioni/data` | Prestazioni occasionali · Timbrature · Foglio ore | 17 | app/(app)/prestazioni/attive/page.tsx, app/api/cron/promemoria-ore/route.ts, app/api/notula/[token]/conferma/route.ts, app/api/notula/[token]/route.ts, app/api/notula/[token]/sessione/route.ts, app/api/prestatori/documenti/route.ts, … |
 | `lib/acquisti/data` | Acquisti · Inventario beni | 13 | app/(app)/acquisti/gestione/page.tsx, app/(app)/acquisti/mie/page.tsx, app/(app)/acquisti/page.tsx, app/(app)/inventario/page.tsx, app/api/acquisti/[id]/route.ts, app/api/acquisti/route.ts, … |
 | `lib/pagamenti/guard` | Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto | 11 | app/api/pagamenti/fornitori/iban/route.ts, app/api/pagamenti/import/route.ts, app/api/pagamenti/importa-sdi/route.ts, app/api/pagamenti/scadenze/approva/route.ts, app/api/pagamenti/scadenze/cerca/route.ts, app/api/pagamenti/scadenze/pagata/route.ts, … |
 | `lib/manutenzioni/data` | Manutenzioni · Utenze · Costi per struttura | 8 | app/(app)/dashboard/page.tsx, app/(app)/mie-richieste/page.tsx, app/api/manutenzioni/[id]/lungo-corso/route.ts, app/api/manutenzioni/[id]/presa-in-carico/route.ts, app/api/manutenzioni/[id]/route.ts, app/api/manutenzioni/route.ts, … |
 | `lib/preventivi/accesso` | Home / hub · Preventivi | 8 | app/(app)/home/page.tsx, app/(app)/preventivi/[id]/page.tsx, app/(app)/preventivi/catering/page.tsx, app/(app)/preventivi/page.tsx, app/(app)/preventivi/servizi/page.tsx, app/(app)/preventivi/tariffario/page.tsx, … |
+| `lib/servizi-interni/accesso` | Controllo di gestione · Flussi fatture · Servizi interni | 7 | app/(app)/controllo-gestione/addebiti-interni/page.tsx, app/(app)/controllo-gestione/costi-generali/page.tsx, app/(app)/controllo-gestione/page.tsx, app/api/servizi-interni/addebiti/[id]/route.ts, app/api/servizi-interni/addebiti/[id]/visto/route.ts, app/api/servizi-interni/addebiti/route.ts, … |
 | `lib/it/assegnazioni` | (non mappato) · Inventario beni | 7 | app/(app)/inventario/page.tsx, app/api/it/assegnazioni/[id]/route.ts, app/api/it/assegnazioni/[id]/verbale/conferma/route.ts, app/api/it/assegnazioni/[id]/verbale/route.ts, app/api/it/assegnazioni/route.ts, lib/it/data.ts, … |
 | `lib/it/flusso` | (non mappato) · Inventario beni | 7 | app/api/inventario/[id]/route.ts, app/api/it/assegnazioni/[id]/route.ts, app/api/it/assegnazioni/route.ts, app/api/it/dispositivi/[id]/route.ts, app/api/it/dispositivi/route.ts, app/api/it/sim/[id]/route.ts, … |
 | `lib/prestazioni/notifiche` | Prestazioni occasionali · Timbrature · Foglio ore | 6 | app/api/cron/promemoria-ore/route.ts, app/api/notula/[token]/conferma/route.ts, app/api/prestazioni/[spItemId]/conferma/route.ts, app/api/prestazioni/[spItemId]/documenti/route.ts, app/api/prestazioni/[spItemId]/notula/route.ts, lib/prestazioni/firma.ts |
@@ -790,6 +811,8 @@ candidati da spezzare per area o da spostare in `lib/core/` (vedi `CLAUDE.md` §
 | `lib/it/sim` | (non mappato) | 4 | app/api/it/sim/[id]/route.ts, app/api/it/sim/route.ts, lib/it/data.ts, lib/it/flusso.ts |
 | `lib/manutenzioni/notifiche` | Manutenzioni | 4 | app/api/manutenzioni/[id]/pratica/route.ts, app/api/manutenzioni/[id]/presa-in-carico/route.ts, app/api/manutenzioni/[id]/route.ts, app/api/manutenzioni/route.ts |
 | `lib/preventivi/azioni` | Preventivi | 4 | app/api/preventivi/[id]/azione/route.ts, app/api/preventivi/[id]/pdf/route.ts, app/api/preventivi/[id]/route.ts, app/api/preventivi/route.ts |
+| `lib/servizi-interni/data` | Servizi interni | 4 | app/api/servizi-interni/addebiti/[id]/route.ts, app/api/servizi-interni/addebiti/[id]/visto/route.ts, app/api/servizi-interni/addebiti/route.ts, app/api/servizi-interni/ripartizione/route.ts |
+| `lib/servizi-interni/guard` | Servizi interni | 4 | app/api/servizi-interni/addebiti/[id]/route.ts, app/api/servizi-interni/addebiti/[id]/visto/route.ts, app/api/servizi-interni/addebiti/route.ts, app/api/servizi-interni/ripartizione/route.ts |
 | `lib/soci/guard` | Ammissione soci | 4 | app/api/soci/domanda/[id]/firmata/route.ts, app/api/soci/domanda/[id]/pdf/route.ts, app/api/soci/domanda/[id]/registra/route.ts, app/api/soci/domanda/route.ts |
 | `lib/timbrature/stati` | Timbrature · Foglio ore | 4 | lib/timbrature/da-profilo.ts, lib/timbrature/data.ts, lib/timbrature/riepilogo.ts, lib/timbrature/righe.ts |
 | `lib/assistente/registro` | Assistente e guida d'uso | 3 | app/(app)/amministrazione/domande-assistente/page.tsx, app/api/assistente/[id]/route.ts, app/api/assistente/route.ts |
@@ -802,6 +825,8 @@ candidati da spezzare per area o da spostare in `lib/core/` (vedi `CLAUDE.md` §
 | `lib/timbrature/notifiche` | Timbrature · Foglio ore | 3 | app/api/cron/sollecito-timbrature/route.ts, app/api/cron/timbrature-alert/route.ts, lib/timbrature/flusso.ts |
 | `lib/pagamenti/import` | Controllo di gestione · Flussi fatture | 3 | app/api/pagamenti/import/route.ts, lib/pagamenti/sdi/import.ts, lib/pagamenti/verifica.ts |
 | `lib/preventivi/tariffario` | Preventivi | 3 | app/api/preventivi/tariffario/[id]/route.ts, app/api/preventivi/tariffario/istat/route.ts, app/api/preventivi/tariffario/route.ts |
+| `lib/servizi-interni/flusso` | Servizi interni | 3 | app/api/servizi-interni/addebiti/[id]/route.ts, app/api/servizi-interni/addebiti/route.ts, app/api/servizi-interni/ripartizione/route.ts |
+| `lib/servizi-interni/notifiche` | Servizi interni | 3 | app/api/servizi-interni/addebiti/[id]/route.ts, app/api/servizi-interni/addebiti/[id]/visto/route.ts, app/api/servizi-interni/addebiti/route.ts |
 | `lib/timbrature/festivita` | Timbrature · Foglio ore | 3 | lib/timbrature/assenze.ts, lib/timbrature/da-profilo.ts, lib/timbrature/riepilogo.ts |
 | `lib/assistenza/allegati` | (non mappato) | 2 | app/(app)/assistenza/nuova/page.tsx, app/api/assistenza/[id]/allegato/route.ts |
 | `lib/qonto/formato` | Controllo di gestione · Qonto | 2 | app/(app)/controllo-gestione/qonto/[id]/page.tsx, app/(app)/controllo-gestione/qonto/page.tsx |

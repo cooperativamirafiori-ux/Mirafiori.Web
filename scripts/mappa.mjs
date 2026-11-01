@@ -72,6 +72,14 @@ const AREE = [
     ],
   },
   {
+    nome: 'Servizi interni',
+    prefissi: [
+      'app/(app)/controllo-gestione/addebiti-interni', 'app/(app)/controllo-gestione/costi-generali',
+      'app/api/servizi-interni', 'lib/servizi-interni', 'types/servizi-interni',
+      'supabase/servizi_interni', 'docs/servizi-interni',
+    ],
+  },
+  {
     nome: 'Cura Ambienti',
     prefissi: [
       'app/(app)/controllo-gestione/cura-ambienti', 'app/api/cura-ambienti', 'lib/cura-ambienti',

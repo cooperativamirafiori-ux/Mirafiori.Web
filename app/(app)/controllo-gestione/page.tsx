@@ -19,6 +19,7 @@ import { accessoQonto, puoVedereQonto } from '@/lib/qonto/accesso'
 import { accessoAssegnazione, puoAssegnare } from '@/lib/pagamenti/assegnazione'
 import { puoUsareCuraAmbienti } from '@/lib/cura-ambienti/accesso'
 import { accessoStrutture, puoVedereCostiStrutture } from '@/lib/costi-strutture/data'
+import { accessoServiziInterni, puoRipartire, puoUsareServiziInterni } from '@/lib/servizi-interni/accesso'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,6 +35,7 @@ export default async function ControlloGestionePage() {
   const assegna = puoAssegnare(await accessoAssegnazione(session?.user))
   const curaAmbienti = await puoUsareCuraAmbienti(session?.user)
   const costiStrutture = puoVedereCostiStrutture(await accessoStrutture(session?.user))
+  const serviziInterni = await accessoServiziInterni(session?.user)
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -95,6 +97,22 @@ export default async function ControlloGestionePage() {
               emoji="🏠"
               titolo="Costi per struttura"
               testo="Utenze, manutenzioni, pulizie e costi fissi delle strutture"
+            />
+          )}
+          {puoUsareServiziInterni(serviziInterni) && (
+            <Card
+              href="/controllo-gestione/addebiti-interni"
+              emoji="🔁"
+              titolo="Addebiti interni"
+              testo="Addebita a un altro servizio il lavoro fatto per lui: ore e altri costi"
+            />
+          )}
+          {puoRipartire(serviziInterni) && (
+            <Card
+              href="/controllo-gestione/costi-generali"
+              emoji="➗"
+              titolo="Costi generali"
+              testo="Percentuali con cui i costi dell'amministrazione si dividono fra i servizi"
             />
           )}
           {flussi && (

@@ -1,6 +1,6 @@
 ---
 area: Controllo di Gestione
-descrizione: Pagare le fatture dei fornitori, attribuirle ai servizi, guardare i conti Qonto, i costi per centro di costo e i lavori di Cura Ambienti.
+descrizione: Pagare le fatture dei fornitori, attribuirle ai servizi, guardare i conti Qonto, i costi per centro di costo e i lavori di Cura Ambienti, addebitare il lavoro fatto per un altro servizio e dividere i costi generali.
 pagine:
   - percorso: /controllo-gestione
     titolo: Controllo di Gestione
@@ -30,6 +30,14 @@ pagine:
     titolo: Cura Ambienti
     accesso: [permesso:Controllo di Gestione, coordinatore-cura-ambienti]
     cosa: Preventivi e consuntivi dei lavori di pulizia e manutenzione nelle strutture e per i clienti esterni.
+  - percorso: /controllo-gestione/addebiti-interni
+    titolo: Addebiti interni
+    accesso: [permesso:Controllo di Gestione, coordinatore-cc]
+    cosa: Addebitare a un altro servizio il lavoro fatto per lui (ore a forfait e altri costi), e vedere e mettere il visto agli addebiti ricevuti.
+  - percorso: /controllo-gestione/costi-generali
+    titolo: Costi generali
+    accesso: [permesso:Controllo di Gestione]
+    cosa: Le percentuali con cui i costi dell'amministrazione si dividono fra i servizi.
 ---
 
 # Controllo di Gestione
@@ -71,6 +79,8 @@ Dentro vedi solo le schede che ti spettano:
 | «Fatture del servizio» | coordinatori, e chi ha il permesso Controllo di Gestione o Pagamenti |
 | «Cura Ambienti» | coordinatori di Cura Ambienti e chi ha il permesso Controllo di Gestione |
 | «Costi per struttura» | coordinatori (le strutture del loro servizio) e chi ha il permesso Amministrazione |
+| «Addebiti interni» | coordinatori (gli addebiti fatti e ricevuti dai loro servizi) e chi ha il permesso Controllo di Gestione (tutti) |
+| «Costi generali» | solo chi ha il permesso Controllo di Gestione |
 | «Flussi fatture» | solo chi ha il permesso Pagamenti o Approvazione Pagamenti |
 
 Attenzione: il solo permesso «Controllo di Gestione» **non** apre Flussi fatture.
@@ -472,7 +482,89 @@ Nel riquadro «Ricorrenti», in cima alla pagina:
 Ore e orari di una ricorrenza si cambiano aprendo uno dei suoi lavori: le modifiche valgono
 anche per i mesi seguenti.
 
+# Addebiti interni
+
+## A cosa servono gli addebiti interni?
+
+Quando il tuo servizio lavora per un altro servizio della cooperativa (per esempio la
+Locanda prepara i pasti per una comunità, o un educatore accompagna i ragazzi di un altro
+servizio), gli **addebiti** quel lavoro. Così ogni servizio vede quanto gli costa davvero
+e chi ha lavorato recupera il suo costo.
+
+Un addebito è fatto di:
+
+- **ore di lavoro**: valgono **18 € l'ora**, un forfait uguale per tutti i servizi;
+- **altri costi**: ogni riga dice cos'è e quanto costa (per esempio «Bevande 12,40 €»),
+  al costo, senza ricarico.
+
+## Come addebito un lavoro a un altro servizio?
+
+1. Apri [Addebiti interni](/controllo-gestione/addebiti-interni) dal Controllo di Gestione.
+2. Tocca «+ Nuovo».
+3. In «Chi ha fatto il lavoro» scegli il tuo servizio (se ne coordini uno solo è già scelto).
+4. In «A chi si addebita» scegli il servizio per cui hai lavorato.
+5. Scegli il «Mese» e scrivi in «Cosa è stato fatto» una frase chiara.
+6. Scrivi le «Ore di lavoro» (con la virgola, per esempio 3,5): sotto leggi quanto valgono.
+7. Se ci sono altre spese tocca «+ Altro costo» e scrivi cosa e quanto. Ripeti per ogni spesa.
+8. Controlla il «Totale addebito» e tocca «Salva addebito».
+
+Ai coordinatori del servizio che riceve arriva una mail con il dettaglio. Puoi mettere
+anche solo le ore o solo altri costi, ma almeno una delle due cose.
+
+## Fino a quando posso cambiare un addebito?
+
+Fino al **10 del mese dopo** (un addebito di ottobre si cambia fino al 10 novembre). Tocca
+«Modifica» o «Togli». Dopo, l'addebito resta com'è e c'è scritto «mese chiuso»: se va
+corretto, fai un nuovo addebito nel mese corrente (anche con un importo che compensa).
+
+Quando modifichi un addebito, il visto di chi lo riceve si toglie e gli arriva una nuova mail.
+
+## Ho ricevuto un addebito: cosa faccio?
+
+1. Apri [Addebiti interni](/controllo-gestione/addebiti-interni) e tocca «Ricevuti» (oppure il
+   bottone «Apri l'addebito» nella mail).
+2. Se ti torna, tocca «✓ Visto».
+3. Se non ti torna, tocca «Non mi torna», scrivi cosa e tocca «Invia»: ai coordinatori del
+   servizio che te l'ha addebitato arriva una mail con la tua nota.
+
+Il visto è **informativo**: dice che l'hai visto, ma l'addebito vale comunque. Per toglierlo
+tocca «Togli il visto».
+
+In alto leggi quanto hanno addebitato i tuoi servizi e quanto hanno ricevuto; accanto a
+«Ricevuto» compare quanti addebiti non hai ancora guardato. Puoi scegliere il mese dal menu.
+
+# Costi generali
+
+## Come si dividono i costi dell'amministrazione fra i servizi?
+
+I costi generali stanno sul centro di costo **cc23 · Progettazione - Amministrazione**. Si
+dividono fra i servizi con una **percentuale fissa** per servizio, compresa Cura Ambienti.
+
+1. Apri [Costi generali](/controllo-gestione/costi-generali) dal Controllo di Gestione (serve
+   il permesso Controllo di Gestione).
+2. Scrivi la percentuale accanto a ogni servizio. Un servizio senza percentuale non riceve
+   niente. «Dividi in parti uguali» riempie tutto in parti uguali, da correggere a mano.
+3. Sotto leggi il «Totale»: deve fare **100%**, altrimenti ti dice quanti punti mancano e
+   «Salva percentuali» non si può premere.
+4. In «Valgono da» scegli il mese da cui partono e, se vuoi, scrivi una nota.
+5. Tocca «Salva percentuali».
+
+Ogni salvataggio è una **nuova versione**: le versioni di prima restano in «Versioni
+salvate» e valgono per i mesi passati. Cambiare le percentuali non riscrive il passato.
+
 ## Problemi comuni
+
+**«Puoi addebitare solo per i servizi che coordini»**
+Puoi scrivere addebiti solo a nome dei servizi di cui sei coordinatore.
+
+**«Quel mese è chiuso…» / «Il mese è chiuso…»**
+È passato il 10 del mese dopo: fai un nuovo addebito nel mese corrente.
+
+**«Metti le ore di lavoro o almeno un altro costo»**
+Un addebito senza ore e senza altri costi varrebbe zero.
+
+**«Le percentuali sommano a …%: devono fare 100%»**
+Correggi le percentuali finché il totale fa 100.
 
 **«Accesso negato» o la pagina mi riporta alla Home.**
 Non hai il permesso per quella pagina. Il permesso si chiede all'ufficio amministrazione;
