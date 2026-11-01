@@ -278,3 +278,37 @@ export interface LungoCorsoPayload {
   lungoCorso: boolean
   previsione?: string
 }
+
+// ============================================================
+// Assistente delle manutenzioni (Pannello di controllo, solo admin)
+// ============================================================
+
+/**
+ * Un'operazione che l'assistente propone e che parte solo quando l'admin preme
+ * «Conferma». È la stessa chiamata che farebbe il Pannello: stesso endpoint,
+ * stessi controlli, stesse mail, stesso Log Attività.
+ */
+export interface AzioneProposta {
+  id: string
+  /** Per esempio «Assegna il tecnico». */
+  titolo: string
+  /** La riga che l'admin legge prima di confermare. */
+  descrizione: string
+  /** MAN-2026-047 · Struttura */
+  richiesta: string
+  /** Cosa succede dopo, per esempio «Il richiedente riceve una mail». */
+  avviso?: string
+  metodo: 'POST' | 'PATCH'
+  url: string
+  corpo: Record<string, unknown>
+}
+
+export interface MessaggioAssistenteManutenzioni {
+  ruolo: 'utente' | 'assistente'
+  testo: string
+}
+
+export interface RispostaAssistenteManutenzioni {
+  testo: string
+  azioni: AzioneProposta[]
+}

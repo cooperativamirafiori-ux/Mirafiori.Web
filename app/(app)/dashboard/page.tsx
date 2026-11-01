@@ -5,6 +5,7 @@ import { nonLettiPerRichiesta } from '@/lib/manutenzioni/pratica'
 import { getTecnici } from '@/lib/strutture/data'
 import { Header } from '@/components/ui/Header'
 import { RichiestaCard } from './RichiestaCard'
+import { AssistenteManutenzioni } from '@/components/manutenzioni/AssistenteManutenzioni'
 
 export const dynamic = 'force-dynamic'
 
@@ -77,6 +78,9 @@ export default async function DashboardPage({
             <p className="text-xs text-gray-500 mt-1">Da assegnare</p>
           </div>
         </div>
+
+        {/* Assistente: legge le richieste e prepara le operazioni da confermare */}
+        <AssistenteManutenzioni />
 
         {/* Lista */}
         <div>

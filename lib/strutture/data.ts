@@ -3,7 +3,7 @@
  * costi, acquisti e timbrature.
  */
 
-import { graphGet } from '@/lib/core/graph'
+import { graphGet, graphGetAll } from '@/lib/core/graph'
 import { listBase, lookupValue } from '@/lib/core/sp'
 import type { Struttura, Tecnico } from '@/types/manutenzioni'
 
@@ -53,6 +53,34 @@ export async function centroCostoDiStruttura(
     console.error('[strutture] centroCostoDiStruttura fallita:', err)
     return undefined
   }
+}
+
+/** Una struttura con il suo indirizzo, per dire al tecnico dove andare. */
+export interface StrutturaConIndirizzo {
+  id: number
+  title: string
+  codice: string
+  indirizzo: string
+  comune: string
+}
+
+/**
+ * Strutture con indirizzo e comune. Si legge `fields` intero, senza $select:
+ * `Comune` esiste solo dove l'ha creata scripts/aggiungi-struttura.mjs, e una
+ * colonna che manca in un $select fa fallire tutta la lettura.
+ */
+export async function getStruttureConIndirizzo(): Promise<StrutturaConIndirizzo[]> {
+  const voci = await graphGetAll<any>(
+    `${listBase('strutture')}?$expand=fields&$top=500`,
+    { Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly' },
+  )
+  return voci.map((item) => ({
+    id: Number(item.id),
+    title: item.fields?.Title ?? '',
+    codice: item.fields?.Codice ?? '',
+    indirizzo: typeof item.fields?.Indirizzo === 'string' ? item.fields.Indirizzo.trim() : '',
+    comune: typeof item.fields?.Comune === 'string' ? item.fields.Comune.trim() : '',
+  }))
 }
 
 // ============================================================

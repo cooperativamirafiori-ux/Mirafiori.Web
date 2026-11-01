@@ -47,7 +47,11 @@ export function pulisciTesto(t: unknown): string {
  * Legge la pratica e segna come letti i messaggi dell'altra parte: chi apre la
  * finestra li ha visti. `chiLegge` = il lato di chi sta guardando.
  */
-export async function leggiPratica(spItemId: string, chiLegge: LatoPratica): Promise<Pratica> {
+export async function leggiPratica(
+  spItemId: string,
+  chiLegge: LatoPratica,
+  opts: { segnaLetti?: boolean } = {},
+): Promise<Pratica> {
   const db = supabase()
   const altro: LatoPratica = chiLegge === 'gestione' ? 'richiedente' : 'gestione'
   const [m, v] = await Promise.all([
@@ -58,7 +62,8 @@ export async function leggiPratica(spItemId: string, chiLegge: LatoPratica): Pro
   if (v.error) throw new Error(v.error.message)
 
   const daSegnare = (m.data ?? []).filter((r: any) => r.lato === altro && !r.letto_il).map((r: any) => r.id)
-  if (daSegnare.length) {
+  // L'assistente legge la pratica senza che nessuno l'abbia aperta: lì non si segna niente.
+  if (daSegnare.length && opts.segnaLetti !== false) {
     const ora = new Date().toISOString()
     await db.from('manutenzione_messaggio').update({ letto_il: ora }).in('id', daSegnare)
   }

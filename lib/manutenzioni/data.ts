@@ -81,6 +81,20 @@ export async function getRichiesteCompletateRecenti(giorni = 120, massimo = 60):
     .slice(0, massimo)
 }
 
+/**
+ * Tutte le richieste, aperte e chiuse, le più nuove prima. Serve all'assistente
+ * delle manutenzioni, che cerca anche fra le completate. Segue la paginazione
+ * di Graph (200 per pagina), con un tetto di sicurezza.
+ */
+export async function getTutteRichieste(limite = 3000): Promise<RichiestaManutenzione[]> {
+  const voci = await graphGetAll<any>(
+    `${listBase('richieste')}?$select=${RICHIESTA_FIELDS}&$orderby=fields/DataRichiesta desc&$top=500`,
+    { Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly' },
+    limite,
+  )
+  return voci.map(mapRichiesta)
+}
+
 /** Richieste del richiedente corrente — filtra per RichiedenteLookupId (Person column email non disponibile via Graph) */
 
 export async function getRichiesteByEmail(email: string): Promise<RichiestaManutenzione[]> {

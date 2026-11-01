@@ -17,7 +17,7 @@ pagine:
   - percorso: /dashboard
     titolo: Pannello di controllo
     accesso: [admin]
-    cosa: Tutte le richieste non ancora completate, con presa in carico, lungo corso, messaggi, cose da fare, costi (fatture, ore, spese), assegnazione del tecnico e chiusura.
+    cosa: Tutte le richieste non ancora completate, con presa in carico, lungo corso, messaggi, cose da fare, costi (fatture, ore, spese), assegnazione del tecnico e chiusura; c'è anche l'assistente a cui chiedere elenchi e operazioni a parole.
   - percorso: /manutenzioni/fornitori
     titolo: Fornitori
     accesso: [admin]
@@ -187,6 +187,39 @@ nuovo»: si toglie quando apri la richiesta.
 corso.
 
 Se non c'è nulla da fare leggi «Nessuna richiesta attiva 🎉».
+
+## Posso chiedere le richieste a parole, per esempio quelle di un tecnico?
+
+Sì. Nel [Pannello di controllo](/dashboard), sotto i quattro numeri, c'è «Chiedi
+all'assistente». Si apre una chat dove scrivi quello che ti serve, per esempio:
+
+- «Elenco delle richieste attive di Mirco, con cosa fare, sede e indirizzo»;
+- «Quali richieste aperte non hanno ancora un tecnico?»;
+- «Cosa c'è di urgente alla Locanda?».
+
+L'assistente guarda le richieste (anche quelle completate, se lo chiedi), le strutture con
+il loro indirizzo e i tecnici, e ti risponde con un elenco.
+
+Puoi anche chiedergli di **fare** le cose: assegnare un tecnico, prendere in carico con una
+nota, mettere o togliere il lungo corso, scrivere al richiedente, aggiungere o spuntare le
+cose da fare, cambiare note interne e data dell'intervento, chiudere una richiesta.
+
+1. Scrivi cosa vuoi fare, per esempio «Assegna la MAN-2026-047 a Mirco e scrivi alla
+   responsabile che passa giovedì».
+2. L'assistente prepara una scheda per ogni operazione, con cosa cambia e chi riceve una
+   mail.
+3. Controlla la scheda e tocca «Conferma». Se sono più di una puoi toccare «Conferma
+   tutte». Con «Annulla» la scarti.
+
+Finché non tocchi «Conferma» non cambia niente e non parte nessuna mail. Dopo la conferma
+la scheda diventa verde con «✓ Fatto» e il Pannello si aggiorna. Le mail sono le stesse
+che partono dal Pannello.
+
+Non fa: registrare i costi, aggiungere fornitori, cancellare le cose da fare. Per questi
+usa il Pannello.
+
+L'assistente può sbagliare: leggi sempre la scheda prima di confermare. Se una scheda
+diventa rossa, sotto c'è il motivo; tocca «Riprova» o fallo dal Pannello.
 
 ## Come avviso il richiedente che ho visto la richiesta, senza assegnare un tecnico?
 
