@@ -14,9 +14,10 @@ import { getCosti } from '@/lib/costi/data'
 import { getCostiFissi } from '@/lib/costi-fissi/data'
 import { getConsuntiviAnno } from '@/lib/cura-ambienti/data'
 import { getImportiEsterniTicket } from '@/lib/manutenzioni/data'
+import { costiDellAnno, richiesteConCosti } from '@/lib/manutenzioni/costi'
 import { getBollette, getDaCollegare, getStruttureCc } from '@/lib/utenze/data'
 import { AREA_AMMINISTRAZIONE } from '@/types/utenze'
-import { calcolaCruscotto, type CostoSp, type Fonti, type LavoroCa } from './calcoli'
+import { calcolaCruscotto, type CostoManutenzione, type CostoSp, type Fonti, type LavoroCa } from './calcoli'
 import type { CruscottoStrutture } from '@/types/costi-strutture'
 
 export interface AccessoStrutture {
@@ -48,7 +49,7 @@ async function prova<T>(nome: string, guasti: string[], f: () => Promise<T>, vuo
 
 export async function getCruscottoStrutture(anno: number, accesso: AccessoStrutture): Promise<CruscottoStrutture> {
   const guasti: string[] = []
-  const [strutture, bollette, costi, fissi, lavori, daCollegare, esterni] = await Promise.all([
+  const [strutture, bollette, costi, fissi, lavori, daCollegare, esterni, manutenzioni, ticketConCosti] = await Promise.all([
     getStruttureCc(),
     prova('le bollette', guasti, () => getBollette(anno), []),
     prova('la lista Costi Strutture', guasti, () => getCosti(anno), []),
@@ -56,6 +57,9 @@ export async function getCruscottoStrutture(anno: number, accesso: AccessoStrutt
     prova('i lavori di Cura Ambienti', guasti, () => getConsuntiviAnno(anno), [] as LavoroCa[]),
     prova('le utenze da collegare', guasti, () => getDaCollegare(), []),
     prova('i ticket di manutenzione', guasti, () => getImportiEsterniTicket(), new Map<string, number>()),
+    prova('i costi delle richieste di manutenzione', guasti, () => costiDellAnno(anno), [] as CostoManutenzione[]),
+    // Se non si legge, set vuoto: le vecchie righe dei ticket si contano tutte (meglio un conto pieno).
+    prova('i ticket con costi', guasti, () => richiesteConCosti(), new Set<string>()),
   ])
 
   const visibili = accesso.tutte ? strutture : strutture.filter((s) => s.ccCodice && accesso.codici.includes(s.ccCodice))
@@ -78,6 +82,8 @@ export async function getCruscottoStrutture(anno: number, accesso: AccessoStrutt
     })),
     fissi,
     lavori,
+    manutenzioni,
+    ticketConCosti,
     daCollegare: accesso.tutte
       ? { codici: daCollegare.length, importo: Math.round(daCollegare.reduce((s, d) => s + d.importo, 0) * 100) / 100 }
       : { codici: 0, importo: 0 },

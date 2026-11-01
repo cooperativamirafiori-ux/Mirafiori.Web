@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { LatoPratica, MessaggioPratica, Pratica as DatiPratica, VocePratica } from '@/types/manutenzioni'
 import { Banner } from '@/components/ui/Banner'
+import { CostiRichiesta } from './CostiRichiesta'
 
 const inputCls =
   'w-full border border-gray-200 rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-50'
@@ -135,6 +136,16 @@ export function Pratica({
     <div className="space-y-4">
       <Banner tono="errore">{errore}</Banner>
 
+      {/* Richiedente: il costo totale, solo a richiesta chiusa. */}
+      {!gestione && completata && dati?.totaleCosti != null && (
+        <div className="bg-white rounded-lg border border-gray-200 p-3 flex items-baseline justify-between gap-2">
+          <span className="text-sm text-gray-600">Costo totale dell'intervento</span>
+          <strong className="text-gray-800">
+            {dati.totaleCosti.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}
+          </strong>
+        </div>
+      )}
+
       {/* ── Cose da fare ── */}
       <section className="bg-white rounded-lg border border-gray-200 p-3 space-y-2" aria-label="Cose da fare">
         <div className="flex items-center justify-between gap-2">
@@ -252,6 +263,20 @@ export function Pratica({
           </div>
         )}
       </section>
+
+      {/* Gestione: i costi della richiesta. */}
+      {gestione && dati && (
+        dati.costi ? (
+          <CostiRichiesta
+            spItemId={spItemId}
+            iniziali={dati.costi}
+            totaleIniziale={dati.totaleCosti ?? 0}
+            incompletoIniziale={dati.totaleIncompleto ?? false}
+          />
+        ) : (
+          <Banner tono="avviso">Non riesco a leggere i costi di questa richiesta. Ricarica la pagina; se torna, avvisa l'amministrazione.</Banner>
+        )
+      )}
     </div>
   )
 }

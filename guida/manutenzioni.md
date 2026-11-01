@@ -17,7 +17,7 @@ pagine:
   - percorso: /dashboard
     titolo: Pannello di controllo
     accesso: [admin]
-    cosa: Tutte le richieste non ancora completate, con presa in carico, lungo corso, messaggi, cose da fare, assegnazione del tecnico e chiusura del ticket.
+    cosa: Tutte le richieste non ancora completate, con presa in carico, lungo corso, messaggi, cose da fare, costi (fatture, ore, spese), assegnazione del tecnico e chiusura.
   - percorso: /manutenzioni/fornitori
     titolo: Fornitori
     accesso: [admin]
@@ -101,8 +101,10 @@ Il modulo si svuota, così puoi inviarne subito un'altra.
 4. Un amministratore assegna un tecnico: la richiesta passa a **In lavorazione** e **ti
    arriva una mail** «Tecnico assegnato» con il nome del tecnico ed eventuali note del
    responsabile. Puoi contattare il tecnico per concordare giorno e ora.
-5. Quando l'intervento è fatto, l'amministratore chiude il ticket: la richiesta passa a
-   **Completata** e **ti arriva una mail** «Completata».
+5. Quando l'intervento è fatto, l'amministratore chiude la richiesta: passa a
+   **Completata** e **ti arriva una mail** «Completata». Da quel momento, aprendo
+   «Messaggi e cose da fare», leggi anche il **costo totale dell'intervento** (se sono
+   stati registrati dei costi). Prima della chiusura i costi non si vedono.
 
 ## Dove vedo lo stato delle mie richieste?
 
@@ -226,7 +228,7 @@ richiesta», che apre direttamente quella richiesta nel Pannello.
 Nei messaggi restano anche la presa in carico, l'assegnazione del tecnico (con la nota)
 e la chiusura, così la storia della richiesta sta tutta in un posto.
 
-Le «Note responsabile» del riquadro «Chiudi ticket» invece sono **interne**: il
+Le «Note responsabile» del riquadro «Chiudi richiesta» invece sono **interne**: il
 richiedente non le vede.
 
 ## Come gestisco le cose da fare di una richiesta?
@@ -252,30 +254,54 @@ una mail con il nome del tecnico e le tue note.
 Il tecnico si sceglie fra quelli dell'anagrafica [Fornitori](/manutenzioni/fornitori). Se
 manca, aggiungilo lì prima.
 
-## Come chiudo un ticket quando l'intervento è fatto?
+## Come registro i costi di una manutenzione (fatture, ore, spese)?
+
+I costi di una manutenzione si scrivono nella richiesta, nel riquadro «Costi», quando
+arrivano: anche più fatture in mesi diversi, e anche dopo la chiusura. Li vedi solo tu;
+il richiedente vede solo il totale, a richiesta chiusa.
+
+1. Apri la richiesta nel [Pannello di controllo](/dashboard). Se è già chiusa, la trovi
+   in fondo in «Completate negli ultimi 4 mesi».
+2. Nel riquadro «Costi» scegli:
+   - **«+ Collega fattura»**: compare l'elenco delle fatture di Cura Ambienti e di quelle
+     ancora libere (puoi cercare per fornitore, numero o descrizione). Tocca la fattura,
+     controlla «Quanto va su questa manutenzione (€)» — parte già da tutto quello che
+     resta da distribuire — e tocca «Collega alla richiesta». Se una fattura serve a più manutenzioni,
+     scrivi solo la parte di questa: il resto resta da collegare alle altre. Una fattura
+     **libera**, collegandola, passa da sola su Cura Ambienti;
+   - **«+ Ore»**: le ore fatte dal personale di Cura Ambienti, la data e chi (manutentore o
+     addetto pulizie). L'importo lo calcola l'app con la tariffa interna di quel mese;
+   - **«+ Spesa senza fattura»**: scontrini e acquisti con la carta che non arrivano come
+     fattura elettronica. Scrivi cosa, importo, data e, se vuoi, dove.
+3. In alto leggi il «Totale». Per togliere una riga tocca «Togli» e poi «Sì, togli»: una
+   fattura tolta torna disponibile da collegare.
+
+Delle fatture conta l'**imponibile** (IVA esclusa), come nel cruscotto del controllo di
+gestione. Le fatture si collegano solo se stanno su Cura Ambienti (cc24) o sono ancora
+libere: una fattura già presa da un altro servizio non compare.
+
+⚠️ Se un acquisto arriva poi anche come fattura elettronica (succede con Amazon), non
+registrarlo due volte: o la spesa o la fattura.
+
+I costi finiscono nel cruscotto «Costi per struttura», alla voce Manutenzioni della
+struttura della richiesta, nel mese della loro data.
+
+## Come chiudo una richiesta quando l'intervento è fatto?
 
 1. Nel [Pannello di controllo](/dashboard) tocca la richiesta.
-2. Nel riquadro «Chiudi ticket» compila almeno uno dei due campi:
-   - «Importo fattura (€)» – quanto ha fatturato il fornitore;
-   - «Ore lavoro interno» – le ore fatte dal nostro personale.
-3. Se vuoi, metti la «Data intervento» e le «Note responsabile».
-4. Tocca «Chiudi ticket».
+2. Nel riquadro «Chiudi richiesta» metti, se vuoi, la «Data intervento» e le «Note
+   responsabile» (interne, il richiedente non le vede).
+3. Tocca «Chiudi richiesta» e poi «Sì, chiudi».
 
-Compare «Chiusa — Totale: €…». Cosa succede:
+Compare «Chiusa — Totale costi: €…». La richiesta passa a **Completata**, arriva una mail
+di chiusura agli amministratori (con il totale) e una al richiedente.
 
-- la richiesta passa a **Completata** e sparisce dal pannello;
-- l'app registra il costo sulla struttura della richiesta, con il centro di costo di quella
-  struttura. Il totale è l'importo della fattura più le ore moltiplicate per la tariffa
-  oraria interna;
-- una richiesta di tipo «Guasto urgente» viene registrata nei costi come «Manutenzione
-  straordinaria»;
-- arriva una mail di chiusura agli amministratori e una al richiedente.
+Non serve aver già messo i costi: le fatture che arrivano dopo le colleghi alla richiesta
+chiusa (vedi sopra).
 
-Se non metti né importo né ore, compare «Inserisci almeno importo o ore».
+Una richiesta completata non si può più riaprire dall'app.
 
-Una richiesta completata non si può più riaprire né chiudere di nuovo dall'app.
-
-## Voglio solo salvare una nota, senza chiudere il ticket
+## Voglio solo salvare una nota, senza chiudere la richiesta
 
 1. Apri la richiesta nel [Pannello di controllo](/dashboard).
 2. Scrivi nel campo «Note responsabile».
@@ -367,8 +393,18 @@ amministrazione.
 **«Scrivi una nota per il richiedente»** (amministratori)
 Per prendere in carico una richiesta serve la nota che arriva al richiedente.
 
-**«Inserisci almeno importo o ore»** (amministratori)
-Per chiudere un ticket serve almeno l'importo della fattura o le ore di lavoro interno.
+**«Di questa fattura restano da distribuire … €»** /
+**«Questa fattura è già stata distribuita tutta su altre manutenzioni»** (amministratori)
+Hai scritto un importo più alto di quello che resta della fattura. Correggi l'importo, o
+togli la fattura da un'altra manutenzione.
+
+**«La fattura è già sul centro di costo …»** (amministratori)
+Un altro servizio ha preso la fattura. Se era di Cura Ambienti, chiedi a chi gestisce le
+fatture del servizio di spostarla.
+
+**«tariffa mancante»** accanto a delle ore (amministratori)
+Per quel mese non c'è la tariffa interna di Cura Ambienti: le ore restano fuori dal
+totale finché non viene inserita.
 
 **«⚠️ Compila centro di costo, categoria, importo e data.»** /
 **«⚠️ L'importo deve essere un numero maggiore di zero.»** (amministratori)

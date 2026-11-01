@@ -46,8 +46,7 @@ export function RichiestaCard({ richiesta: r, tecnici, nonLetti = 0, apertaAllIn
   // Form state
   const [tecnicoId, setTecnicoId] = useState(r.tecnico?.id?.toString() ?? '')
   const [noteAssegnazione, setNoteAssegnazione] = useState('')
-  const [importo, setImporto] = useState(r.importoFattura?.toString() ?? '')
-  const [ore, setOre] = useState(r.oreLavoro?.toString() ?? '')
+  const [confermaChiusura, setConfermaChiusura] = useState(false)
   const [dataIntervento, setDataIntervento] = useState(
     r.dataIntervento ? r.dataIntervento.slice(0, 10) : ''
   )
@@ -73,7 +72,7 @@ export function RichiestaCard({ richiesta: r, tecnici, nonLetti = 0, apertaAllIn
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Errore')
       setMsg({ type: 'ok', text: data.stato === 'Completata'
-        ? `✅ Chiusa — Totale: €${data.importoTotale?.toFixed(2)}`
+        ? `✅ Chiusa — Totale costi: €${(data.importoTotale ?? 0).toFixed(2)}`
         : data.stato === 'In lavorazione'
         ? '✅ Tecnico assegnato'
         : '✅ Salvato' })
@@ -96,13 +95,12 @@ export function RichiestaCard({ richiesta: r, tecnici, nonLetti = 0, apertaAllIn
     })
   }
 
+  // Dal 1/11/2026 chiudere chiude e basta: i costi stanno nella sezione Costi.
   function handleChiudi() {
-    const payload: Record<string, unknown> = {}
-    if (importo) payload.importoFattura = parseFloat(importo)
-    if (ore) payload.oreLavoro = parseFloat(ore)
+    const payload: Record<string, unknown> = { chiudi: true }
     if (dataIntervento) payload.dataIntervento = new Date(dataIntervento).toISOString()
     if (note) payload.noteResponsabile = note
-    if (!importo && !ore) { setMsg({ type: 'err', text: 'Inserisci almeno importo o ore' }); return }
+    setConfermaChiusura(false)
     salva(payload)
   }
 
@@ -235,21 +233,8 @@ export function RichiestaCard({ richiesta: r, tecnici, nonLetti = 0, apertaAllIn
 
               {/* Sezione 2: Chiudi ticket */}
               <div className="bg-white rounded-lg border border-gray-200 p-3 space-y-3">
-                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Chiudi ticket</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Importo fattura (€)</label>
-                    <input type="number" min="0" step="0.01" value={importo}
-                      onChange={(e) => setImporto(e.target.value)}
-                      className={inputCls} placeholder="0.00" disabled={loading} />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Ore lavoro interno</label>
-                    <input type="number" min="0" step="0.5" value={ore}
-                      onChange={(e) => setOre(e.target.value)}
-                      className={inputCls} placeholder="0" disabled={loading} />
-                  </div>
-                </div>
+                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Chiudi richiesta</p>
+                <p className="text-xs text-gray-500">I costi si scrivono nella sezione Costi, anche dopo la chiusura.</p>
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">Data intervento</label>
                   <input type="date" value={dataIntervento}
@@ -261,16 +246,32 @@ export function RichiestaCard({ richiesta: r, tecnici, nonLetti = 0, apertaAllIn
                   <textarea value={note} onChange={(e) => setNote(e.target.value)}
                     className={`${inputCls} resize-none h-16`} placeholder="Note interne..." disabled={loading} />
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={handleSalvaNotes} disabled={loading || !note}
-                    className="flex-1 border border-gray-300 text-gray-600 text-sm py-2 rounded-lg disabled:opacity-40 hover:bg-gray-50">
-                    Salva note
-                  </button>
-                  <button onClick={handleChiudi} disabled={loading || (!importo && !ore)}
-                    className="flex-1 bg-accent-yellow text-primary-dark font-semibold text-sm py-2 rounded-lg disabled:opacity-40 hover:opacity-90">
-                    {loading ? 'Salvataggio…' : 'Chiudi ticket'}
-                  </button>
-                </div>
+                {confermaChiusura ? (
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 space-y-2">
+                    <p className="text-sm text-amber-900">Chiudere la richiesta? Arriva una mail al richiedente e non si riapre.</p>
+                    <div className="flex gap-2 flex-wrap">
+                      <button onClick={handleChiudi} disabled={loading}
+                        className="flex-1 bg-accent-yellow text-primary-dark font-semibold text-sm py-2 rounded-lg disabled:opacity-40">
+                        {loading ? 'Salvataggio…' : 'Sì, chiudi'}
+                      </button>
+                      <button onClick={() => setConfermaChiusura(false)}
+                        className="flex-1 border border-gray-300 text-gray-600 text-sm py-2 rounded-lg">
+                        Annulla
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <button onClick={handleSalvaNotes} disabled={loading || !note}
+                      className="flex-1 border border-gray-300 text-gray-600 text-sm py-2 rounded-lg disabled:opacity-40 hover:bg-gray-50">
+                      Salva note
+                    </button>
+                    <button onClick={() => setConfermaChiusura(true)} disabled={loading}
+                      className="flex-1 bg-accent-yellow text-primary-dark font-semibold text-sm py-2 rounded-lg disabled:opacity-40 hover:opacity-90">
+                      Chiudi richiesta
+                    </button>
+                  </div>
+                )}
               </div>
             </>
           )}

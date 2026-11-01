@@ -1,6 +1,6 @@
 import { auth } from '@/lib/core/auth'
 import { redirect } from 'next/navigation'
-import { getRichiesteAperte, getRichiestaById } from '@/lib/manutenzioni/data'
+import { getRichiesteAperte, getRichiestaById, getRichiesteCompletateRecenti } from '@/lib/manutenzioni/data'
 import { nonLettiPerRichiesta } from '@/lib/manutenzioni/pratica'
 import { getTecnici } from '@/lib/strutture/data'
 import { Header } from '@/components/ui/Header'
@@ -18,13 +18,18 @@ export default async function DashboardPage({
   // ?r=<id> arriva dal link della mail "nuovo messaggio": apre quella richiesta.
   const { r: daAprire } = await searchParams
 
-  const [richieste, tecnici, nonLetti] = await Promise.all([
+  const [richieste, tecnici, nonLetti, completateRecenti] = await Promise.all([
     getRichiesteAperte(),
     getTecnici(),
     // I messaggi sono un di più: se non si leggono, il Pannello funziona lo stesso.
     nonLettiPerRichiesta('richiedente').catch((e) => {
       console.error('[dashboard] messaggi non letti:', e)
       return {} as Record<string, number>
+    }),
+    // Per collegare le fatture che arrivano dopo la chiusura.
+    getRichiesteCompletateRecenti().catch((e) => {
+      console.error('[dashboard] completate recenti:', e)
+      return null
     }),
   ])
 
@@ -131,6 +136,30 @@ export default async function DashboardPage({
             </div>
           )}
         </div>
+        {/* Completate di recente: le fatture arrivano spesso dopo la chiusura */}
+        <details className="group">
+          <summary className="cursor-pointer list-none flex items-center justify-between gap-2 rounded-xl bg-white border border-gray-200 px-4 py-3">
+            <span>
+              <span className="font-semibold text-gray-700">Completate negli ultimi 4 mesi</span>{' '}
+              <span className="text-gray-400">({completateRecenti?.length ?? '—'})</span>
+              <span className="block text-xs text-gray-500">Per collegare fatture e costi arrivati dopo la chiusura.</span>
+            </span>
+            <span className="text-gray-400 group-open:rotate-180 transition-transform">▼</span>
+          </summary>
+          <div className="space-y-3 mt-3">
+            {completateRecenti === null ? (
+              <p className="text-sm text-red-600">Non riesco a leggere le richieste completate. Ricarica la pagina.</p>
+            ) : completateRecenti.filter((r) => !chiuseConMessaggi.some((c) => c.spItemId === r.spItemId)).length === 0 ? (
+              <p className="text-sm text-gray-400">Nessuna richiesta completata di recente.</p>
+            ) : (
+              completateRecenti
+                .filter((r) => !chiuseConMessaggi.some((c) => c.spItemId === r.spItemId))
+                .map((r) => (
+                  <RichiestaCard key={r.spItemId} richiesta={r} tecnici={tecnici} nonLetti={nonLetti[r.spItemId] ?? 0} />
+                ))
+            )}
+          </div>
+        </details>
       </main>
     </div>
   )

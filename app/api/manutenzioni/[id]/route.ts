@@ -8,13 +8,11 @@
  *     1. Aggiorna Tecnico e Stato → "In lavorazione"
  *     2. Notifica richiedente (Teams DM + email)
  *
- * CASO B — Chiusura ticket (replica Flusso 2C):
- *   Se { importoFattura } e/o { oreLavoro } presenti:
- *     1. Legge tariffa oraria da Parametri Configurazione
- *     2. Calcola importo totale
- *     3. Crea record in Costi Strutture
- *     4. Aggiorna Stato → "Completata"
- *     5. Notifica canale Teams + richiedente
+ * CASO B — Chiusura (dal 1/11/2026):
+ *   Se { chiudi: true }:
+ *     1. Stato → "Completata" (+ data intervento e note interne se ci sono)
+ *     2. Mail alla gestione (con il totale dei costi) e al richiedente
+ *   I costi NON si scrivono qui: stanno nella sezione Costi della richiesta.
  *
  * [id] = spItemId (ID stringa item SharePoint)
  */
@@ -22,9 +20,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/core/auth'
 import { getRichiestaById, aggiornaRichiesta } from '@/lib/manutenzioni/data'
-import { getParametro, getSPUserEmailByLookupId } from '@/lib/core/sp'
-import { creaCosto } from '@/lib/costi/data'
-import { centroCostoDiStruttura } from '@/lib/strutture/data'
+import { getSPUserEmailByLookupId } from '@/lib/core/sp'
+import { leggiCosti, totaleDi } from '@/lib/manutenzioni/costi'
 import { notificaTecnicoAssegnato, notificaChiusuraTicket } from '@/lib/manutenzioni/notifiche'
 import { annotaInConversazione } from '@/lib/manutenzioni/pratica'
 import { logAzione } from '@/lib/core/audit'
@@ -106,11 +103,13 @@ export async function PATCH(
       return NextResponse.json({ ok: true, stato: 'In lavorazione' })
     }
 
-    // ---- CASO B: chiusura ticket ----
-    const hasImporto = body.importoFattura != null && body.importoFattura > 0
-    const hasOre = body.oreLavoro != null && body.oreLavoro > 0
-
-    if (hasImporto || hasOre) {
+    // ---- CASO B: chiusura ----
+    // Dal 1/11/2026 la chiusura chiude e basta: i costi stanno nella sezione
+    // Costi della richiesta (lib/manutenzioni/costi.ts) e il cruscotto Costi
+    // per struttura li legge da lì. Prima qui si chiedevano importo fattura e
+    // ore e si scriveva una riga in Costi Strutture: tolto con l'ok di Dennis
+    // (31/10/2026), le richieste già chiuse tengono i loro valori.
+    if (body.chiudi === true) {
       if (richiesta.stato === 'Completata') {
         return NextResponse.json(
           { error: 'Richiesta già completata' },
@@ -118,52 +117,18 @@ export async function PATCH(
         )
       }
 
-      // Calcola importo totale (come Flusso 2C)
-      let costoOre = 0
-      if (hasOre) {
-        const tariffa = await getParametro('Costo orario pulizie')
-        costoOre = (body.oreLavoro ?? 0) * tariffa
-      }
-      const importoTotale = (body.importoFattura ?? 0) + costoOre
-
-      // Remap categoria: "Guasto urgente" → "Manutenzione straordinaria"
-      const categoria =
-        richiesta.tipoIntervento === 'Guasto urgente'
-          ? 'Manutenzione straordinaria'
-          : richiesta.tipoIntervento
-
-      // Periodo in italiano (es. "giugno 2026")
-      const periodo = new Date().toLocaleDateString('it-IT', {
-        month: 'long',
-        year: 'numeric',
-      })
-
-      // Crea record in Costi Strutture.
-      // Il centro di costo lo eredita dalla struttura dell'intervento: qui non
-      // c'è nessuno a sceglierlo, e una manutenzione ha sempre un edificio.
-      const centroCostoId = await centroCostoDiStruttura(richiesta.struttura.id)
-      await creaCosto({
-        Title: richiesta.idRichiesta,
-        DataCosto: new Date().toISOString(),
-        Categoria: categoria,               // Choice → stringa semplice
-        Importo: importoTotale,
-        CentroCostoLookupId: centroCostoId, // Lookup → {Campo}LookupId
-        StrutturaLookupId: richiesta.struttura.id,
-        Fornitore: richiesta.tecnico?.value ?? undefined,
-        Periodo: periodo,
-        Fonte: 'Manuale',                   // Choice → stringa semplice
-      })
-
-      // Aggiorna richiesta
       const updateFields: Record<string, unknown> = {
-        Stato: 'Completata',                // Choice → stringa semplice
-        Pagato: false,
-        ...(hasImporto ? { ImportoFattura: body.importoFattura } : {}),
-        ...(hasOre ? { OrePulizia: body.oreLavoro } : {}),   // SP internal name = OrePulizia ("Ore Lavoro Interno")
+        Stato: 'Completata',
         ...(body.dataIntervento ? { DataIntervento: body.dataIntervento } : {}),
         ...(body.noteResponsabile ? { NoteDennis: body.noteResponsabile } : {}),
       }
       await aggiornaRichiesta(spItemId, updateFields)
+
+      // Il totale serve solo alla mail della gestione: se i costi non si
+      // leggono, la chiusura vale lo stesso.
+      const { totale: importoTotale } = await leggiCosti(spItemId)
+        .then(totaleDi)
+        .catch(() => ({ totale: 0 }))
 
       const richiedenteEmailChiusura = richiesta.richiedente.lookupId
         ? await getSPUserEmailByLookupId(richiesta.richiedente.lookupId).catch(() => '')

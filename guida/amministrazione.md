@@ -444,6 +444,11 @@ Ambienti», «Acquisti», «Costi fissi», «Telefonia/Internet», «Altro».
 
 Sotto c'è una scheda per ogni struttura, con il suo totale e le voci.
 
+Nella voce «Manutenzioni» entrano anche i costi registrati nelle richieste di
+manutenzione (fatture di Cura Ambienti collegate, ore, spese), nel mese della loro data e
+sulla struttura della richiesta. Una richiesta che ha costi registrati così non si conta
+anche dal vecchio importo di chiusura: vale l'elenco dei costi.
+
 ## Come vedo il dettaglio di una struttura?
 
 1. Premi sulla scheda della struttura.

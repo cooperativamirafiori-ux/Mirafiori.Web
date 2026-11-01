@@ -2,7 +2,8 @@
  * Conversazione della richiesta di manutenzione.
  *
  * GET  ?come=gestione|richiedente → messaggi + cose da fare; segna letti i
- *      messaggi dell'altra parte.
+ *      messaggi dell'altra parte. Alla gestione anche i costi; al richiedente
+ *      il solo totale, a richiesta completata.
  * POST { come, testo }            → nuovo messaggio + mail all'altra parte
  *      (al richiedente se scrive la gestione, a MANUTENZIONI_MAIL_TO se scrive
  *      il richiedente).
@@ -13,6 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { accessoPratica } from '@/lib/manutenzioni/accesso'
 import { leggiPratica, scriviMessaggio, pulisciTesto } from '@/lib/manutenzioni/pratica'
+import { leggiCosti, totaleDi } from '@/lib/manutenzioni/costi'
 import { notificaNuovoMessaggio } from '@/lib/manutenzioni/notifiche'
 import { getSPUserEmailByLookupId } from '@/lib/core/sp'
 import { logAzione } from '@/lib/core/audit'
@@ -22,7 +24,26 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const a = await accessoPratica(id, req.nextUrl.searchParams.get('come'))
   if (!a.ok) return NextResponse.json({ error: a.error }, { status: a.status })
   try {
-    return NextResponse.json(await leggiPratica(id, a.lato))
+    const pratica = await leggiPratica(id, a.lato)
+    // Costi: la gestione vede l'elenco; il richiedente solo il totale, e solo a
+    // richiesta completata (decisione di Dennis, 31 ott 2026).
+    const vediTotale = a.lato === 'gestione' || a.richiesta.stato === 'Completata'
+    if (vediTotale) {
+      try {
+        const costi = await leggiCosti(id)
+        const { totale, incompleto } = totaleDi(costi)
+        if (a.lato === 'gestione') pratica.costi = costi
+        if (costi.length) {
+          pratica.totaleCosti = totale
+          pratica.totaleIncompleto = incompleto
+        }
+      } catch (e) {
+        // Messaggi e cose da fare restano utili anche se i costi non si leggono.
+        console.error(`[GET /api/manutenzioni/${id}/pratica] costi`, e)
+        if (a.lato === 'gestione') pratica.costi = undefined
+      }
+    }
+    return NextResponse.json(pratica)
   } catch (e: any) {
     console.error(`[GET /api/manutenzioni/${id}/pratica]`, e)
     return NextResponse.json({ error: e.message ?? 'Errore interno' }, { status: 500 })

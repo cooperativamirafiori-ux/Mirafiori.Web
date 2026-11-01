@@ -109,10 +109,65 @@ export interface VocePratica {
   creataIl: string
 }
 
+export type TipoCosto = 'fattura' | 'ore' | 'spesa'
+
+/** Un costo della pratica, come lo vede la gestione. */
+export interface CostoPratica {
+  id: string
+  tipo: TipoCosto
+  data: string               // YYYY-MM-DD, competenza
+  /** Per le ore: ore × tariffa del mese. null = manca la tariffa interna di quel mese. */
+  importo: number | null
+  ore: number | null
+  figura: 'manutenzione' | 'pulizie' | null
+  descrizione: string | null
+  fornitore: string | null
+  fattura: {
+    id: string
+    numero: string | null
+    data: string | null
+    imponibile: number
+    pdfUrl: string | null
+  } | null
+}
+
+/** Una fattura SDI che si può collegare: di cc24 o ancora libera, con imponibile non ancora distribuito. */
+export interface FatturaCollegabile {
+  id: string
+  fornitore: string
+  numero: string | null
+  data: string | null
+  imponibile: number
+  disponibile: number
+  descrizione: string | null
+  libera: boolean
+  pdfUrl: string | null
+}
+
+export interface NuovoCostoPratica {
+  tipo: TipoCosto
+  data?: string
+  fatturaId?: string
+  importo?: number
+  ore?: number
+  figura?: 'manutenzione' | 'pulizie'
+  descrizione?: string
+  fornitore?: string
+}
+
 /** Quello che la finestra della richiesta carica. */
 export interface Pratica {
   messaggi: MessaggioPratica[]
   voci: VocePratica[]
+  /** Solo per la gestione. */
+  costi?: CostoPratica[]
+  /**
+   * Somma dei costi. La gestione la vede sempre; il richiedente solo a
+   * richiesta completata (decisione di Dennis, 31 ott 2026). Se un'ora non ha
+   * la tariffa del mese resta fuori e `totaleIncompleto` lo dice.
+   */
+  totaleCosti?: number
+  totaleIncompleto?: boolean
 }
 
 export interface CostoStruttura {
@@ -206,9 +261,8 @@ export interface AggiornaRichiestaPayload {
   // Assegnazione tecnico (stato → In lavorazione)
   tecnicoId?: number
   tecnicoNome?: string
-  // Chiusura ticket (stato → Completata)
-  importoFattura?: number
-  oreLavoro?: number
+  // Chiusura (stato → Completata). I costi stanno nella sezione Costi.
+  chiudi?: boolean
   dataIntervento?: string
   noteResponsabile?: string
 }

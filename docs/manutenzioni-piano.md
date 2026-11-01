@@ -57,33 +57,52 @@ conversazione è un di più, non deve bloccare un'assegnazione).
 richiesta, riconosciuto dal `RichiedenteLookupId` della lista: non c'è una vista «richieste della
 mia struttura», come prima.
 
-## Fase 2 — costi e fatture (da fare)
+## Fase 2 — costi e fatture (1/11/2026)
 
-Nella finestra, sezione **Costi**, visibile solo alla gestione. Righe di tre tipi, aggiunte in
-momenti diversi:
+Nella finestra, sezione **Costi** (`components/manutenzioni/CostiRichiesta.tsx`), visibile solo
+alla gestione. Righe di tre tipi, aggiunte in momenti diversi, **anche a richiesta chiusa** (le
+fatture arrivano spesso dopo): per questo il Pannello ha in fondo «Completate negli ultimi 4
+mesi».
 
 | Tipo | Da dove arriva | Importo |
 |---|---|---|
-| fattura | fattura SDI già presa su cc24 | tutta o una parte (imponibile) |
-| ore | ore del manutentore | ore × tariffa interna valida in quel mese |
-| spesa | scontrino, carta Qonto di cc24 | scritto a mano |
+| fattura | fattura SDI su cc24 o ancora libera (collegarla la prende su cc24 con `segna`, vince il primo) | tutta o una parte dell'imponibile |
+| ore | ore del personale di Cura Ambienti, figura manutentore o pulizie | ore × `tariffeDi` del mese, **mai salvato** |
+| spesa | scontrino, carta | scritto a mano |
 
-**Collegare una fattura, dai due lati:** in Flussi fatture, quando la si prende su cc24, compare
-«Collega a manutenzione»; nella finestra, «Collega fattura» cerca fra le fatture di cc24 non
-ancora distribuite. Una fattura si può dividere fra più manutenzioni e lasciare un resto su cc24
-(consumo). L'app impedisce di distribuirne più del suo importo.
+- Tabella `manutenzione_costo` (`supabase/manutenzioni_costi.sql`). Struttura e CC si **copiano**
+  alla creazione. Un trigger impedisce di distribuire più dell'imponibile della fattura, anche
+  con due collegamenti in contemporanea (`for update` sulla fattura).
+- Le fatture si collegano **solo dalla finestra** della richiesta. Il lato «Collega a
+  manutenzione» dentro Flussi fatture / Fatture del servizio non è ancora fatto.
+- **Chiusura:** «Chiudi richiesta» chiude e basta, con conferma. Via «Importo fattura» e «Ore
+  lavoro interno» (ok di Dennis), e non si scrive più in Costi Strutture. Le richieste chiuse
+  prima tengono le loro righe.
+- **Cruscotto Costi per struttura** (`lib/costi-strutture/calcoli.ts`): i costi delle richieste
+  entrano in «Manutenzioni» nel mese della loro data, sulla struttura della richiesta. Un ticket
+  che ha costi qui non si conta più anche dalla sua riga MAN-… in Costi Strutture (vale l'elenco,
+  che è più completo: chiuso alla vecchia maniera e poi arricchito di fatture non fa doppio).
+- **Richiedente:** vede il costo totale solo a richiesta completata, aprendo «Messaggi e cose da
+  fare».
 
-**Ribaltamento:** la fattura resta un costo vero di cc24. Ogni riga di costo scrive nel registro
-la coppia `SINT` (costo, CC della struttura) / `RINT` (recupero, cc24) del piano di Cura Ambienti,
-**nel mese della riga**: un lavoro di mesi arriva alla struttura un pezzo per volta. Materiali al
-costo (su cc24 si annullano), ore alla tariffa interna (su cc24 resta il margine). È il passo 3 di
-`cura-ambienti-piano.md`: si scrive una volta e vale per pulizie e manutenzioni.
+### Ribaltamento nel registro: rimandato apposta
 
-Con la fase 2 la chiusura non scrive più in Costi Strutture importo + ore × «Costo orario pulizie»
-(sarebbe doppio): «Chiudi» chiude e basta, e il richiedente vede il totale.
+Il piano di Cura Ambienti prevedeva la coppia `SINT` / `RINT` nel registro. Al 1/11/2026 il
+registro (`movimento`) è **vuoto** e nessuna schermata lo legge: il cruscotto del CdG legge le
+fatture SDI per centro di costo, Costi per struttura legge le sue fonti. Scrivere lì adesso non
+farebbe vedere niente a nessuno. In più la porta del registro (`registro_riscrivi`) vuole che le
+righe di un documento sommino quota 1, e la coppia costo + recupero (quota 1 ciascuna) non ci
+entra: servirà una funzione SQL che scriva le due metà in una transazione, più le voci `SINT` /
+`RINT`, la colonna `interna` su `voce_analitica` e `'ribaltamento'` fra le `fonte` ammesse. Si fa
+**una volta per Lavori e manutenzioni**, quando il cruscotto passerà a leggere il registro.
+
+Effetto oggi: nel cruscotto del CdG la fattura resta su **cc24**; nel cruscotto Costi per
+struttura il costo sta sulla **struttura**. Quando arriverà il ribaltamento, le due viste
+torneranno a coincidere.
 
 ## Dati
 
 - SharePoint, lista Richieste: scelta `Presa in carico` nella colonna `Stato`, colonne
   `LungoCorso` (sì/no) e `PrevisioneLungoCorso` (testo).
-- Supabase: `supabase/manutenzioni_pratica.sql` (`manutenzione_messaggio`, `manutenzione_voce`).
+- Supabase: `supabase/manutenzioni_pratica.sql` (`manutenzione_messaggio`, `manutenzione_voce`),
+  `supabase/manutenzioni_costi.sql` (`manutenzione_costo` + trigger sul tetto della fattura).

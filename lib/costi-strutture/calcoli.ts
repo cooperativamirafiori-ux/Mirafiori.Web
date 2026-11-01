@@ -20,6 +20,11 @@
  *     in Costi Strutture si conta solo la parte del fornitore esterno, e i
  *     costi diretti "Cura Ambienti" non si contano: quel lavoro è già nei
  *     Lavori Cura Ambienti. Prima di quel mese si conta tutto come prima.
+ *   - costi delle richieste di manutenzione (1/11/2026, docs/manutenzioni-piano.md):
+ *     fatture cc24 collegate, ore, spese, nel mese della loro data, nel parziale
+ *     Manutenzioni della struttura della richiesta. Un ticket che ha costi lì
+ *     NON si conta più anche dalla sua riga MAN-… in Costi Strutture: vale la
+ *     sezione Costi, che è più completa.
  */
 
 import { MESI_FREQUENZA, type CostoFisso } from '@/types/costi-fissi'
@@ -50,6 +55,18 @@ export interface LavoroCa {
   importo: number | null
 }
 
+/** Un costo di una richiesta di manutenzione (lib/manutenzioni/costi.ts). */
+export interface CostoManutenzione {
+  data: string
+  strutturaId: number | null
+  idRichiesta: string
+  tipo: 'fattura' | 'ore' | 'spesa'
+  /** null = ore senza tariffa interna del mese. */
+  importo: number | null
+  descrizione: string
+  pdfUrl: string | null
+}
+
 export interface Fonti {
   anno: number
   oggi: string                 // ISO
@@ -58,6 +75,9 @@ export interface Fonti {
   costi: CostoSp[]
   fissi: CostoFisso[]
   lavori: LavoroCa[]
+  manutenzioni: CostoManutenzione[]
+  /** Ticket MAN-… che hanno costi nella sezione Costi: la loro riga in Costi Strutture non si conta. */
+  ticketConCosti: Set<string>
   daCollegare: { codici: number; importo: number }
   /** Fonti che non hanno risposto: diventano avvisi, mai zeri silenziosi. */
   guasti: string[]
@@ -199,6 +219,7 @@ export function calcolaCruscotto(f: Fonti): CruscottoStrutture {
     }
     const sc = schede.get(c.strutturaId)
     if (!sc) continue
+    if (f.ticketConCosti.has(c.descrizione)) continue
     const ca = inizioCa.get(sc.id)
     if (ca !== undefined && d.getMonth() >= ca) {
       if (c.esterno !== null) {
@@ -275,6 +296,20 @@ export function calcolaCruscotto(f: Fonti): CruscottoStrutture {
     const m = Number(l.mese.slice(5, 7)) - 1
     aggiungi(sc, 'cura_ambienti', m, l.importo)
     sc.movimenti.push({ data: l.mese, parziale: 'cura_ambienti', sotto: null, descrizione: l.titolo, importo: tondo(l.importo), link: null })
+  }
+
+  // --- Costi delle richieste di manutenzione -----------------------------
+  const SOTTO_MAN = { fattura: 'Fattura', ore: 'Ore Cura Ambienti', spesa: 'Spesa' } as const
+  for (const c of f.manutenzioni) {
+    if (!c.strutturaId || !c.data.startsWith(String(anno))) continue
+    const sc = schede.get(c.strutturaId)
+    if (!sc) continue
+    if (c.importo == null) {
+      sc.avvisi.push(`${c.descrizione} (${c.data}): manca la tariffa interna del mese, importo non calcolabile.`)
+      continue
+    }
+    aggiungi(sc, 'manutenzioni', Number(c.data.slice(5, 7)) - 1, c.importo)
+    sc.movimenti.push({ data: c.data, parziale: 'manutenzioni', sotto: SOTTO_MAN[c.tipo], descrizione: c.descrizione, importo: tondo(c.importo), link: c.pdfUrl })
   }
 
   // --- Totali -------------------------------------------------------------

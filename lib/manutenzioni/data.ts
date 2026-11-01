@@ -64,6 +64,23 @@ export async function getRichiesteAperte(): Promise<RichiestaManutenzione[]> {
   return res.value.map(mapRichiesta)
 }
 
+/**
+ * Richieste completate di recente (per data della richiesta), le più nuove
+ * prima. Servono al Pannello: le fatture arrivano spesso dopo la chiusura e
+ * vanno collegate alla richiesta già chiusa.
+ */
+export async function getRichiesteCompletateRecenti(giorni = 120, massimo = 60): Promise<RichiestaManutenzione[]> {
+  const dal = new Date(Date.now() - giorni * 86_400_000).toISOString()
+  const res = await graphGet<{ value: any[] }>(
+    `${listBase('richieste')}?$select=${RICHIESTA_FIELDS}&$filter=fields/Stato eq 'Completata'&$orderby=fields/DataRichiesta desc&$top=500`,
+    { Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly' }
+  )
+  return res.value
+    .map(mapRichiesta)
+    .filter((r) => r.dataRichiesta >= dal)
+    .slice(0, massimo)
+}
+
 /** Richieste del richiedente corrente — filtra per RichiedenteLookupId (Person column email non disponibile via Graph) */
 
 export async function getRichiesteByEmail(email: string): Promise<RichiestaManutenzione[]> {
