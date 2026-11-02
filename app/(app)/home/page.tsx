@@ -6,6 +6,7 @@ import { accessoQonto, puoVedereQonto } from '@/lib/qonto/accesso'
 import { AREA_IT } from '@/types/it'
 import { situazioneResponsabile } from '@/lib/timbrature/data'
 import { accessoPreventivi, puoEntrare as puoPreventivi } from '@/lib/preventivi/accesso'
+import { LinkDonazioniCard } from './LinkDonazioniCard'
 
 export default async function HomePage() {
   const session = await auth()
@@ -175,6 +176,7 @@ export default async function HomePage() {
             titolo="Amazing"
             sottotitolo="Vai al sito Amazing Mirafiori"
           />
+          <LinkDonazioniCard />
         </Sezione>
 
         {/* Aree riservate */}
