@@ -113,12 +113,24 @@ for (const p of pagine) {
   if (!ESCLUSE.has(p) && !coperte.has(p)) errori.push(`pagina senza guida: ${p} (aggiungila alla scheda della guida della sua area)`)
 }
 
-// L'assistente manda tutta la guida a ogni domanda: oltre ~100.000 token il
-// prezzo per richiesta quintuplica (docs/assistente.md). ~2,45 caratteri per token.
-const caratteri = file.reduce((n, f) => n + fs.readFileSync(path.join(CARTELLA_GUIDA, f), 'utf8').length, 0)
-const tokenStimati = Math.round(caratteri / 2.45)
-if (tokenStimati > 92_000) {
-  avvisi.push(`la guida pesa circa ${tokenStimati} token: l'assistente si avvicina alla soglia dei 100.000 (vedi docs/assistente.md)`)
+// Oltre ~100.000 token di ingresso il prezzo per richiesta quintuplica
+// (docs/assistente.md). Dal 1/11/2026 l'assistente manda la guida generale più al
+// massimo 4 guide d'area (quella della pagina + 3 scelte): il caso peggiore sono
+// le 4 più pesanti. Tutta la guida insieme serve solo come ripiego, se la scelta
+// non riesce. ~2,45 caratteri per token.
+const tok = (f) => Math.round(fs.readFileSync(path.join(CARTELLA_GUIDA, f), 'utf8').length / 2.45)
+const tokenStimati = file.reduce((n, f) => n + tok(f), 0)
+const tokenGenerale = file.includes('generale.md') ? tok('generale.md') : 0
+const piuPesanti = file.filter((f) => f !== 'generale.md').map(tok).sort((a, b) => b - a).slice(0, 4)
+const tokenPeggiore = tokenGenerale + piuPesanti.reduce((a, b) => a + b, 0) + 6_000
+if (tokenPeggiore > 92_000) {
+  avvisi.push(`la richiesta più pesante arriva a circa ${tokenPeggiore} token: vicina alla soglia dei 100.000 (vedi docs/assistente.md)`)
+}
+if (tokenStimati > 95_000) {
+  avvisi.push(`tutta la guida pesa circa ${tokenStimati} token: se la scelta delle guide non riesce, la richiesta di ripiego supera i 100.000`)
+}
+for (const f of file) {
+  if (tok(f) > 25_000) avvisi.push(`${f} pesa circa ${tok(f)} token: valuta di dividerla in due aree`)
 }
 
 for (const a of avvisi) console.log('⚠️  ' + a)
@@ -127,4 +139,4 @@ if (errori.length) {
   console.log(`\n${errori.length} errori su ${file.length} guide.`)
   process.exit(1)
 }
-console.log(`✅ Guida a posto: ${file.length} guide, ${coperte.size} pagine descritte su ${pagine.length - ESCLUSE.size}, circa ${tokenStimati} token.`)
+console.log(`✅ Guida a posto: ${file.length} guide, ${coperte.size} pagine descritte su ${pagine.length - ESCLUSE.size}, circa ${tokenStimati} token in tutto, richiesta più pesante circa ${tokenPeggiore}.`)

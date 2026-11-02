@@ -40,21 +40,37 @@ persona non può aprire diventa testo semplice.
 
 - Modello: `claude-haiku-5-5` (cambiabile con la variabile `ASSISTENTE_MODELLO`).
   Stessa chiave della lettura documenti: `ANTHROPIC_API_KEY`.
-- Tutta la guida va nel prompt di sistema con **cache di un'ora**: dalla seconda domanda
-  dell'ora si paga la lettura in cache (0,01 $/milione di token).
-- Ordine di grandezza (prezzi di ott 2026, guida da ~85.000 token): circa 0,1 centesimi a
-  domanda con la cache calda, circa 2 centesimi per la prima domanda dell'ora.
 - Tetto: 40 domande al giorno per persona (`ASSISTENTE_LIMITE_GIORNO`).
 
-### ⚠️ La soglia dei 100.000 token
+### ⚠️ La soglia dei 100.000 token — e perché si mandano solo alcune guide
 
-Per Haiku 5.5, una richiesta che supera i **100.000 token di ingresso** paga **tutto** a
-prezzo quintuplo. A ott 2026 la guida ne pesa ~85.000. `node scripts/controlla-guida.mjs`
-stampa la stima e avvisa sopra i 92.000; il server scrive un avviso nei log sopra i 95.000.
+Per Haiku 5.5, una richiesta che supera i **100.000 token di ingresso** paga **tutto**
+(ingresso, cache, risposta) a prezzo quintuplo. La cache conta per la soglia. A fine ott
+2026 la guida intera pesava ~89.000 token: ogni domanda era a un passo dalla soglia.
 
-Quando ci si arriva, la strada è mandare solo le guide che servono: `generale.md` sempre,
-più quella dell'area della pagina corrente e quelle delle aree nominate nella domanda.
-Non accorciare le guide per stare sotto: sono anche il manuale per le persone.
+**Dal 1 nov 2026 l'assistente non manda più tutta la guida** (`lib/assistente/scelta.ts`):
+
+1. una prima chiamata a Haiku, piccola (~2.000 token: l'indice delle aree con descrizione
+   e titoli delle pagine, più le ultime due battute), risponde `{"aree":[…]}` con al massimo
+   3 guide utili;
+2. la domanda vera riceve: guida **generale** (sempre) + guida dell'**area della pagina
+   aperta** + le guide scelte. L'elenco di **tutte** le pagine con i permessi resta, così
+   l'assistente sa comunque dove mandare la persona;
+3. se la scelta fallisce (errore, niente JSON, oltre 8 secondi) si mandano **tutte** le
+   guide come prima: la risposta arriva lo stesso, a prezzo pieno. Nei log Vercel ogni
+   domanda scrive `[assistente] guide scelte|tutte: … — N token`.
+
+Cache di un'ora su due blocchi: istruzioni + generale (uguale per tutti) e le guide scelte,
+sempre nell'ordine dei file, così le stesse aree nell'ora si leggono dalla cache.
+
+Ordine di grandezza (prezzi di nov 2026): una domanda pesa 10–30.000 token invece di
+~90.000; nel caso peggiore (le 4 guide più pesanti) ~50.000. La chiamata di scelta costa
+circa 0,02 centesimi.
+
+`node scripts/controlla-guida.mjs` stampa il peso totale e quello della richiesta più pesante;
+avvisa se questa supera 92.000, se tutta la guida supera 95.000 (il ripiego sforerebbe) e se
+una singola guida supera 25.000 token (meglio dividerla). Non accorciare le guide per stare
+sotto: sono anche il manuale per le persone.
 
 ## Verifica fatta (30 ott 2026)
 

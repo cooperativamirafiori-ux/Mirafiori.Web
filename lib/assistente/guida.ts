@@ -20,23 +20,38 @@ export interface PaginaGuida {
   area: string
 }
 
-export interface Guida {
-  /** Testo completo di tutte le guide, uno dopo l'altro, senza le schede. */
+/** Una guida d'area: all'assistente si mandano solo quelle che servono alla domanda. */
+export interface GuidaArea {
+  /** Nome del file senza .md, es. "timbrature". */
+  chiave: string
+  area: string
+  /** La riga `descrizione:` della scheda: è l'indice da cui si sceglie. */
+  descrizione: string
+  /** Il testo già incorniciato in <guida area="…">, senza la scheda. */
   testo: string
+}
+
+export interface Guida {
+  /** Testo completo di tutte le guide, senza le schede: serve solo come ripiego. */
+  testo: string
+  /** Le guide una per una, generale.md per prima. */
+  guide: GuidaArea[]
   pagine: PaginaGuida[]
 }
 
 let cache: Guida | null = null
 
-function leggiScheda(testo: string): { area: string; pagine: PaginaGuida[]; corpo: string } {
+function leggiScheda(testo: string): { area: string; descrizione: string; pagine: PaginaGuida[]; corpo: string } {
   const m = testo.match(/^---\n([\s\S]*?)\n---\n/)
-  if (!m) return { area: '', pagine: [], corpo: testo }
+  if (!m) return { area: '', descrizione: '', pagine: [], corpo: testo }
   let area = ''
+  let descrizione = ''
   const pagine: PaginaGuida[] = []
   let corrente: PaginaGuida | null = null
   for (const r of m[1].split('\n')) {
     let x: RegExpMatchArray | null
     if ((x = r.match(/^area:\s*(.+)$/))) area = x[1].trim()
+    else if ((x = r.match(/^descrizione:\s*(.+)$/))) descrizione = x[1].trim()
     else if ((x = r.match(/^\s*-\s*percorso:\s*(.+)$/))) {
       corrente = { percorso: x[1].trim(), titolo: '', accesso: [], cosa: '', area: '' }
       pagine.push(corrente)
@@ -46,7 +61,7 @@ function leggiScheda(testo: string): { area: string; pagine: PaginaGuida[]; corp
       corrente.accesso = x[1].split(',').map((s) => s.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean)
   }
   for (const p of pagine) p.area = area
-  return { area, pagine, corpo: testo.slice(m[0].length) }
+  return { area, descrizione, pagine, corpo: testo.slice(m[0].length) }
 }
 
 export function leggiGuida(): Guida {
@@ -58,14 +73,19 @@ export function leggiGuida(): Guida {
     .filter((f) => f.endsWith('.md') && f !== 'LEGGIMI.md')
     .sort((a, b) => (a === 'generale.md' ? -1 : b === 'generale.md' ? 1 : a.localeCompare(b)))
 
-  const parti: string[] = []
+  const guide: GuidaArea[] = []
   const pagine: PaginaGuida[] = []
   for (const f of file) {
-    const { area, pagine: p, corpo } = leggiScheda(fs.readFileSync(path.join(cartella, f), 'utf8'))
+    const { area, descrizione, pagine: p, corpo } = leggiScheda(fs.readFileSync(path.join(cartella, f), 'utf8'))
     pagine.push(...p)
-    parti.push(`<guida area="${area || f}">\n${corpo.trim()}\n</guida>`)
+    guide.push({
+      chiave: f.replace(/\.md$/, ''),
+      area: area || f,
+      descrizione,
+      testo: `<guida area="${area || f}">\n${corpo.trim()}\n</guida>`,
+    })
   }
-  cache = { testo: parti.join('\n\n'), pagine }
+  cache = { testo: guide.map((g) => g.testo).join('\n\n'), guide, pagine }
   return cache
 }
 
