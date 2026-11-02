@@ -19,7 +19,7 @@ export interface RigaDettaglio {
   chi: string             // fornitore, o causale del costo inserito a mano
   numero?: string
   importo: number
-  fonte: 'fattura' | 'diretto' | 'ricavo'
+  fonte: 'fattura' | 'diretto' | 'ricavo' | 'interno'
 }
 
 export interface FornitoreTop {
@@ -38,6 +38,14 @@ export interface CentroCruscotto {
   /** Costi inseriti a mano (Manutenzioni → Inserisci costo, Costi Strutture). */
   costiDiretti: number
   nDiretti: number
+  /**
+   * Costi interni (2/11/2026): addebiti ricevuti da altri servizi (Cura Ambienti,
+   * addebiti a mano) più la quota dei costi generali di cc23.
+   */
+  interniRicevuti: number
+  /** Quanto questo servizio ha addebitato agli altri: si toglie dai suoi costi. */
+  interniRecuperati: number
+  nInterni: number
   /** Fatture emesse passate da "Richiesta fattura". */
   ricavi: number
   nRicavi: number
@@ -51,6 +59,15 @@ export interface CentroCruscotto {
   saldoQonto: number | null
   /** Solo nei dati di esempio: il budget non esiste ancora. */
   budget: number | null
+}
+
+/**
+ * Il costo di un centro: fatture + costi a mano + costi interni ricevuti − recuperati.
+ * Sulla cooperativa intera ricevuti e recuperati si annullano: lo stesso costo non
+ * conta due volte.
+ */
+export function costoCentro(c: Pick<CentroCruscotto, 'costiFatture' | 'costiDiretti' | 'interniRicevuti' | 'interniRecuperati'>): number {
+  return c.costiFatture + c.costiDiretti + (c.interniRicevuti ?? 0) - (c.interniRecuperati ?? 0)
 }
 
 export interface DatiCruscotto {

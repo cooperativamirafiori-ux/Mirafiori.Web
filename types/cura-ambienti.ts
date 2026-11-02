@@ -6,7 +6,17 @@
 /** Codice del centro di costo di Cura Ambienti. Chi lo coordina entra nella sezione. */
 export const CC_CURA_AMBIENTI = 'cc24'
 
-export type Figura = 'pulizie' | 'manutenzione'
+/**
+ * Le figure di Cura Ambienti. `sostituzione` (2/11/2026): personale mandato in
+ * emergenza a coprire un buco in un altro servizio, con la sua tariffa.
+ */
+export type Figura = 'pulizie' | 'manutenzione' | 'sostituzione'
+
+export const FIGURE: Record<Figura, string> = {
+  pulizie: 'pulizie',
+  manutenzione: 'manutenzione',
+  sostituzione: 'sostituzione personale',
+}
 
 export type StatoLavoro =
   | 'bozza'
@@ -31,6 +41,7 @@ export const STATI_LAVORO: Record<StatoLavoro, { etichetta: string; tono: Tono }
 export interface Tariffe {
   pulizie: number | null
   manutenzione: number | null
+  sostituzione: number | null
 }
 
 /** Tariffe che per una struttura sostituiscono quelle di base, per figura. */
@@ -69,6 +80,7 @@ export interface Ricorrenza {
   giornoSettimana: number | null
   orePulizie: number
   oreManutenzione: number
+  oreSostituzione: number
   materiali: number
   stato: StatoRicorrenza
   dalMese: string
@@ -96,9 +108,12 @@ export interface Lavoro {
   stato: StatoLavoro
   prevOrePulizie: number
   prevOreManutenzione: number
+  prevOreSostituzione: number
   prevMateriali: number
   consOrePulizie: number | null
   consOreManutenzione: number | null
+  /** null = non scritto; nel consuntivo vale zero (la figura nuova è facoltativa). */
+  consOreSostituzione: number | null
   consMateriali: number | null
   noteConsuntivo: string | null
   vistoDa: string | null
@@ -137,9 +152,11 @@ export interface DatiLavoro {
   giornoSettimana: number | null
   prevOrePulizie: number
   prevOreManutenzione: number
+  prevOreSostituzione: number
   prevMateriali: number
   consOrePulizie: number | null
   consOreManutenzione: number | null
+  consOreSostituzione: number | null
   consMateriali: number | null
   noteConsuntivo: string | null
 }

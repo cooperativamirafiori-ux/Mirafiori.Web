@@ -26,6 +26,10 @@ async function controlla(id: string) {
   if (!puoScrivereDa(g.accesso, prima.ccDa)) {
     return { errore: NextResponse.json({ error: 'Puoi modificare solo gli addebiti dei servizi che coordini' }, { status: 403 }) } as const
   }
+  if (prima.origine !== 'manuale') {
+    const dove = prima.origine === 'manutenzione' ? 'nei Costi della richiesta di manutenzione' : 'nel Lavoro di Cura Ambienti'
+    return { errore: NextResponse.json({ error: `Questo addebito lo scrive l'app: si corregge ${dove}` }, { status: 409 }) } as const
+  }
   if (prima.bloccato) {
     return { errore: NextResponse.json({ error: 'Il mese è chiuso: rettifica con un addebito nel mese corrente' }, { status: 409 }) } as const
   }

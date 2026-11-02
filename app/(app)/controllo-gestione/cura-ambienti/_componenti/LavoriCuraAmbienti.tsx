@@ -44,6 +44,7 @@ function oreRicorrenza(r: Ricorrenza): string {
   const parti = [
     r.orePulizie ? `${ore(r.orePulizie)} pulizie` : null,
     r.oreManutenzione ? `${ore(r.oreManutenzione)} manutenzione` : null,
+    r.oreSostituzione ? `${ore(r.oreSostituzione)} sostituzione personale` : null,
   ].filter(Boolean)
   if (!parti.length) return 'ore da definire'
   return `${parti.join(' + ')}${r.frequenza === 'settimanale' ? ' ogni volta' : ' al mese'}`

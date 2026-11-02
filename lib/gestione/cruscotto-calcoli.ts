@@ -44,6 +44,24 @@ export interface InputCruscotto {
   diretti: Array<{ codice: string | null; data: string; chi: string; importo: number }>
   ricavi: Array<{ centroNome: string; data: string; chi: string; numero?: string; importo: number }>
   qonto: Array<{ codice: string; saldo: number | null }>
+  /**
+   * Addebiti interni dell'anno (a mano e automatici: Lavori di Cura Ambienti,
+   * manutenzioni). Costo per chi riceve, recupero per chi dà.
+   */
+  interni?: Array<{ da: string; a: string; mese: number; importo: number; descrizione: string }>
+  /**
+   * Costi generali da dividere (2/11/2026): il centro d'origine (cc23), i suoi
+   * costi mese per mese (fatture di TUTTA la cooperativa, anche se chi guarda
+   * non vede cc23) e le versioni delle percentuali.
+   */
+  generali?: {
+    origine: string
+    nomeOrigine: string
+    baseMensile: Mesi
+    versioni: Array<{ dal: string; quote: Array<{ ccCodice: string; percentuale: number }> }>
+  }
+  /** Nomi di tutti i centri, anche quelli che chi guarda non vede: servono a dire «da chi». */
+  nomiCentri?: Record<string, string>
   budget?: Record<string, number>
   avvisi: string[]
 }
@@ -96,6 +114,9 @@ export function costruisciCruscotto(i: InputCruscotto): DatiCruscotto {
       nFatture: 0,
       costiDiretti: 0,
       nDiretti: 0,
+      interniRicevuti: 0,
+      interniRecuperati: 0,
+      nInterni: 0,
       ricavi: 0,
       nRicavi: 0,
       ore: 0,
@@ -167,6 +188,44 @@ export function costruisciCruscotto(i: InputCruscotto): DatiCruscotto {
     ultimeCc.get(c.codice)!.push({ data: d.data, chi: d.chi, importo: d.importo, fonte: 'diretto' })
   }
 
+  // ---- costi interni: addebiti e quota dei costi generali ----------------
+  // Due righe che si annullano: costo su chi riceve, recupero su chi dà.
+  const nomeDi = (codice: string) => centri.get(codice)?.nome ?? i.nomiCentri?.[codice] ?? codice
+  const interno = (da: string, a: string, m: number, importo: number, chi: string) => {
+    if (!(importo > 0) || m < 1 || m > 12) return
+    const data = `${i.anno}-${String(m).padStart(2, '0')}-01`
+    const ricevente = centri.get(a)
+    if (ricevente) {
+      ricevente.interniRicevuti += importo
+      ricevente.nInterni += 1
+      ricevente.mensileCosti[m - 1] += importo
+      ultimeCc.get(a)!.push({ data, chi: `Da ${nomeDi(da)}: ${chi}`, importo, fonte: 'interno' })
+    }
+    const fornitore = centri.get(da)
+    if (fornitore) {
+      fornitore.interniRecuperati += importo
+      fornitore.nInterni += 1
+      fornitore.mensileCosti[m - 1] -= importo
+      ultimeCc.get(da)!.push({ data, chi: `Addebitato a ${nomeDi(a)}: ${chi}`, importo: -importo, fonte: 'interno' })
+    }
+  }
+  for (const x of i.interni ?? []) interno(x.da, x.a, x.mese, x.importo, x.descrizione)
+
+  if (i.generali) {
+    const g = i.generali
+    const versioni = [...g.versioni].sort((a, b) => b.dal.localeCompare(a.dal))
+    for (let m = 1; m <= 12; m++) {
+      const base = g.baseMensile[m - 1] ?? 0
+      if (!(base > 0)) continue
+      const fine = new Date(Date.UTC(i.anno, m, 0)).toISOString().slice(0, 10)
+      const v = versioni.find((x) => x.dal <= fine)
+      if (!v) continue
+      for (const q of v.quote) {
+        interno(g.origine, q.ccCodice, m, tondo((base * q.percentuale) / 100), `quota costi generali (${q.percentuale.toLocaleString('it-IT')}%)`)
+      }
+    }
+  }
+
   // ---- ricavi: il CC arriva per nome -----------------------------------
   const perNome = new Map<string, CentroCruscotto>()
   for (const c of centri.values()) perNome.set(chiaveNome(c.nome), c)
@@ -213,6 +272,8 @@ export function costruisciCruscotto(i: InputCruscotto): DatiCruscotto {
   for (const c of centri.values()) {
     c.costiFatture = tondo(c.costiFatture)
     c.costiDiretti = tondo(c.costiDiretti)
+    c.interniRicevuti = tondo(c.interniRicevuti)
+    c.interniRecuperati = tondo(c.interniRecuperati)
     c.ricavi = tondo(c.ricavi)
     c.ore = tondo(c.ore)
     c.mensileCosti = c.mensileCosti.map(tondo)

@@ -87,6 +87,11 @@ mesi».
 
 ### Ribaltamento nel registro: rimandato apposta
 
+> **Aggiornato il 2/11/2026**: il ribaltamento sulla struttura c'è, come **addebito interno
+> automatico** cc24 → CC della struttura, uno per richiesta e per mese, e il cruscotto del CdG lo
+> legge. Vedi `servizi-interni-piano.md` § Ribaltamento. Quello che segue resta vero solo per il
+> registro `movimento`.
+
 Il piano di Cura Ambienti prevedeva la coppia `SINT` / `RINT` nel registro. Al 1/11/2026 il
 registro (`movimento`) è **vuoto** e nessuna schermata lo legge: il cruscotto del CdG legge le
 fatture SDI per centro di costo, Costi per struttura legge le sue fonti. Scrivere lì adesso non

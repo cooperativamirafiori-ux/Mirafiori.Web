@@ -319,6 +319,14 @@ registrarlo due volte: o la spesa o la fattura.
 I costi finiscono nel cruscotto «Costi per struttura», alla voce Manutenzioni della
 struttura della richiesta, nel mese della loro data.
 
+Ogni mese Cura Ambienti **addebita** i costi della richiesta al centro di costo della
+struttura: l'addebito nasce da solo e lo trovi negli Addebiti interni del Controllo di
+Gestione, con una riga per ogni fattura, gruppo di ore e spesa. Fino al **10 del mese dopo**
+puoi aggiungere o togliere costi e l'addebito si aggiorna; dopo, quel mese è chiuso: un costo
+di quel mese non si toglie più, e un costo nuovo con una data vecchia va nel primo mese
+ancora aperto. Se la struttura non ha un centro di costo (o è Cura Ambienti stessa) i costi
+restano su Cura Ambienti e il riquadro lo dice.
+
 ## Come chiudo una richiesta quando l'intervento è fatto?
 
 1. Nel [Pannello di controllo](/dashboard) tocca la richiesta.

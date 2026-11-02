@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { AddebitoInterno, AltroCosto, CentroScelta } from '@/types/servizi-interni'
+import { ORIGINI_ADDEBITO, type AddebitoInterno, type AltroCosto, type CentroScelta } from '@/types/servizi-interni'
 import { Banner } from '@/components/ui/Banner'
 import { Kpi } from '@/components/ui/Kpi'
 import { Vuoto } from '@/components/ui/Vuoto'
@@ -315,7 +315,8 @@ export function AddebitiInterni({ apri }: { apri?: string }) {
       ) : (
         <ul className="space-y-3">
           {visibili.map((a) => {
-            const scrive = miei.has(a.ccDa) && !a.bloccato
+            // Gli automatici (Lavori di Cura Ambienti, manutenzioni) si correggono alla loro origine.
+            const scrive = miei.has(a.ccDa) && !a.bloccato && a.origine === 'manuale'
             const vista_ = miei.has(a.ccA)
             return (
               <li key={a.id} id={`addebito-${a.id}`}
@@ -328,6 +329,12 @@ export function AddebitiInterni({ apri }: { apri?: string }) {
                   <strong className="text-gray-800 whitespace-nowrap">{a.totale != null ? euro(a.totale) : '—'}</strong>
                 </div>
                 <p className="text-sm text-gray-700 whitespace-pre-line break-words">{a.descrizione}</p>
+                {a.origine !== 'manuale' && (
+                  <p className="text-xs text-violet-700 bg-violet-50 border border-violet-100 rounded-lg px-2 py-1 break-words">
+                    {ORIGINI_ADDEBITO[a.origine]}{a.strutturaNome ? ` · ${a.strutturaNome}` : ''}: lo scrive l&apos;app e si aggiorna da solo fino al 10 del mese dopo.
+                    {a.origine === 'manutenzione' ? ' Si corregge nei Costi della richiesta.' : ' Si corregge nel Lavoro.'}
+                  </p>
+                )}
                 <ul className="text-xs text-gray-600 space-y-0.5">
                   {a.ore > 0 && (
                     <li>Ore di lavoro: {virgola(a.ore)} h × {a.euroOra != null ? euro(a.euroOra) : '—'}/h = {a.euroOra != null ? euro(a.ore * a.euroOra) : 'forfait mancante'}</li>

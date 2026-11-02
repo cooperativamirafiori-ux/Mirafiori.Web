@@ -20,6 +20,8 @@ import { fattureConfigurato, getRichiesteFattura } from '@/lib/fatture/data'
 import { calcoloIva } from '@/types/fatture'
 import { qontoConfigurato } from '@/lib/qonto/client'
 import { getContiQonto } from '@/lib/qonto/data'
+import { getAddebiti, getRipartizioni } from '@/lib/servizi-interni/data'
+import { CC_COSTI_GENERALI } from '@/types/servizi-interni'
 import { costruisciCruscotto, type InputCruscotto } from './cruscotto-calcoli'
 import { inputEsempio } from './cruscotto-esempio'
 import type { DatiCruscotto } from '@/types/cruscotto'
@@ -96,6 +98,17 @@ async function leggiQonto(): Promise<InputCruscotto['qonto']> {
     .map((c) => ({ codice: c.ccCodice as string, saldo: c.saldo }))
 }
 
+/**
+ * Addebiti interni dell'anno, tutti: a mano e automatici (Lavori di Cura
+ * Ambienti, manutenzioni). Il calcolo tiene solo quelli dei centri visibili.
+ */
+async function leggiInterni(anno: number): Promise<NonNullable<InputCruscotto['interni']>> {
+  const addebiti = await getAddebiti(anno, { tutti: true, codici: [] })
+  return addebiti
+    .filter((a) => a.totale != null && a.totale > 0)
+    .map((a) => ({ da: a.ccDa, a: a.ccA, mese: Number(a.mese.slice(5, 7)), importo: a.totale!, descrizione: a.descrizione }))
+}
+
 /** Una fonte che fallisce diventa un avviso e un elenco vuoto, mai un'eccezione. */
 async function prova<T>(nome: string, avvisi: string[], f: () => Promise<T>, vuoto: T): Promise<T> {
   try {
@@ -130,12 +143,24 @@ export async function leggiCruscotto(
   if (opzioni.esempio) return costruisciCruscotto(inputEsempio(base))
 
   const avvisi: string[] = []
-  const [fatture, ore, ricavi, qonto] = await Promise.all([
+  const [fatture, ore, ricavi, qonto, interni, ripartizioni] = await Promise.all([
     prova('Fatture passive (Supabase)', avvisi, () => leggiFatture(anno), []),
     prova('Ore timbrate (Supabase)', avvisi, () => leggiOre(anno), []),
     prova('Ricavi da Richiesta fattura (SharePoint)', avvisi, () => leggiRicavi(anno), []),
     prova('Saldi Qonto', avvisi, () => leggiQonto(), []),
+    prova('Addebiti interni (Supabase)', avvisi, () => leggiInterni(anno), []),
+    prova('Percentuali dei costi generali (Supabase)', avvisi, () => getRipartizioni(CC_COSTI_GENERALI), []),
   ])
+
+  // Costi generali: la base sono le fatture di cc23 di tutta la cooperativa,
+  // anche quando chi guarda non vede cc23 (la sua quota dipende da quelle).
+  const baseGenerali = Array.from({ length: 12 }, () => 0)
+  for (const f of fatture) {
+    if (f.cc_codice !== CC_COSTI_GENERALI) continue
+    const m = f.mese >= 1 && f.mese <= 12 ? f.mese : Number(f.data.slice(5, 7))
+    if (m >= 1 && m <= 12) baseGenerali[m - 1] += f.importo ?? 0
+  }
+  const nomiCentri = Object.fromEntries(tuttiCentri.map((c) => [c.codice, c.nome]))
 
   // Il coordinatore vede i suoi centri e basta: le fatture degli altri non
   // arrivano nemmeno al calcolo, così non finiscono nella pagina.
@@ -143,5 +168,23 @@ export async function leggiCruscotto(
 
   // I costi inseriti a mano (Costi Strutture) restano fuori: la fattura del
   // fornitore arriva comunque come XML, e contarli sarebbe un doppione.
-  return costruisciCruscotto({ ...base, fatture: visibili, ore, diretti: [], ricavi, qonto, avvisi })
+  return costruisciCruscotto({
+    ...base,
+    fatture: visibili,
+    ore,
+    diretti: [],
+    ricavi,
+    qonto,
+    interni,
+    generali: ripartizioni.length
+      ? {
+          origine: CC_COSTI_GENERALI,
+          nomeOrigine: nomiCentri[CC_COSTI_GENERALI] ?? CC_COSTI_GENERALI,
+          baseMensile: baseGenerali,
+          versioni: ripartizioni.map((r) => ({ dal: r.dal, quote: r.quote })),
+        }
+      : undefined,
+    nomiCentri,
+    avvisi,
+  })
 }

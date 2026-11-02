@@ -19,6 +19,7 @@ import { getTariffe, getTariffeStrutture } from '@/lib/cura-ambienti/data'
 import { tariffeDi } from '@/lib/cura-ambienti/flusso'
 import { segna } from '@/lib/pagamenti/assegnazione'
 import { getStruttureCc } from '@/lib/utenze/data'
+import { meseChiuso, meseDiAddebito } from '@/lib/servizi-interni/automatici'
 import type { Tariffe, TariffeStrutture } from '@/types/cura-ambienti'
 import type {
   CostoPratica,
@@ -36,7 +37,7 @@ const IMPORTO_FATTURA = 'imponibile' as const
 const tondo = (n: number) => Math.round(n * 100) / 100
 
 const CAMPI = `id, richiesta_sp_id, id_richiesta, struttura_id, struttura_codice, cc_codice, tipo, data,
-  importo, ore, figura, descrizione, fornitore, creato_il,
+  importo, ore, figura, descrizione, fornitore, creato_il, mese_addebito,
   fattura_passiva ( id, numero_fornitore, data_fornitore, imponibile, totale, pdf_url )`
 
 /** Tariffe per mese, lette una volta sola per chiamata. */
@@ -67,6 +68,7 @@ async function mapCosti(righe: any[]): Promise<Array<CostoPratica & { strutturaI
       id: r.id,
       tipo: r.tipo,
       data: String(r.data),
+      meseAddebito: r.mese_addebito ? String(r.mese_addebito) : null,
       importo,
       ore: r.ore == null ? null : Number(r.ore),
       figura: r.figura ?? null,
@@ -165,8 +167,12 @@ function dataValida(d: unknown): string | null {
   return typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && !isNaN(Date.parse(d)) ? d : null
 }
 
-/** Aggiunge un costo alla richiesta. Lancia un Error con un messaggio da mostrare. */
-export async function aggiungiCosto(r: RichiestaManutenzione, d: NuovoCostoPratica, email: string): Promise<void> {
+/**
+ * Aggiunge un costo alla richiesta. Lancia un Error con un messaggio da mostrare.
+ * Ritorna il mese in cui il costo si addebita (vedi `meseDiAddebito`): chi chiama
+ * riscrive l'addebito di quel mese (lib/manutenzioni/ribaltamento.ts).
+ */
+export async function aggiungiCosto(r: RichiestaManutenzione, d: NuovoCostoPratica, email: string): Promise<string> {
   const struttura = (await getStruttureCc()).find((s) => s.id === r.struttura.id)
   const base = {
     richiesta_sp_id: r.spItemId,
@@ -241,15 +247,38 @@ export async function aggiungiCosto(r: RichiestaManutenzione, d: NuovoCostoPrati
     throw new Error('Tipo di costo non valido')
   }
 
+  // Il mese dell'addebito si fissa adesso: il mese del costo se è ancora aperto,
+  // altrimenti il primo mese aperto (si rettifica nel mese seguente, 2/11/2026).
+  const meseAddebito = meseDiAddebito(String(riga.data))
+  riga.mese_addebito = meseAddebito
+
   const { error } = await supabase().from('manutenzione_costo').insert(riga)
   if (error) {
     // Il tetto lo controlla anche il database: due collegamenti in contemporanea.
     if (/imponibile/.test(error.message)) throw new Error('Questa fattura è già stata distribuita tutta su altre manutenzioni')
     throw new Error(`Costo non salvato: ${error.message}`)
   }
+  return meseAddebito
 }
 
-export async function eliminaCosto(spItemId: string, costoId: string): Promise<boolean> {
+/**
+ * Toglie un costo. Se il suo mese di addebito è chiuso non si può: quel costo è
+ * già stato addebitato alla struttura e il numero non deve cambiare.
+ * Ritorna il mese di addebito del costo tolto (null se non trovato).
+ */
+export async function eliminaCosto(spItemId: string, costoId: string): Promise<string | null | false> {
+  const { data: prima, error: e1 } = await supabase()
+    .from('manutenzione_costo')
+    .select('mese_addebito, data')
+    .eq('id', costoId)
+    .eq('richiesta_sp_id', spItemId)
+    .maybeSingle()
+  if (e1) throw new Error(`Costo: ${e1.message}`)
+  if (!prima) return false
+  const mese = prima.mese_addebito ? String(prima.mese_addebito) : `${String(prima.data).slice(0, 7)}-01`
+  if (meseChiuso(mese)) {
+    throw new Error(`MESE_CHIUSO: il costo è già stato addebitato alla struttura nel mese chiuso (${mese.slice(5, 7)}/${mese.slice(0, 4)}) e non si toglie più`)
+  }
   const { data, error } = await supabase()
     .from('manutenzione_costo')
     .delete()
@@ -257,7 +286,7 @@ export async function eliminaCosto(spItemId: string, costoId: string): Promise<b
     .eq('richiesta_sp_id', spItemId)
     .select('id')
   if (error) throw new Error(`Costo non tolto: ${error.message}`)
-  return (data?.length ?? 0) > 0
+  return (data?.length ?? 0) > 0 ? mese : false
 }
 
 /** Il totale di più richieste insieme, per gli elenchi (Le mie richieste). */

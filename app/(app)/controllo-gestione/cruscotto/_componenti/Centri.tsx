@@ -6,7 +6,7 @@
  */
 
 import { useMemo, useState } from 'react'
-import type { CentroCruscotto } from '@/types/cruscotto'
+import { costoCentro, type CentroCruscotto } from '@/types/cruscotto'
 import { Linea } from './grafici'
 import { coloreArea, euro, euroBreve, gruppoArea, numero, useMontato } from './formato'
 import { SchedaCentro } from './SchedaCentro'
@@ -33,14 +33,14 @@ export function Centri({
 
   const elenco = useMemo(() => {
     const l = filtroArea ? centri.filter((c) => gruppoArea(c.area) === filtroArea) : [...centri]
-    const costo = (c: CentroCruscotto) => c.costiFatture + c.costiDiretti
+    const costo = (c: CentroCruscotto) => costoCentro(c)
     if (ordine === 'costi') l.sort((a, b) => costo(b) - costo(a) || a.nome.localeCompare(b.nome, 'it'))
     if (ordine === 'ore') l.sort((a, b) => b.ore - a.ore || a.nome.localeCompare(b.nome, 'it'))
     if (ordine === 'nome') l.sort((a, b) => a.nome.localeCompare(b.nome, 'it'))
     return l
   }, [centri, filtroArea, ordine])
 
-  const max = Math.max(1, ...centri.map((c) => c.costiFatture + c.costiDiretti))
+  const max = Math.max(1, ...centri.map((c) => costoCentro(c)))
   const scelto = centri.find((c) => c.codice === aperto)
 
   return (
@@ -114,7 +114,7 @@ function Card({
 }) {
   const montato = useMontato()
   const colore = coloreArea(c.area)
-  const costi = c.costiFatture + c.costiDiretti
+  const costi = costoCentro(c)
   const vuoto = costi === 0
   const budgetUsato = c.budget ? costi / c.budget : null
   // Budget: proporzione dell'anno trascorsa, per dire se si è "avanti" o no.

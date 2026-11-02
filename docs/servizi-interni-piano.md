@@ -45,9 +45,10 @@ Fatto: addebiti interni (schermata, forfait, altri costi, visto, mail al nuovo a
 al «non mi torna», chiusura al 10 del mese dopo) e la sezione **Costi generali** per le
 percentuali. Schema: `supabase/servizi_interni.sql`.
 
-Da fare, nell'ordine: addebiti ricorrenti; i cruscotti che leggono addebiti e quota dei costi
-generali; i Lavori di Cura Ambienti e i Costi delle manutenzioni come sorgenti (se e quando
-Dennis vorrà portarli qui); la porta unica nel registro.
+Fatto il 2/11/2026: Lavori di Cura Ambienti e Costi delle manutenzioni come sorgenti
+automatiche, e il cruscotto del Controllo di Gestione che legge addebiti e quota dei costi
+generali (§ Ribaltamento, in fondo). Da fare: addebiti ricorrenti; la mail di riepilogo a fine
+mese; la porta nel registro.
 
 ## Strumento 1 — Addebiti interni
 
@@ -122,3 +123,66 @@ totali della cooperativa la **escludono** (altrimenti lo stesso costo conterebbe
 4. **Cruscotti**: entrate e uscite interne per servizio, margine di chi lavora per gli altri.
 5. **Registro**: la porta unica, quando il cruscotto lo leggerà.
 
+
+## Ribaltamento — un solo strumento per tutti (2/11/2026)
+
+Dennis: «facciamo il ribaltamento, e controlla che lo stesso strumento sia usato per Cura
+Ambienti (pulizie, sostituzione personale, manutenzioni) e per tutte le casistiche in cui un
+servizio ribalta un costo su un altro».
+
+**Lo strumento è l'addebito interno.** Oltre a quelli scritti a mano ora ci sono quelli
+**automatici**, con `origine_tipo` sull'addebito:
+
+| Origine | Quando nasce | Righe |
+|---|---|---|
+| `lavoro_cura_ambienti` | Lavoro **consuntivato** per una struttura (non per un cliente esterno: quello si fattura) | una per figura con ore (ore × tariffa del mese) + «Materiali dedicati» |
+| `manutenzione` | ogni costo aggiunto/tolto in una richiesta; **uno per richiesta e per mese** | una per fattura (imponibile, «parte» se divisa), gruppo di ore, spesa |
+| (costi generali) | non è un addebito salvato: il cruscotto applica le percentuali di cc23 mese per mese | — |
+
+Decisioni (risposte di Dennis del 2/11):
+
+- diventano **addebiti** veri, nella stessa schermata, con visto e chiusura al 10;
+- nascono **subito** e si aggiornano fino al 10 del mese dopo, poi sono fermi;
+- **sostituzione personale** = nuova figura dei Lavori di Cura Ambienti con la sua tariffa
+  (`tariffa_interna` figura `sostituzione`, **da fissare**: finché manca, i lavori con quelle
+  ore non si addebitano e la scheda lo dice);
+- manutenzioni: **uno per richiesta al mese**;
+- costi generali: **stesso trattamento** nei cruscotti (costo per chi riceve, recupero per cc23).
+
+### Regole
+
+- **Importi alle tariffe di Cura Ambienti**, non al forfait di 18 €/h: gli automatici hanno
+  `ore = 0` e tutto nelle righe «altri costi», con la tariffa scritta nella descrizione.
+- **Un'unica porta**: `addebito_automatico_riscrivi()` (SQL, `supabase/ribaltamento.sql`)
+  scrive testata e righe in una transazione, toglie l'addebito con righe vuote, rifiuta un
+  mese chiuso, e **toglie il visto solo se cambiano importi o destinatario**. Chiamata da
+  `lib/servizi-interni/automatici.ts`, che non sa niente di tariffe: le righe le calcolano
+  `lib/cura-ambienti/ribaltamento.ts` e `lib/manutenzioni/ribaltamento.ts`.
+- **Mese dell'addebito**: quello del costo/lavoro se ancora aperto, altrimenti il primo mese
+  aperto (si rettifica nel mese seguente). Per le manutenzioni si fissa alla creazione del
+  costo (`manutenzione_costo.mese_addebito`); per i Lavori si ricava da `consuntivato_il`.
+  Così non cambia da solo col passare dei giorni.
+- **Mese chiuso**: un costo di manutenzione non si toglie più (409); un Lavoro consuntivato
+  per una struttura non si modifica più (`lavoroFermo`) e di notte diventa `addebitato`
+  (unico posto che mette quello stato: `segnaLavoriAddebitati`).
+- Struttura **senza centro di costo** o con centro **cc24**: niente addebito, il costo resta
+  su Cura Ambienti e la schermata lo dice.
+- Dalla schermata Addebiti interni gli automatici **non si modificano né si tolgono** (409 in
+  API, bottoni nascosti): si correggono all'origine. Niente mail a ogni aggiornamento.
+- Se il ribaltamento fallisce al salvataggio, il costo/lavoro resta salvato, la risposta porta
+  un avviso e il **giro notturno** `app/api/cron/ribaltamento` (03:45 UTC) riallinea i mesi
+  aperti. Idempotente.
+
+### Nei numeri
+
+- **Cruscotto del Controllo di Gestione**: per ogni centro `interniRicevuti` (addebiti
+  ricevuti + quota costi generali) e `interniRecuperati` (addebitati agli altri); il costo del
+  centro è `costoCentro()` = fatture + diretti + ricevuti − recuperati, e così anche
+  `mensileCosti`. Sulla cooperativa la somma è uguale alle sole fatture. Costi generali: base
+  = fatture di cc23 del mese (di tutta la cooperativa anche per il coordinatore), versione delle
+  percentuali valida a fine mese.
+- **Costi per struttura**: invariato (legge già Lavori e costi delle manutenzioni per
+  struttura). Non legge gli addebiti, quindi niente doppioni.
+- **Registro** (`movimento`): ancora vuoto, nemmeno le fatture ci sono. Gli addebiti ci
+  entreranno quando il cruscotto passerà a leggerlo (voci `SINT`/`RINT`): il punto unico da
+  cui partire sono gli addebiti interni, automatici compresi.

@@ -20,6 +20,20 @@ export function bloccato(mese: string, oggi: Date = new Date()): boolean {
   return oggi.getTime() > limite
 }
 
+/** Il primo mese ancora aperto: dove va un costo nato in un mese già chiuso. */
+export function primoMeseAperto(oggi: Date = new Date()): string {
+  const a = oggi.getUTCFullYear()
+  const m = oggi.getUTCMonth() // 0-based
+  const precedente = new Date(Date.UTC(a, m - 1, 1)).toISOString().slice(0, 10)
+  return bloccato(precedente, oggi) ? new Date(Date.UTC(a, m, 1)).toISOString().slice(0, 10) : precedente
+}
+
+/** Il mese in cui si addebita qualcosa con competenza `data`: il suo, se è ancora aperto. */
+export function meseDiAddebito(data: string, oggi: Date = new Date()): string {
+  const mese = `${data.slice(0, 7)}-01`
+  return bloccato(mese, oggi) ? primoMeseAperto(oggi) : mese
+}
+
 export function totaleAddebito(ore: number, euroOra: number | null, altri: AltroCosto[]): number | null {
   const extra = altri.reduce((s, c) => s + c.importo, 0)
   if (ore > 0 && euroOra == null) return null

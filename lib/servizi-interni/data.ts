@@ -27,7 +27,7 @@ export async function getCentriScelta(): Promise<CentroScelta[]> {
     .map((c) => ({ codice: c.codice.toLowerCase(), nome: c.nome, area: c.area ?? null }))
 }
 
-const CAMPI = 'id, numero, cc_da, cc_a, mese, descrizione, ore, visto, visto_nota, visto_da, visto_il, creato_da, creato_il, addebito_interno_costo ( descrizione, importo, ordine )'
+const CAMPI = 'id, numero, cc_da, cc_a, mese, descrizione, ore, visto, visto_nota, visto_da, visto_il, creato_da, creato_il, origine_tipo, origine_id, struttura_codice, struttura_nome, addebito_interno_costo ( descrizione, importo, ordine )'
 
 function mapAddebito(r: any, forfait: Array<{ dal: string; euroOra: number }>): AddebitoInterno {
   const mese = String(r.mese)
@@ -54,6 +54,10 @@ function mapAddebito(r: any, forfait: Array<{ dal: string; euroOra: number }>): 
     creatoDa: r.creato_da,
     creatoIl: r.creato_il,
     bloccato: bloccato(mese),
+    origine: r.origine_tipo ?? 'manuale',
+    origineId: r.origine_id ?? null,
+    strutturaCodice: r.struttura_codice ?? null,
+    strutturaNome: r.struttura_nome ?? null,
   }
 }
 

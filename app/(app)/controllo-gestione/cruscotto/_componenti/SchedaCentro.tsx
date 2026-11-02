@@ -7,7 +7,7 @@
 
 import Link from 'next/link'
 import { Modale } from '@/components/ui/Modale'
-import type { CentroCruscotto } from '@/types/cruscotto'
+import { costoCentro, type CentroCruscotto } from '@/types/cruscotto'
 import { BarreMesi } from './grafici'
 import { coloreArea, dataBreve, euro, numero } from './formato'
 
@@ -15,6 +15,7 @@ const ETICHETTA_FONTE = {
   fattura: { testo: 'Fattura', cls: 'bg-slate-100 text-slate-700' },
   diretto: { testo: 'A mano', cls: 'bg-amber-100 text-amber-800' },
   ricavo: { testo: 'Ricavo', cls: 'bg-emerald-100 text-emerald-800' },
+  interno: { testo: 'Interno', cls: 'bg-violet-100 text-violet-800' },
 } as const
 
 export function SchedaCentro({
@@ -31,7 +32,7 @@ export function SchedaCentro({
   onChiudi: () => void
 }) {
   const colore = coloreArea(c.area)
-  const costi = c.costiFatture + c.costiDiretti
+  const costi = costoCentro(c)
   const maxF = Math.max(1, ...c.fornitori.map((f) => f.importo))
   const conRicavi = c.ricavi > 0
 
@@ -64,6 +65,14 @@ export function SchedaCentro({
         <Mini etichetta="Ricavi" valore={conRicavi ? euro(c.ricavi) : '—'} />
         <Mini etichetta="Ore" valore={c.ore ? numero(c.ore) : '—'} />
       </div>
+
+      {(c.interniRicevuti > 0 || c.interniRecuperati > 0) && (
+        <p className="mt-2 rounded-xl bg-violet-50 px-3 py-2 text-xs text-violet-900">
+          Nei costi: fatture e spese {euro(c.costiFatture + c.costiDiretti)}
+          {c.interniRicevuti > 0 && <> · addebitati da altri servizi e quota costi generali <b>+{euro(c.interniRicevuti)}</b></>}
+          {c.interniRecuperati > 0 && <> · addebitati da questo servizio agli altri <b>−{euro(c.interniRecuperati)}</b></>}
+        </p>
+      )}
 
       {conRicavi && (
         <div

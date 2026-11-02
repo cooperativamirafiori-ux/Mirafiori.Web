@@ -43,6 +43,8 @@ export function CostiRichiesta({
   const [incompleto, setIncompleto] = useState(incompletoIniziale)
   const [modulo, setModulo] = useState<Modulo>(null)
   const [errore, setErrore] = useState<string | null>(null)
+  // Cosa dice il ribaltamento sulla struttura (es. struttura senza centro di costo).
+  const [avviso, setAvviso] = useState<string | null>(null)
   const [invio, setInvio] = useState(false)
   const [daTogliere, setDaTogliere] = useState<string | null>(null)
 
@@ -86,6 +88,7 @@ export function CostiRichiesta({
     setCosti(j.costi)
     setTotale(j.totaleCosti)
     setIncompleto(j.totaleIncompleto)
+    setAvviso(j.avviso ?? null)
   }
 
   async function salva(corpo: NuovoCostoPratica) {
@@ -158,13 +161,15 @@ export function CostiRichiesta({
         </p>
       </div>
       <p className="text-xs text-gray-500">
-        Li vedi solo tu. Le fatture stanno su Cura Ambienti (cc24); il totale va sulla struttura della richiesta.
-        Il richiedente vede solo il totale, a richiesta chiusa.
+        Li vedi solo tu. Le fatture stanno su Cura Ambienti (cc24), che addebita ogni mese il totale al centro
+        di costo della struttura (lo vedi negli Addebiti interni). Fino al 10 del mese dopo si correggono qui,
+        poi il mese è chiuso. Il richiedente vede solo il totale, a richiesta chiusa.
       </p>
       {incompleto && (
         <Banner tono="avviso">Per alcune ore manca la tariffa interna del mese: il totale non le comprende.</Banner>
       )}
       <Banner tono="errore">{errore}</Banner>
+      <Banner tono="avviso">{avviso}</Banner>
 
       {costi.length === 0 ? (
         <p className="text-sm text-gray-400">Nessun costo. Aggiungili quando arrivano: fatture, ore, spese.</p>

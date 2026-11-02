@@ -116,6 +116,8 @@ export interface CostoPratica {
   id: string
   tipo: TipoCosto
   data: string               // YYYY-MM-DD, competenza
+  /** Mese in cui il costo si addebita alla struttura (YYYY-MM-01): fissato alla creazione. */
+  meseAddebito: string | null
   /** Per le ore: ore × tariffa del mese. null = manca la tariffa interna di quel mese. */
   importo: number | null
   ore: number | null

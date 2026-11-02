@@ -32,6 +32,23 @@ export interface AddebitoInterno {
   creatoIl: string
   /** Oltre il 10 del mese dopo non si modifica più: si rettifica nel mese seguente. */
   bloccato: boolean
+  /**
+   * Da dove nasce. `manuale` = scritto nella schermata Addebiti interni; gli altri
+   * li scrive l'app dalla loro origine e si correggono solo lì (2/11/2026).
+   */
+  origine: OrigineAddebito
+  /** Lavoro di Cura Ambienti (id) o richiesta di manutenzione (spItemId). */
+  origineId: string | null
+  strutturaCodice: string | null
+  strutturaNome: string | null
+}
+
+export type OrigineAddebito = 'manuale' | 'lavoro_cura_ambienti' | 'manutenzione'
+
+export const ORIGINI_ADDEBITO: Record<OrigineAddebito, string> = {
+  manuale: 'Scritto a mano',
+  lavoro_cura_ambienti: 'Da un Lavoro di Cura Ambienti',
+  manutenzione: 'Da una richiesta di manutenzione',
 }
 
 export interface DatiAddebito {

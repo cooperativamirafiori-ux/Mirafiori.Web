@@ -441,6 +441,12 @@ Lo spiega anche la voce «Da dove vengono questi numeri» in fondo alla pagina.
   finché restano lì il cruscotto vede solo una parte dei costi. Il bottone «Segna le fatture
   dei servizi →» porta a Fatture del servizio.
 - Le fatture più vecchie e i costi scritti a mano in Manutenzioni **non** si contano.
+- **Costi interni**: gli [Addebiti interni](/controllo-gestione/addebiti-interni) (anche quelli
+  che nascono da soli dai Lavori di Cura Ambienti e dalle manutenzioni) e la quota dei
+  **costi generali**. Per chi riceve sono un costo, per chi ha fatto il lavoro si tolgono dai
+  suoi costi. Sulla cooperativa intera si annullano: lo stesso costo non conta due volte.
+  Nella scheda del servizio un riquadro viola dice quanto c'è dentro di costi interni, e nelle
+  «Ultime registrazioni» queste righe hanno l'etichetta «Interno».
 - **Ricavi**: solo le fatture fatte con Richiesta fattura, IVA esclusa.
 - **Ore**: le ore timbrate nell'app. Il costo del lavoro non c'è ancora.
 - **Budget**: non esiste ancora.
@@ -460,6 +466,19 @@ consuntivo dopo. Così il costo va al servizio che ha ricevuto il lavoro.
 **Importo = ore × tariffa oraria del mese + materiali dedicati.** Detersivi e materiale di
 consumo sono già nella tariffa; i «materiali dedicati» sono solo quelli di quel lavoro (un
 rubinetto, una serratura). Alcune strutture hanno una tariffa propria: la scheda lo dice.
+
+Le ore sono di tre tipi, ognuno con la sua tariffa:
+
+- **pulizie**;
+- **manutenzione** (le piccole riparazioni);
+- **sostituzione personale**: personale di Cura Ambienti mandato in emergenza a coprire un
+  buco in un altro servizio. Finché la tariffa non è fissata, la scheda scrive «tariffa da
+  fissare» e l'importo non si calcola.
+
+Quando un lavoro per una struttura è **consuntivato**, l'app lo **addebita da sola** al
+centro di costo della struttura: lo trovi negli [Addebiti interni](/controllo-gestione/addebiti-interni)
+con una riga per tipo di ore e una per i materiali. I lavori per un cliente esterno non si
+addebitano: si fatturano.
 
 ## Cosa sono i numeri in alto?
 
@@ -482,7 +501,8 @@ rivedere.
    - «Struttura» (l'addebito va sul suo centro di costo) oppure «Cliente»;
    - «Che lavoro è» (per esempio «Pulizia ordinaria»), e «Dettagli» se servono;
    - «Si ripete»: «No, una volta sola», «Ogni mese» o «Ogni settimana» (con «Che giorno»);
-   - il **Preventivo**: «Ore pulizie», «Ore manutenzione», «Materiali dedicati (€)».
+   - il **Preventivo**: «Ore pulizie», «Ore manutenzione», «Ore sostituzione personale»,
+     «Materiali dedicati (€)».
      L'importo si calcola mentre scrivi.
 4. Premi «Salva». Il lavoro nasce in «Bozza».
 
@@ -503,13 +523,18 @@ Per il consuntivo:
 1. Apri il lavoro (non deve essere in «Bozza»).
 2. Nel riquadro verde «Consuntivo» scrivi «Ore pulizie», «Ore manutenzione», «Materiali
    dedicati (€)» e, se vuoi, «Note sul consuntivo». **Servono tutti e tre i valori, anche zero.**
+   «Ore sostituzione personale» si scrive solo se ce ne sono state.
 3. Vedi l'importo e la differenza dal preventivo (rosso se costa di più).
-4. Premi «Chiudi il consuntivo». I dati appena scritti si salvano insieme.
+4. Premi «Chiudi il consuntivo». I dati appena scritti si salvano insieme. Se il lavoro è
+   per una struttura compare «Addebitato alla struttura negli Addebiti interni.»
 
 Gli stati: «Bozza», «Preventivato», «In corso», «Consuntivato», «Addebitato», «Annullato».
-«Addebitato» non lo mette nessun bottone: arriva quando il costo è passato al servizio, e da
-lì il lavoro **non si modifica più**. Un lavoro consuntivato si può riportare «in corso»
-per correggerlo.
+
+Un lavoro consuntivato si può ancora correggere (o riportare «in corso») **fino al 10 del
+mese dopo**: l'addebito alla struttura si aggiorna da solo. Dopo il 10 il mese è chiuso,
+il lavoro diventa **«Addebitato»** e non si modifica più (lo stato non lo mette nessun
+bottone, arriva di notte). Un lavoro consuntivato dopo la chiusura del suo mese si
+addebita nel primo mese ancora aperto.
 
 ## Come preparo i lavori ricorrenti del mese?
 
@@ -586,6 +611,20 @@ tocca «Togli il visto».
 In alto leggi quanto hanno addebitato i tuoi servizi e quanto hanno ricevuto; accanto a
 «Ricevuto» compare quanti addebiti non hai ancora guardato. Puoi scegliere il mese dal menu.
 
+## Perché ci sono addebiti che non ha scritto nessuno?
+
+Alcuni addebiti li scrive l'app, da sola, quando un servizio lavora per un altro:
+
+- **«Da un Lavoro di Cura Ambienti»**: nasce quando Cura Ambienti consuntiva un lavoro per
+  una struttura (pulizie, manutenzione, sostituzione personale, materiali);
+- **«Da una richiesta di manutenzione»**: uno al mese per ogni richiesta che ha dei costi
+  (fatture, ore, spese), da Cura Ambienti al centro di costo della struttura.
+
+Hanno un riquadro viola che lo dice. Non hanno «Modifica» né «Togli»: si correggono dove
+nascono (il Lavoro, o i Costi della richiesta) e si aggiornano da soli fino al 10 del mese
+dopo. Il visto si mette come sugli altri; se cambiano gli importi, il visto si toglie.
+Per questi addebiti non arriva una mail a ogni modifica.
+
 # Costi generali
 
 ## Come si dividono i costi dell'amministrazione fra i servizi?
@@ -604,6 +643,10 @@ dividono fra i servizi con una **percentuale fissa** per servizio, compresa Cura
 
 Ogni salvataggio è una **nuova versione**: le versioni di prima restano in «Versioni
 salvate» e valgono per i mesi passati. Cambiare le percentuali non riscrive il passato.
+
+Nel [Cruscotto](/controllo-gestione/cruscotto) ogni mese i costi di cc23 si dividono con le
+percentuali valide in quel mese: ogni servizio vede la sua «quota costi generali» fra i costi
+interni, e cc23 la vede tolta dai suoi.
 
 ## Problemi comuni
 

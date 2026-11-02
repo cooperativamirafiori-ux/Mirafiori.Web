@@ -25,6 +25,7 @@ import {
 } from '@/types/cura-ambienti'
 import {
   consuntivoCompleto,
+  lavoroFermo,
   importiLavoro,
   mesePrecedente,
   modificabile,
@@ -62,9 +63,11 @@ function daRiga(r: any): Lavoro {
     stato: r.stato as StatoLavoro,
     prevOrePulizie: Number(r.prev_ore_pulizie ?? 0),
     prevOreManutenzione: Number(r.prev_ore_manutenzione ?? 0),
+    prevOreSostituzione: Number(r.prev_ore_sostituzione ?? 0),
     prevMateriali: Number(r.prev_materiali ?? 0),
     consOrePulizie: n(r.cons_ore_pulizie),
     consOreManutenzione: n(r.cons_ore_manutenzione),
+    consOreSostituzione: n(r.cons_ore_sostituzione),
     consMateriali: n(r.cons_materiali),
     noteConsuntivo: r.note_consuntivo ?? null,
     vistoDa: r.visto_da ?? null,
@@ -90,6 +93,7 @@ function daRigaRicorrenza(r: any): Ricorrenza {
     giornoSettimana: r.giorno_settimana ?? null,
     orePulizie: Number(r.ore_pulizie ?? 0),
     oreManutenzione: Number(r.ore_manutenzione ?? 0),
+    oreSostituzione: Number(r.ore_sostituzione ?? 0),
     materiali: Number(r.materiali ?? 0),
     stato: r.stato as StatoRicorrenza,
     dalMese: String(r.dal_mese).slice(0, 10),
@@ -113,7 +117,7 @@ export async function getTariffe(mese: string): Promise<Tariffe> {
     .lte('dal', fineMese(mese))
     .order('dal', { ascending: false })
   if (error) throw new Error(`Tariffe: ${error.message}`)
-  const t: Tariffe = { pulizie: null, manutenzione: null }
+  const t: Tariffe = { pulizie: null, manutenzione: null, sostituzione: null }
   for (const r of data ?? []) {
     if (r.al && String(r.al) < mese) continue
     const f = r.figura as keyof Tariffe
@@ -275,9 +279,11 @@ async function colonneDestinatario(d: DatiLavoro) {
 const colonneOre = (d: DatiLavoro) => ({
   prev_ore_pulizie: d.prevOrePulizie * volte(d.mese, d.frequenza, d.giornoSettimana),
   prev_ore_manutenzione: d.prevOreManutenzione * volte(d.mese, d.frequenza, d.giornoSettimana),
+  prev_ore_sostituzione: d.prevOreSostituzione * volte(d.mese, d.frequenza, d.giornoSettimana),
   prev_materiali: d.prevMateriali,
   cons_ore_pulizie: d.consOrePulizie,
   cons_ore_manutenzione: d.consOreManutenzione,
+  cons_ore_sostituzione: d.consOreSostituzione,
   cons_materiali: d.consMateriali,
   note_consuntivo: d.noteConsuntivo,
 })
@@ -292,6 +298,7 @@ const colonneRicorrenza = (d: DatiLavoro, dest: Record<string, unknown>) => ({
   giorno_settimana: d.frequenza === 'settimanale' ? d.giornoSettimana : null,
   ore_pulizie: d.prevOrePulizie,
   ore_manutenzione: d.prevOreManutenzione,
+  ore_sostituzione: d.prevOreSostituzione,
   materiali: d.prevMateriali,
 })
 
@@ -337,6 +344,7 @@ export async function aggiornaLavoro(id: string, d: DatiLavoro, email: string): 
   const prima = await getLavoro(id)
   if (!prima) throw new Error('Lavoro non trovato')
   if (!modificabile(prima.stato)) throw new Error('Un lavoro addebitato o annullato non si modifica')
+  if (lavoroFermo(prima)) throw new Error('Il mese è chiuso: il lavoro è già stato addebitato alla struttura e non si modifica più')
   if ((prima.stato === 'consuntivato') && !consuntivoCompleto(d)) {
     throw new Error('Il lavoro è consuntivato: ore e materiali del consuntivo vanno scritti (anche zero)')
   }
@@ -380,6 +388,7 @@ export async function aggiornaLavoro(id: string, d: DatiLavoro, email: string): 
 export async function cambiaStato(id: string, nuovo: StatoLavoro, email: string): Promise<Lavoro> {
   const prima = await getLavoro(id)
   if (!prima) throw new Error('Lavoro non trovato')
+  if (lavoroFermo(prima)) throw new Error('Il mese è chiuso: il lavoro è già stato addebitato alla struttura e non si modifica più')
   if (!puoPassare(prima.stato, nuovo)) {
     throw new Error(`Da "${prima.stato}" non si passa a "${nuovo}"`)
   }
@@ -455,6 +464,7 @@ export async function preparaMese(mese: string, email: string): Promise<{ creati
         stato: 'preventivato',
         prev_ore_pulizie: prima?.consOrePulizie ?? r.orePulizie * n,
         prev_ore_manutenzione: prima?.consOreManutenzione ?? r.oreManutenzione * n,
+        prev_ore_sostituzione: prima?.consOreSostituzione ?? r.oreSostituzione * n,
         prev_materiali: prima?.consMateriali ?? r.materiali,
         creato_da: email,
         aggiornato_da: email,

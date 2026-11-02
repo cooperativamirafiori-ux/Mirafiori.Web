@@ -13,7 +13,27 @@ import type {
   TariffeStrutture,
 } from '@/types/cura-ambienti'
 
+import { bloccato, primoMeseAperto } from '@/lib/servizi-interni/flusso'
+
 const tondo = (n: number) => Math.round(n * 100) / 100
+
+/**
+ * Il mese in cui si addebita un Lavoro consuntivato: il suo, se quando è stato
+ * consuntivato era ancora aperto; altrimenti il primo mese aperto in quel momento.
+ * Si ricava da `consuntivatoIl`, quindi non cambia col passare dei giorni.
+ */
+export function meseAddebitoLavoro(l: Pick<Lavoro, 'mese' | 'consuntivatoIl'>): string {
+  const quando = l.consuntivatoIl ? new Date(l.consuntivatoIl) : new Date()
+  return bloccato(l.mese, quando) ? primoMeseAperto(quando) : l.mese
+}
+
+/** Un Lavoro consuntivato per una struttura il cui mese di addebito è chiuso: è fermo, non si tocca più. */
+export function lavoroFermo(l: Lavoro, oggi: Date = new Date()): boolean {
+  return (
+    l.stato === 'addebitato' ||
+    (l.stato === 'consuntivato' && l.destinatario === 'struttura' && bloccato(meseAddebitoLavoro(l), oggi))
+  )
+}
 
 /**
  * Importo = ore per figura × tariffa + materiali.
@@ -25,10 +45,37 @@ export function importo(
   oreManutenzione: number,
   materiali: number,
   t: Tariffe,
+  oreSostituzione = 0,
 ): number | null {
   if (orePulizie > 0 && t.pulizie === null) return null
   if (oreManutenzione > 0 && t.manutenzione === null) return null
-  return tondo(orePulizie * (t.pulizie ?? 0) + oreManutenzione * (t.manutenzione ?? 0) + materiali)
+  if (oreSostituzione > 0 && t.sostituzione === null) return null
+  return tondo(
+    orePulizie * (t.pulizie ?? 0) + oreManutenzione * (t.manutenzione ?? 0) + oreSostituzione * (t.sostituzione ?? 0) + materiali,
+  )
+}
+
+/**
+ * Le righe dell'addebito di un Lavoro consuntivato: una per figura con ore,
+ * più i materiali. null se manca una tariffa che serve (allora non si addebita).
+ */
+export function righeAddebito(l: Lavoro, t: Tariffe): Array<{ descrizione: string; importo: number }> | null {
+  if (l.consOrePulizie === null || l.consOreManutenzione === null || l.consMateriali === null) return null
+  const v = (n: number) => n.toLocaleString('it-IT', { maximumFractionDigits: 2 })
+  const e = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const righe: Array<{ descrizione: string; importo: number }> = []
+  const figure: Array<[number, number | null, string]> = [
+    [l.consOrePulizie, t.pulizie, 'pulizie'],
+    [l.consOreManutenzione, t.manutenzione, 'manutenzione'],
+    [l.consOreSostituzione ?? 0, t.sostituzione, 'sostituzione personale'],
+  ]
+  for (const [ore, euro, nome] of figure) {
+    if (!(ore > 0)) continue
+    if (euro === null) return null
+    righe.push({ descrizione: `${v(ore)} h ${nome} × ${e(euro)} €/h`, importo: tondo(ore * euro) })
+  }
+  if (l.consMateriali > 0) righe.push({ descrizione: 'Materiali dedicati', importo: tondo(l.consMateriali) })
+  return righe
 }
 
 /**
@@ -41,6 +88,7 @@ export function tariffeDi(base: Tariffe, perStruttura: TariffeStrutture, struttu
   return {
     pulizie: s.pulizie ?? base.pulizie,
     manutenzione: s.manutenzione ?? base.manutenzione,
+    sostituzione: s.sostituzione ?? base.sostituzione,
   }
 }
 
@@ -59,17 +107,17 @@ export function volte(mese: string, frequenza: Frequenza | null, giorno: number 
 }
 
 export function importiLavoro(l: Lavoro, t: Tariffe): ImportiLavoro {
-  const preventivo = importo(l.prevOrePulizie, l.prevOreManutenzione, l.prevMateriali, t)
+  const preventivo = importo(l.prevOrePulizie, l.prevOreManutenzione, l.prevMateriali, t, l.prevOreSostituzione)
   const consuntivo =
     l.consOrePulizie === null || l.consOreManutenzione === null || l.consMateriali === null
       ? null
-      : importo(l.consOrePulizie, l.consOreManutenzione, l.consMateriali, t)
+      : importo(l.consOrePulizie, l.consOreManutenzione, l.consMateriali, t, l.consOreSostituzione ?? 0)
   const scostamento = preventivo !== null && consuntivo !== null ? tondo(consuntivo - preventivo) : null
   return { preventivo, consuntivo, scostamento }
 }
 
-export const orePreventivo = (l: Lavoro) => l.prevOrePulizie + l.prevOreManutenzione
-export const oreConsuntivo = (l: Lavoro) => (l.consOrePulizie ?? 0) + (l.consOreManutenzione ?? 0)
+export const orePreventivo = (l: Lavoro) => l.prevOrePulizie + l.prevOreManutenzione + l.prevOreSostituzione
+export const oreConsuntivo = (l: Lavoro) => (l.consOrePulizie ?? 0) + (l.consOreManutenzione ?? 0) + (l.consOreSostituzione ?? 0)
 
 /**
  * Passaggi di stato consentiti dall'interfaccia. `addebitato` lo mette solo il
@@ -160,18 +208,22 @@ export function leggiDati(b: Record<string, unknown>): { dati: DatiLavoro } | { 
     giornoSettimana,
     prevOrePulizie: num(b.prevOrePulizie, 0),
     prevOreManutenzione: num(b.prevOreManutenzione, 0),
+    prevOreSostituzione: num(b.prevOreSostituzione, 0),
     prevMateriali: num(b.prevMateriali, 0),
     consOrePulizie: numONull(b.consOrePulizie),
     consOreManutenzione: numONull(b.consOreManutenzione),
+    consOreSostituzione: numONull(b.consOreSostituzione),
     consMateriali: numONull(b.consMateriali),
     noteConsuntivo: testo(b.noteConsuntivo),
   }
   const numeri: Array<[string, number | null]> = [
     ['Ore pulizie (preventivo)', dati.prevOrePulizie],
     ['Ore manutenzione (preventivo)', dati.prevOreManutenzione],
+    ['Ore sostituzione personale (preventivo)', dati.prevOreSostituzione],
     ['Materiali (preventivo)', dati.prevMateriali],
     ['Ore pulizie (consuntivo)', dati.consOrePulizie],
     ['Ore manutenzione (consuntivo)', dati.consOreManutenzione],
+    ['Ore sostituzione personale (consuntivo)', dati.consOreSostituzione],
     ['Materiali (consuntivo)', dati.consMateriali],
   ]
   for (const [nome, v] of numeri) {

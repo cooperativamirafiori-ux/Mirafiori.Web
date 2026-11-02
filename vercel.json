@@ -35,6 +35,10 @@
     {
       "path": "/api/cron/estratti-qonto",
       "schedule": "0 6 * * 1"
+    },
+    {
+      "path": "/api/cron/ribaltamento",
+      "schedule": "45 3 * * *"
     }
   ]
 }

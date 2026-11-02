@@ -21,7 +21,7 @@ import { Modale } from '@/components/ui/Modale'
 import { Campo } from '@/components/ui/Campo'
 import { Banner } from '@/components/ui/Banner'
 import { Pill } from '@/components/ui/Pill'
-import { importo, modificabile, passaggiDa, tariffeDi, volteNelMese } from '@/lib/cura-ambienti/flusso'
+import { importo, lavoroFermo, modificabile, passaggiDa, tariffeDi, volteNelMese } from '@/lib/cura-ambienti/flusso'
 import {
   GIORNI_SETTIMANA,
   STATI_LAVORO,
@@ -63,7 +63,8 @@ export function SchedaLavoro({
 }) {
   const nuovo = lavoro === null
   const stato: StatoLavoro = lavoro?.stato ?? 'bozza'
-  const aperto = modificabile(stato)
+  // Consuntivato e col mese dell'addebito chiuso: già addebitato alla struttura, fermo.
+  const aperto = modificabile(stato) && !(lavoro && lavoroFermo({ ...lavoro, stato }))
 
   const [destinatario, setDestinatario] = useState<string>(lavoro?.destinatario ?? 'struttura')
   const [strutturaCodice, setStrutturaCodice] = useState(lavoro?.strutturaCodice ?? '')
@@ -82,9 +83,11 @@ export function SchedaLavoro({
   const perVolta = (n: number | undefined) => (n === undefined ? null : Math.round((n / voltePrima) * 100) / 100)
   const [pP, setPP] = useState(s(perVolta(lavoro?.prevOrePulizie)))
   const [pM, setPM] = useState(s(perVolta(lavoro?.prevOreManutenzione)))
+  const [pS, setPS] = useState(s(perVolta(lavoro?.prevOreSostituzione)))
   const [pMat, setPMat] = useState(s(lavoro?.prevMateriali ?? null))
   const [cP, setCP] = useState(s(lavoro?.consOrePulizie))
   const [cM, setCM] = useState(s(lavoro?.consOreManutenzione))
+  const [cS, setCS] = useState(s(lavoro?.consOreSostituzione))
   const [cMat, setCMat] = useState(s(lavoro?.consMateriali))
   const [noteCons, setNoteCons] = useState(lavoro?.noteConsuntivo ?? '')
   const [inCorso, setInCorso] = useState(false)
@@ -95,9 +98,9 @@ export function SchedaLavoro({
   const volteMese = settimanale && giorno ? volteNelMese(meseLavoro, Number(giorno)) : 1
   const t = tariffeDi(tariffe, tariffeStrutture, destinatario === 'struttura' ? strutturaCodice || null : null)
   const tariffaPropria = destinatario === 'struttura' && !!strutturaCodice && !!tariffeStrutture[strutturaCodice]
-  const prev = importo(num(pP) * volteMese, num(pM) * volteMese, num(pMat), t)
-  const consScritto = cP.trim() !== '' || cM.trim() !== '' || cMat.trim() !== ''
-  const cons = consScritto ? importo(num(cP), num(cM), num(cMat), t) : null
+  const prev = importo(num(pP) * volteMese, num(pM) * volteMese, num(pMat), t, num(pS) * volteMese)
+  const consScritto = cP.trim() !== '' || cM.trim() !== '' || cS.trim() !== '' || cMat.trim() !== ''
+  const cons = consScritto ? importo(num(cP), num(cM), num(cMat), t, num(cS)) : null
 
   const dati = () => ({
     mese: lavoro?.mese ?? mese,
@@ -110,9 +113,11 @@ export function SchedaLavoro({
     giornoSettimana: settimanale ? Number(giorno) || null : null,
     prevOrePulizie: pP,
     prevOreManutenzione: pM,
+    prevOreSostituzione: pS,
     prevMateriali: pMat,
     consOrePulizie: cP,
     consOreManutenzione: cM,
+    consOreSostituzione: cS,
     consMateriali: cMat,
     noteConsuntivo: noteCons,
   })
@@ -133,14 +138,18 @@ export function SchedaLavoro({
     setErrore('')
     try {
       let id = lavoro?.id
+      let avviso: string | null = null
       if (aperto) {
         const j = nuovo
           ? await chiama('/api/cura-ambienti/lavori', 'POST', dati())
           : await chiama(`/api/cura-ambienti/lavori/${id}`, 'PATCH', dati())
         id = j.lavoro.id
+        avviso = j.avviso ?? null
       }
-      if (poi && id) await chiama(`/api/cura-ambienti/lavori/${id}`, 'PATCH', { stato: poi })
-      onSalvato(poi ? `Lavoro: ${STATI_LAVORO[poi].etichetta.toLowerCase()}.` : nuovo ? 'Lavoro creato.' : 'Lavoro salvato.')
+      if (poi && id) avviso = (await chiama(`/api/cura-ambienti/lavori/${id}`, 'PATCH', { stato: poi })).avviso ?? avviso
+      const fatto = poi ? `Lavoro: ${STATI_LAVORO[poi].etichetta.toLowerCase()}.` : nuovo ? 'Lavoro creato.' : 'Lavoro salvato.'
+      const addebito = poi === 'consuntivato' && destinatario === 'struttura' && !avviso ? ' Addebitato alla struttura negli Addebiti interni.' : ''
+      onSalvato(`${fatto}${addebito}${avviso ? ` ⚠ ${avviso}` : ''}`)
     } catch (e) {
       setErrore(e instanceof Error ? e.message : 'Operazione non riuscita')
     } finally {
@@ -153,9 +162,10 @@ export function SchedaLavoro({
     etichetta: `${x.nome}${x.ccCodice ? ` · ${x.ccCodice}` : ' · senza centro di costo'}`,
   }))
   const tariffaTesto =
-    t.pulizie === t.manutenzione
+    (t.pulizie === t.manutenzione
       ? `${euro(t.pulizie)}/h`
-      : `pulizie ${euro(t.pulizie)}/h · manutenzione ${euro(t.manutenzione)}/h`
+      : `pulizie ${euro(t.pulizie)}/h · manutenzione ${euro(t.manutenzione)}/h`) +
+    ` · sostituzione personale ${t.sostituzione === null ? 'tariffa da fissare' : `${euro(t.sostituzione)}/h`}`
   const sceltaFrequenza = [
     ...(legato ? [] : [{ valore: 'no', etichetta: 'No, una volta sola' }]),
     { valore: 'mensile', etichetta: 'Ogni mese' },
@@ -274,6 +284,12 @@ export function SchedaLavoro({
             disabilitato={!aperto}
           />
         )}
+        {lavoro && lavoroFermo({ ...lavoro, stato }) && (
+          <Banner tono="info">
+            Questo lavoro è già stato addebitato alla struttura e il mese è chiuso (il 10 del mese dopo): non si modifica
+            più. Per una correzione scrivi un addebito nel mese in corso.
+          </Banner>
+        )}
         {tariffaPropria && (
           <Banner tono="info">
             Tariffa propria di questa struttura: pulizie {euro(t.pulizie)}/h, perché i detersivi li ordina a parte sul suo
@@ -302,11 +318,21 @@ export function SchedaLavoro({
               onChange={setPM}
               disabilitato={!aperto}
             />
+            <Campo
+              etichetta={settimanale ? 'Ore sostituzione personale ogni volta' : 'Ore sostituzione personale'}
+              tipo="number"
+              inputMode="decimal"
+              min={0}
+              valore={pS}
+              onChange={setPS}
+              aiuto="Personale mandato a coprire un buco in un altro servizio."
+              disabilitato={!aperto}
+            />
           </div>
           {settimanale && giorno && (
             <p className="text-sm text-gray-600">
               A {nomeMese(meseLavoro)} i {nomeGiorno} sono <b>{volteMese}</b>: nel mese{' '}
-              <b>{ore(Math.round((num(pP) + num(pM)) * volteMese * 100) / 100)}</b>.
+              <b>{ore(Math.round((num(pP) + num(pM) + num(pS)) * volteMese * 100) / 100)}</b>.
             </p>
           )}
           <Campo
@@ -334,6 +360,7 @@ export function SchedaLavoro({
             <div className="grid grid-cols-2 gap-3">
               <Campo etichetta="Ore pulizie" tipo="number" inputMode="decimal" min={0} valore={cP} onChange={setCP} disabilitato={!aperto} />
               <Campo etichetta="Ore manutenzione" tipo="number" inputMode="decimal" min={0} valore={cM} onChange={setCM} disabilitato={!aperto} />
+              <Campo etichetta="Ore sostituzione personale" tipo="number" inputMode="decimal" min={0} valore={cS} onChange={setCS} disabilitato={!aperto} />
             </div>
             <Campo etichetta="Materiali dedicati (€)" tipo="currency" inputMode="decimal" min={0} valore={cMat} onChange={setCMat} disabilitato={!aperto} />
             <Campo etichetta="Note sul consuntivo" tipo="textarea" righe={2} valore={noteCons} onChange={setNoteCons} disabilitato={!aperto} />

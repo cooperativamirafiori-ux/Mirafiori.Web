@@ -3,13 +3,27 @@
  *
  *   PATCH { stato }  → cambia stato (regole in lib/cura-ambienti/flusso.ts)
  *   PATCH {dati}     → modifica preventivo, consuntivo e intestazione
+ *
+ * Dopo ogni modifica si riscrive l'addebito alla struttura (ribaltamento,
+ * lib/cura-ambienti/ribaltamento.ts). Se non riesce, il lavoro resta salvato,
+ * la risposta porta un avviso e il giro notturno riallinea.
  */
+
+async function ribalta(id: string, email: string): Promise<string | null> {
+  try {
+    return await ribaltaLavoro(id, email)
+  } catch (e) {
+    console.error(`[cura-ambienti] ribaltamento lavoro ${id}`, e)
+    return `Lavoro salvato, ma l'addebito alla struttura non si è aggiornato (${e instanceof Error ? e.message : 'errore'}). Si riallinea stanotte.`
+  }
+}
 
 import { NextRequest, NextResponse } from 'next/server'
 import { guardCuraAmbienti } from '@/lib/cura-ambienti/guard'
 import { aggiornaLavoro, cambiaStato } from '@/lib/cura-ambienti/data'
 import { leggiDati } from '@/lib/cura-ambienti/flusso'
 import { STATI_LAVORO, type StatoLavoro } from '@/types/cura-ambienti'
+import { ribaltaLavoro } from '@/lib/cura-ambienti/ribaltamento'
 import { logAzione } from '@/lib/core/audit'
 
 export const dynamic = 'force-dynamic'
@@ -39,7 +53,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         entitaId: id,
         dettagli: { numero: lavoro.numero, stato: lavoro.stato },
       })
-      return NextResponse.json({ lavoro })
+      return NextResponse.json({ lavoro, avviso: await ribalta(id, g.email) })
     }
 
     const letto = leggiDati(b)
@@ -53,7 +67,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       entitaId: id,
       dettagli: { numero: lavoro.numero },
     })
-    return NextResponse.json({ lavoro })
+    return NextResponse.json({ lavoro, avviso: await ribalta(id, g.email) })
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Operazione non riuscita' }, { status: 400 })
   }

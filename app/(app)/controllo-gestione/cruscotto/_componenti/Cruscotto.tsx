@@ -9,7 +9,7 @@
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { Banner } from '@/components/ui/Banner'
-import type { DatiCruscotto } from '@/types/cruscotto'
+import { costoCentro, type DatiCruscotto } from '@/types/cruscotto'
 import { Intestazione } from './Intestazione'
 import { Centri } from './Centri'
 import { ORDINE_AREE, coloreArea, euro, euroBreve, gruppoArea, numero, useConta, useMontato } from './formato'
@@ -24,7 +24,7 @@ export function Cruscotto({ dati }: { dati: DatiCruscotto }) {
     let ore = 0
     let budget = 0
     for (const c of dati.centri) {
-      costi += c.costiFatture + c.costiDiretti
+      costi += costoCentro(c)
       diretti += c.costiDiretti
       ricavi += c.ricavi
       ore += c.ore
@@ -38,7 +38,7 @@ export function Cruscotto({ dati }: { dati: DatiCruscotto }) {
     for (const c of dati.centri) {
       const g = gruppoArea(c.area)
       const a = m.get(g) ?? { nome: g, costi: 0, centri: 0 }
-      a.costi += c.costiFatture + c.costiDiretti
+      a.costi += costoCentro(c)
       a.centri += 1
       m.set(g, a)
     }
