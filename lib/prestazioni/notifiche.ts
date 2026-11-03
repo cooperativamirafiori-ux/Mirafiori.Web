@@ -188,17 +188,50 @@ export async function notificaNotulaCaricata(opts: {
   responsabileEmail: string
   notulaUrl?: string
   cartellaUrl?: string
+  // Dati per il bonifico (dal 3 nov 2026): Claudia paga da questa mail
+  iban?: string
+  importoLordo?: number
+  ritenuta?: number
+  netto?: number
+  bollo?: number
+  centroCosto?: string
+  // Reinvio manuale (scripts/rimanda-notule-ricevute.ts): destinatari al posto
+  // di quelli standard e oggetto marcato [Reinvio]
+  destinatari?: string[]
+  reinvio?: boolean
 }): Promise<void> {
-  const destinatari = [...PRESTAZIONI_MAIL_TO, opts.responsabileEmail].filter(Boolean)
+  const destinatari = opts.destinatari?.length
+    ? opts.destinatari
+    : [...PRESTAZIONI_MAIL_TO, opts.responsabileEmail].filter(Boolean)
+  const euro = (n: number) =>
+    n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const riga = (label: string, value: string) =>
+    `<tr><td style="padding:3px 12px 3px 0;color:#555;white-space:nowrap">${label}</td><td>${value}</td></tr>`
+  const pagamento =
+    opts.netto != null
+      ? `
+      <h4 style="margin:14px 0 4px">Dati per il bonifico</h4>
+      <table style="border-collapse:collapse;font-family:sans-serif;font-size:14px">
+        ${riga('Intestatario', `<strong>${opts.prestatoreNome}</strong>`)}
+        ${riga('IBAN', `<strong style="font-family:monospace">${opts.iban || '— manca, chiedere al responsabile'}</strong>`)}
+        ${riga('Netto da bonificare', `<strong>€ ${euro(opts.netto)}</strong>`)}
+        ${riga('Compenso lordo', `€ ${euro(opts.importoLordo ?? 0)}`)}
+        ${riga("Ritenuta d'acconto 20% (da versare con F24)", `€ ${euro(opts.ritenuta ?? 0)}`)}
+        ${opts.bollo ? riga('Marca da bollo sulla notula', `€ ${euro(opts.bollo)}`) : ''}
+        ${riga('Causale', `Compenso prestazione occasionale ${opts.idPrestazione}`)}
+        ${riga('Centro di costo', opts.centroCosto || '<span style="color:#b45309">non assegnato — da assegnare in Prestazioni attive</span>')}
+      </table>`
+      : ''
   await sendEmail({
     to: destinatari,
     from: opts.responsabileEmail,
-    subject: `Notula ricevuta — ${opts.idPrestazione} (${opts.prestatoreNome})`,
+    subject: `${opts.reinvio ? '[Reinvio] ' : ''}Notula ricevuta — ${opts.idPrestazione} (${opts.prestatoreNome})`,
     html: `
       <p>✅ <strong>${opts.prestatoreNome}</strong> ha caricato la notula firmata per la prestazione
       <strong>${opts.idPrestazione}</strong>.</p>
       ${opts.notulaUrl ? `<p>📄 <a href="${opts.notulaUrl}">Apri la notula caricata</a></p>` : ''}
       ${opts.cartellaUrl ? `<p>📁 <a href="${opts.cartellaUrl}">Cartella SharePoint della prestazione</a></p>` : ''}
+      ${pagamento}
     `,
   })
 }

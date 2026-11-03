@@ -22,6 +22,7 @@ import {
   getWebUrlFile,
 } from '@/lib/prestazioni/data'
 import { notificaNotulaCaricata } from '@/lib/prestazioni/notifiche'
+import { calcolaNotula } from '@/lib/prestazioni/documenti'
 import { logAzione } from '@/lib/core/audit'
 import { riversaPrestazioneNelRegistro } from '@/lib/prestazioni/registro'
 
@@ -74,12 +75,19 @@ export async function POST(
     // Importo definitivo: riga di costo nel registro analitico (non blocca mai)
     await riversaPrestazioneNelRegistro({ ...p, stato: 'Notula ricevuta' })
 
+    const calcolo = p.importoLordo ? calcolaNotula(p.importoLordo) : null
     await notificaNotulaCaricata({
       idPrestazione: p.idPrestazione,
       prestatoreNome: `${p.cognome} ${p.nome}`.trim(),
       responsabileEmail: p.responsabileEmail,
       notulaUrl: webUrl,
       cartellaUrl: p.cartellaUrl,
+      iban: p.iban,
+      importoLordo: calcolo?.lordo,
+      ritenuta: calcolo?.ritenuta,
+      netto: calcolo?.netto,
+      bollo: calcolo?.bollo,
+      centroCosto: p.centroCosto,
     }).catch((e) => console.error('[notula] invio notifica fallito', e))
 
     await logAzione({
