@@ -624,6 +624,32 @@ export default function TimbratureOperatore({
                   + Aggiungi ore di oggi
                 </button>
               )}
+
+              {/*
+                Ore dei due giorni prima, sempre a portata (3 nov 2026). Il
+                riquadro "Da completare" salta domeniche e festivi (monte ore
+                zero), e chi aveva lavorato di domenica non trovava dove
+                metterle pur essendo nella finestra: qui ci sono tutti.
+              */}
+              {!bloccato && (
+                <div className="mt-3 flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-gray-500">Ore di un giorno prima:</span>
+                  {giorniRep.slice(0, 2).filter((d) => d >= daGiorno).map((d) => {
+                    const oreGiorno = (timbPerGiorno.get(d) ?? []).reduce((s, t) => s + t.ore, 0)
+                    return (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => nuovaRiga(d)}
+                        className="px-3 py-1.5 rounded-full text-sm font-semibold border bg-white text-brand-cyan-dark border-gray-200 hover:border-brand-cyan"
+                      >
+                        + {weekdayShort(d).toLowerCase()} {Number(d.slice(8, 10))}
+                        {oreGiorno > 0.001 ? ` · ${oreLabel(oreGiorno)} h` : ''}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
 
             {bloccato && (
