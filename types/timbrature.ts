@@ -402,6 +402,23 @@ export interface RiepilogoPeriodo {
 }
 
 /**
+ * Residuo di una voce come lo da' il cedolino (stampe GENIUS dello Studio
+ * paghe), fotografato a una data. In ORE. Vedi lib/timbrature/residui.ts.
+ */
+export interface ResiduoCedolino {
+  /** Nome del servizio nelle Timbrature: 'Ferie' | 'Fest.Sopp.' | 'Flessibilità'. */
+  voce: string
+  residuo: number
+  residuoAp: number | null
+  maturate: number | null
+  godute: number | null
+  /** Mese di competenza, YYYY-MM. */
+  mese: string
+  /** Data di riferimento stampata sul file (YYYY-MM-DD), di solito l'ultimo del mese. */
+  alGiorno: string | null
+}
+
+/**
  * Consuntivo ore di un progetto su un periodo, con lo spaccato per persona.
  * `progettoId: null` e' la riga "senza progetto": le ore di progettazione non
  * imputate, che restano visibili invece di sparire in un totale.

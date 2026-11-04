@@ -17,6 +17,7 @@ import {
   getServizi,
   getProgetti,
   primoUltimoGiorno,
+  residuiCedolino,
 } from '@/lib/timbrature/data'
 
 export const dynamic = 'force-dynamic'
@@ -38,13 +39,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const dip = await getDipendenteById(dipId)
     if (!dip) return NextResponse.json({ error: 'Dipendente non trovato' }, { status: 404 })
     const { from, to } = primoUltimoGiorno(anno, mese)
-    const [timbrature, riepilogo, profili, chiusura, servizi, progetti] = await Promise.all([
+    const [timbrature, riepilogo, profili, chiusura, servizi, progetti, residui] = await Promise.all([
       listTimbrature(dipId, from, to),
       riepilogoPeriodo(dipId, from, to),
       getProfili(dipId),
       getChiusura(dipId, anno, mese),
       getServizi(true),
       getProgetti(true),
+      residuiCedolino(dipId, to),
     ])
     // Il token non esce mai dal server: e' la chiave del link di conferma.
     const sicura = chiusura ? { ...chiusura, token: undefined } : null
@@ -56,6 +58,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       chiusura: sicura,
       servizi,
       progetti,
+      residui,
     })
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Errore' }, { status: 500 })

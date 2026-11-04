@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Header } from '@/components/ui/Header'
 import { CompilaDaProfilo } from '@/components/timbrature/CompilaDaProfilo'
-import type { Servizio, Progetto, Timbratura, RiepilogoPeriodo, FinestraMese } from '@/types/timbrature'
+import type { Servizio, Progetto, Timbratura, RiepilogoPeriodo, FinestraMese, ResiduoCedolino } from '@/types/timbrature'
 import { RiepilogoMese } from './_componenti/RiepilogoMese'
 import { GiorniMese, RigaVoce } from './_componenti/GiorniMese'
 import {
@@ -97,6 +97,7 @@ export default function TimbratureOperatore({
   const [progetti, setProgetti] = useState<Progetto[]>([])
   const [timbrature, setTimbrature] = useState<Timbratura[]>([])
   const [riepilogo, setRiepilogo] = useState<RiepilogoPeriodo | null>(null)
+  const [residui, setResidui] = useState<ResiduoCedolino[]>([])
   const [finestra, setFinestra] = useState<FinestraMese | null>(null)
   const [scadenza, setScadenza] = useState<string | undefined>()
   /**
@@ -143,6 +144,7 @@ export default function TimbratureOperatore({
       if (!rR.ok) throw new Error(dR.error || 'Errore')
       setTimbrature(dT.timbrature ?? [])
       setRiepilogo(dR.riepilogo ?? null)
+      setResidui(dR.residui ?? [])
       setFinestra(dR.finestra ?? null)
       setScadenza(dR.scadenza)
       setNonTimbra(!!dR.nonTimbra)
@@ -736,7 +738,7 @@ export default function TimbratureOperatore({
             )}
 
             {riepilogo && (
-              <RiepilogoMese riepilogo={riepilogo} timbrature={timbrature} servizi={servizi} />
+              <RiepilogoMese riepilogo={riepilogo} timbrature={timbrature} servizi={servizi} residui={residui} />
             )}
 
             {/* Ferie e permessi su piu' giorni: quattordici giornate non si aprono una per una. */}

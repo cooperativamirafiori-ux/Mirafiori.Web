@@ -21,7 +21,7 @@
 import { useMemo } from 'react'
 import { Kpi } from '@/components/ui/Kpi'
 import { Pill } from '@/components/ui/Pill'
-import type { RiepilogoPeriodo, Servizio, Timbratura } from '@/types/timbrature'
+import type { ResiduoCedolino, RiepilogoPeriodo, Servizio, Timbratura } from '@/types/timbrature'
 import {
   VOCE_FLESSIBILITA,
   VOCE_NON_RETRIBUITA,
@@ -43,6 +43,34 @@ const TONO_BANNER = {
   info: 'bg-gray-50 border-gray-200 text-gray-600',
 } as const
 
+/** "2026-09-30" → "30/09/2026": la data del cedolino si scrive come sulla busta. */
+function dataCedolino(r: ResiduoCedolino): string {
+  if (!r.alGiorno) return r.mese.split('-').reverse().join('/')
+  const [y, m, d] = r.alGiorno.split('-')
+  return `${d}/${m}/${y}`
+}
+
+/**
+ * Il residuo di una voce, con la sua data sotto.
+ *
+ * Il numero e' quello del cedolino COSI' COM'E' (scelta di Dennis, 04/11/2026):
+ * non si tolgono le ore usate dopo, perche' il rateo che matura nel frattempo
+ * lo calcolano le paghe e noi non lo sappiamo. La data scritta sotto e' quello
+ * che rende onesto il numero: senza, a meta' novembre "25 h di ferie" sembra il
+ * saldo di oggi e non torna con le ferie appena prese.
+ */
+function CellaResiduo({ r }: { r?: ResiduoCedolino }) {
+  if (!r) return <span className="text-gray-300">—</span>
+  return (
+    <span className="inline-flex flex-col items-end leading-tight">
+      <span className={`font-semibold ${r.residuo < -0.001 ? 'text-red-700' : 'text-gray-800'}`}>
+        {oreLabel(r.residuo)} h
+      </span>
+      <span className="text-[10px] font-normal text-gray-400">al {dataCedolino(r)}</span>
+    </span>
+  )
+}
+
 function Titolo({ children }: { children: React.ReactNode }) {
   return (
     <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">{children}</div>
@@ -55,6 +83,7 @@ export function RiepilogoMese({
   servizi,
   nome,
   oggi,
+  residui,
 }: {
   riepilogo: RiepilogoPeriodo
   timbrature: Timbratura[]
@@ -64,7 +93,18 @@ export function RiepilogoMese({
   nome?: string
   /** Giorno a cui fermare il conteggio; default: oggi. */
   oggi?: string
+  /** Residui dal cedolino (ferie, ex festivita', flessibilita'), ciascuno con la sua data. */
+  residui?: ResiduoCedolino[]
 }) {
+  const residuoDi = useMemo(() => {
+    const m = new Map((residui ?? []).map((x) => [x.voce, x]))
+    return (voce: string) => m.get(voce)
+  }, [residui])
+  /** La data piu' recente fra i residui, per la nota in fondo alla tabella. */
+  const ultimoCedolino = useMemo(() => {
+    const ord = [...(residui ?? [])].sort((a, b) => ((a.alGiorno ?? a.mese) < (b.alGiorno ?? b.mese) ? 1 : -1))
+    return ord[0]
+  }, [residui])
   const r = useMemo(() => ritagliaAOggi(riepilogo, timbrature, oggi), [riepilogo, timbrature, oggi])
   const sintesi = frasiSintesi(r, nome)
 
@@ -200,13 +240,14 @@ export function RiepilogoMese({
           */}
           <div className="flex items-center justify-between">
             <span className="text-gray-500">Monte residuo (da cedolino)</span>
-            <span className="text-gray-300 font-semibold">—</span>
+            <CellaResiduo r={residuoDi(VOCE_FLESSIBILITA)} />
           </div>
         </div>
         <p className="mt-2 text-[11px] text-gray-400">
           Le ore in più si accumulano da sole quando si lavora oltre l&apos;orario previsto; le ore
-          recuperate sono quelle registrate con la voce «Flessibilità». È il movimento di questo
-          mese, non il totale disponibile.
+          recuperate sono quelle registrate con la voce «Flessibilità». Il saldo è il movimento di
+          questo mese; il monte residuo è quello del cedolino alla data indicata, e non comprende le
+          ore registrate dopo.
         </p>
       </div>
 
@@ -240,8 +281,8 @@ export function RiepilogoMese({
                   <td className={`text-right py-1.5 font-semibold ${usata ? 'text-gray-700' : 'text-gray-300'}`}>
                     {usata ? `${oreLabel(v.ore)} h` : '—'}
                   </td>
-                  <td className="text-right py-1.5 text-gray-300">
-                    {VOCI_CON_RESIDUO.includes(v.nome) ? '—' : ''}
+                  <td className="text-right py-1.5 text-sm">
+                    {VOCI_CON_RESIDUO.includes(v.nome) ? <CellaResiduo r={residuoDi(v.nome)} /> : ''}
                   </td>
                 </tr>
               )
@@ -249,8 +290,10 @@ export function RiepilogoMese({
           </tbody>
         </table>
         <p className="mt-2 text-[11px] text-gray-400">
-          Le voci in grigio non sono state usate in questo mese. La colonna «Residuo» si compilerà
-          con i dati del cedolino: il collegamento non è ancora attivo.
+          Le voci in grigio non sono state usate in questo mese.{' '}
+          {ultimoCedolino
+            ? `Il residuo è quello del cedolino al ${dataCedolino(ultimoCedolino)}: le ore usate dopo quella data non sono ancora tolte, e si aggiorna quando arriva il cedolino successivo.`
+            : 'La colonna «Residuo» si compila quando arrivano i dati del cedolino.'}
         </p>
       </div>
 

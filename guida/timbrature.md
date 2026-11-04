@@ -225,9 +225,12 @@ Il riquadro **«Flessibilità»** mostra:
 - **«Saldo di questo mese»**: la differenza. È il movimento del mese, non il totale che hai
   a disposizione.
 
-Il **monte residuo** di flessibilità e ferie (la colonna «Residuo») per ora è vuoto: si
-compilerà con i dati del cedolino, ma il collegamento non è ancora attivo. Per sapere
-quante ferie ti restano chiedi alle Risorse Umane.
+Il **monte residuo** di ferie, ex festività e flessibilità (la colonna «Residuo» e la riga
+«Monte residuo») è quello del **cedolino**, con la data scritta sotto: per esempio
+«25,35 h — al 30/09/2026». È lo stesso numero della busta paga di quel mese. **Le ore che
+hai usato dopo quella data non sono ancora tolte**: il numero si aggiorna quando le Risorse
+Umane caricano i dati del cedolino successivo. Se vedi il trattino, per te quel dato non è
+ancora arrivato (per esempio se sei appena entrato o non maturi quella voce).
 
 Attenzione: se lavori **meno** del previsto, la flessibilità non scende da sola. Una giornata
 con meno ore resta «da sistemare» finché non la copri (con lavoro, ferie, flessibilità o

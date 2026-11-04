@@ -14,6 +14,7 @@ import {
   primoUltimoGiorno,
   profiloVigente,
   ultimoGiornoUtile,
+  residuiCedolino,
 } from '@/lib/timbrature/data'
 
 export const dynamic = 'force-dynamic'
@@ -40,7 +41,10 @@ export async function GET(req: NextRequest) {
     if (!from || !to) {
       return NextResponse.json({ error: 'Fornire anno+mese oppure from+to' }, { status: 400 })
     }
-    const riepilogo = await riepilogoPeriodo(g.dipendente.id, from, to)
+    const [riepilogo, residui] = await Promise.all([
+      riepilogoPeriodo(g.dipendente.id, from, to),
+      residuiCedolino(g.dipendente.id, to),
+    ])
 
     // Solo per chi non timbra, e solo perche' la pagina deve sapere se il
     // bottone "Compila il mese" ha da cosa generare. Per tutti gli altri la
@@ -51,6 +55,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       riepilogo,
+      residui,
       finestra,
       scadenza,
       nonTimbra: g.dipendente.nonTimbra,

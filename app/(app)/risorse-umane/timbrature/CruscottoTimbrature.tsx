@@ -28,6 +28,7 @@ import {
   type ChiusuraMese,
   type Servizio,
   type Progetto,
+  type ResiduoCedolino,
 } from '@/types/timbrature'
 
 import { RiepilogoMese } from '@/app/(app)/timbrature/_componenti/RiepilogoMese'
@@ -49,6 +50,7 @@ interface Dettaglio {
   chiusura: ChiusuraMese | null
   servizi: Servizio[]
   progetti: Progetto[]
+  residui?: ResiduoCedolino[]
 }
 
 interface FormRiga {
@@ -524,6 +526,7 @@ export default function CruscottoTimbrature() {
                 timbrature={dettaglio.timbrature}
                 servizi={dettaglio.servizi}
                 nome={dettaglio.dipendente.cognomeNome}
+                residui={dettaglio.residui}
               />
             </div>
 

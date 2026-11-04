@@ -14,6 +14,7 @@
  *   da-profilo.ts  il mese generato dall'orario teorico, per chi non timbra
  *   riepilogo.ts   dai dati ai numeri: giorni, settimane, flessibilita', cruscotti
  *   progetti.ts    consuntivo ore per progetto (rendicontazione)
+ *   residui.ts     residui ferie/ex festivita'/flessibilita' dal cedolino, con la loro data
  *
  * Regole chiave della sezione, per chi arriva adesso:
  *   - ore SENZA arrotondamento (valore esatto), mai digitate: sempre derivate
@@ -43,3 +44,4 @@ export * from '@/lib/timbrature/assenze'
 export * from '@/lib/timbrature/da-profilo'
 export * from '@/lib/timbrature/riepilogo'
 export * from '@/lib/timbrature/progetti'
+export * from '@/lib/timbrature/residui'

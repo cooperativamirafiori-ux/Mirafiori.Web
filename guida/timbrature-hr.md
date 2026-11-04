@@ -144,6 +144,19 @@ Solo le Risorse Umane possono farlo.
 Conferma. Il mese torna **«In compilazione»** e il percorso di validazione ricomincia da
 capo.
 
+## Come carico i residui di ferie e flessibilità del cedolino?
+
+Ogni mese lo Studio paghe manda due stampe: **«RESIDUO FERIE ROL FEST.SOPP»** e
+**«RESIDUO FLESSIBILITA'»** (in PDF o in Excel). Non si caricano dall'app: le carica chi
+gestisce l'app (Dennis) con uno script, indicando il mese di competenza. Dopo il
+caricamento, nel riepilogo del mese di ogni persona la colonna **«Residuo»** e la riga
+**«Monte residuo»** mostrano il numero del cedolino con la sua data («al 30/09/2026»).
+
+Il numero è quello della busta di quel mese: le ore usate **dopo** quella data non sono
+tolte. Ogni mese caricato si aggiunge ai precedenti, e si vede sempre il più recente fino al
+mese che si sta guardando. Chi nel file non c'è (nuovi assunti, tirocinanti, collaboratori)
+resta col trattino: non vuol dire zero.
+
 ## Cosa significa l'avviso «Senza referente foglio ore in anagrafica»?
 
 Sono persone che non hanno un referente sulla scheda. I loro fogli non arrivano a nessun
