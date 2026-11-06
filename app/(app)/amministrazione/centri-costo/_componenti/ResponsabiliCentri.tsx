@@ -135,8 +135,8 @@ export function ResponsabiliCentri({
           <Vuoto>Nessun centro di costo da mostrare.</Vuoto>
         ) : (
           aree.map((g) => (
-            <section key={g.area} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-              <div className="flex flex-wrap items-baseline justify-between gap-2 bg-slate-800 px-4 py-3">
+            <section key={g.area} className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <div className="flex flex-wrap items-baseline justify-between gap-2 rounded-t-2xl bg-slate-800 px-4 py-3">
                 <h3 className="text-lg font-bold text-white">{g.area}</h3>
                 <span className="text-xs text-slate-300">
                   {g.centri.length} {g.centri.length === 1 ? 'servizio' : 'servizi'}
@@ -165,8 +165,8 @@ export function ResponsabiliCentri({
               </div>
               <ul className="space-y-3 p-3">
                 {g.centri.map((c) => (
-                  <li key={c.codice} className="overflow-hidden rounded-xl border border-emerald-200">
-                    <div className="flex flex-wrap items-center gap-2 bg-emerald-100 px-4 py-2">
+                  <li key={c.codice} className="rounded-xl border border-emerald-200">
+                    <div className="flex flex-wrap items-center gap-2 rounded-t-xl bg-emerald-100 px-4 py-2">
                       <span className="rounded-full bg-emerald-700 px-2 py-0.5 text-[11px] font-bold text-white">
                         {c.codice}
                       </span>
@@ -177,7 +177,7 @@ export function ResponsabiliCentri({
                         </span>
                       )}
                     </div>
-                    <div className="bg-emerald-50/60 px-4 py-3">
+                    <div className="rounded-b-xl bg-emerald-50/60 px-4 py-3">
                     <p className="mb-2 text-xs font-bold uppercase tracking-wide text-emerald-700">Coordinamento</p>
                     <Persone
                       email={c.coordinatori}
