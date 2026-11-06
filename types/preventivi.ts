@@ -13,6 +13,14 @@
  * Andrea (foglio MATRICE) e dalla sua Nuova Tabella Generale (foglio Dati).
  */
 
+/**
+ * Permesso "Preventivi" (06/11/2026): fa vedere e fare i preventivi di TUTTI i
+ * centri di costo, con tariffario, ISTAT e prezzi fuori limite — come
+ * Amministrazione, ma senza aprire il resto del pannello (password, permessi).
+ * Nato per Andrea Granato.
+ */
+export const AREA_PREVENTIVI = 'Preventivi'
+
 /** Il modulo da compilare: corrisponde ai tre fogli del file master, più uno libero. */
 export const MODELLI = {
   individuale: 'Progetto individuale',

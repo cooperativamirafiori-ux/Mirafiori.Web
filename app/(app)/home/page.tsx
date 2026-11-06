@@ -37,8 +37,8 @@ export default async function HomePage() {
   // Responsabili del foglio ore: non e' un permesso, lo si e' perche' qualcuno
   // ti ha come referente. La card compare solo a loro. Se Supabase non
   // risponde la Home deve aprirsi lo stesso: la card semplicemente non c'e'.
-  // Preventivi: coordinatori dei centri di costo e Amministrazione, senza un
-  // permesso da assegnare (docs/preventivi.md). Dal 22/10/2026 la card porta
+  // Preventivi: coordinatori dei centri di costo (i loro, senza permesso) e chi
+  // ha Amministrazione o, dal 06/11/2026, il permesso Preventivi (tutto). Dal 22/10/2026 la card porta
   // all'hub (Servizi + Catering): il Catering non usa le liste, quindi la card
   // c'è anche se non sono collegate (l'hub nasconde allora solo i Servizi).
   const vedePreventivi = puoPreventivi(await accessoPreventivi(session?.user))

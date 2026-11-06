@@ -10,6 +10,7 @@ import { graphGet, graphPost, graphDelete } from '@/lib/core/graph'
 import { listBase, LIST, PREFER_NON_INDEXED } from '@/lib/core/sp'
 import { AREA_IT, AREA_IT_VECCHIO_NOME } from '@/types/it'
 import { AREA_MANUTENZIONI } from '@/types/manutenzioni'
+import { AREA_PREVENTIVI } from '@/types/preventivi'
 import {
   AREA_CONTROLLO_GESTIONE,
   AREA_PAGAMENTI,
@@ -90,6 +91,7 @@ export const AREE_PERMESSI = [
   AREA_CONTROLLO_GESTIONE,
   AREA_PAGAMENTI,
   AREA_APPROVAZIONE_PAGAMENTI,
+  AREA_PREVENTIVI,
 ] as const
 
 export type AreaPermesso = (typeof AREE_PERMESSI)[number]
@@ -128,6 +130,9 @@ export const DESCRIZIONI_AREE: Record<string, string> = {
   [AREA_APPROVAZIONE_PAGAMENTI]:
     'Approvazione delle fatture sopra soglia, prima che l’amministrazione le paghi. ' +
     'Il resto dei Flussi fatture si vede in sola lettura.',
+  [AREA_PREVENTIVI]:
+    'Preventivi di tutti i centri di costo, tariffario e adeguamento ISTAT, prezzi fuori limite, ' +
+    'parametri del catering. Chi coordina un centro di costo vede già i suoi senza questo permesso.',
 }
 
 /**
