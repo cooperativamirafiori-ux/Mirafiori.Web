@@ -1,5 +1,7 @@
 # deps
 /node_modules
+# node_modules reale, escluso da iCloud (node_modules e' un link a questa cartella)
+/node_modules.nosync
 
 # next.js
 /.next/

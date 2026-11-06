@@ -45,6 +45,16 @@ Cartella del progetto: `web/` (la radice del repo git è `web/`, non la cartella
    dentro), ci mette ~2 minuti: `AUTH_SECRET=x npm run build`. Le variabili vere non servono, le
    pagine sono dinamiche. **A Dennis non si chiede più il build**: dopo `tsc` e build verdi si passa
    direttamente al commit.
+8-bis. **`node_modules` sul Mac e' un link a `node_modules.nosync`** (6 nov 2026). La cartella
+   Documenti e' su iCloud con "Ottimizza spazio": i file di `node_modules` non usati da tempo
+   diventavano `dataless` (solo il nome, contenuto nel cloud) e dalla sandbox davano "Resource
+   deadlock avoided" — `tsc` nel mount falliva e il build sul Mac era lento per questo. I nomi
+   `*.nosync` iCloud non li tocca. Conseguenze: `tsc --noEmit` nel mount ora gira (~7 s);
+   **mai `npm ci` sul Mac**, e anche `npm install` sostituisce il link con una cartella vera
+   ("Removing non-directory ... node_modules"): dopo un install sul Mac rifare
+   `rm -rf node_modules.nosync` · `mv node_modules node_modules.nosync` ·
+   `ln -s node_modules.nosync node_modules`, un comando per volta. `node_modules.nosync` e' in
+   `.gitignore` e nell'`exclude` di `tsconfig.json`.
 9. **Non controllare mai il deploy su Vercel.** Parte da sé dopo il push e va per conto suo: niente
    `list_deployments`, niente attese, niente "ti confermo quando è READY". Finito il push, finito.
 10. **Comandi da terminale: uno per volta.** Si scrive chiaramente cosa deve copiare, **un solo blocco
