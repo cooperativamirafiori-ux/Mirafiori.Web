@@ -13,6 +13,18 @@
 import { getCentriCoordinati } from '@/lib/centri-costo/data'
 import { AREA_CONTROLLO_GESTIONE } from '@/types/pagamenti'
 
+/**
+ * Account che addebitano per un servizio senza esserne coordinatori, dalla
+ * casella rapida in home (oggetto + prezzo). Dennis, 06/11/2026.
+ */
+export const ADDEBITO_RAPIDO: Record<string, string> = {
+  'locanda@cooperativamirafiori.com': 'cc2',
+}
+
+export function ccAddebitoRapido(email: string | null | undefined): string | null {
+  return ADDEBITO_RAPIDO[(email ?? '').trim().toLowerCase()] ?? null
+}
+
 export interface AccessoServiziInterni {
   tutti: boolean
   /** Centri di costo coordinati, minuscolo (vuoto se `tutti`). */
@@ -24,7 +36,10 @@ export async function accessoServiziInterni(
 ): Promise<AccessoServiziInterni> {
   if (!user?.email) return { tutti: false, codici: [] }
   if (user.permessi?.includes(AREA_CONTROLLO_GESTIONE)) return { tutti: true, codici: [] }
-  return { tutti: false, codici: (await getCentriCoordinati(user.email)).map((c) => c.toLowerCase()) }
+  const codici = (await getCentriCoordinati(user.email)).map((c) => c.toLowerCase())
+  const rapido = ccAddebitoRapido(user.email)
+  if (rapido && !codici.includes(rapido)) codici.push(rapido)
+  return { tutti: false, codici }
 }
 
 export const puoUsareServiziInterni = (a: AccessoServiziInterni) => a.tutti || a.codici.length > 0

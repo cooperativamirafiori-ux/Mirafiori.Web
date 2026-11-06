@@ -7,6 +7,10 @@ import { AREA_IT } from '@/types/it'
 import { situazioneResponsabile } from '@/lib/timbrature/data'
 import { accessoPreventivi, puoEntrare as puoPreventivi } from '@/lib/preventivi/accesso'
 import { LinkDonazioniCard } from './LinkDonazioniCard'
+import { AddebitoRapidoCard } from './AddebitoRapidoCard'
+import { ccAddebitoRapido } from '@/lib/servizi-interni/accesso'
+import { getCentriScelta } from '@/lib/servizi-interni/data'
+import type { CentroScelta } from '@/types/servizi-interni'
 
 export default async function HomePage() {
   const session = await auth()
@@ -53,6 +57,18 @@ export default async function HomePage() {
     }
   }
 
+  // Casella "Addebita un costo" sotto la Timbratura: solo per gli account in
+  // ADDEBITO_RAPIDO (la Locanda). Se il registro non risponde, niente casella.
+  const ccRapido = ccAddebitoRapido(session?.user?.email)
+  let centriRapido: CentroScelta[] | null = null
+  if (ccRapido) {
+    try {
+      centriRapido = await getCentriScelta()
+    } catch {
+      centriRapido = null
+    }
+  }
+
   const mostraRiservata = puoRisorseUmane || puoAmministrare || puoIT || puoControlloGestione
 
   return (
@@ -86,6 +102,8 @@ export default async function HomePage() {
           titolo="Timbratura · Foglio Ore"
           sottotitolo="Registra le ore e controlla il tuo monte ore"
         />
+
+        {ccRapido && centriRapido && <AddebitoRapidoCard ccDa={ccRapido} centri={centriRapido} />}
 
         {/* Operatività */}
         <Sezione titolo="Operatività">
