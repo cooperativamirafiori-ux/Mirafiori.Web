@@ -10,10 +10,13 @@ import {
   type RURecord,
 } from '@/types/risorse-umane'
 import { CartellaDipendente } from './CartellaDipendente'
+import { SceltaPersona, type VoceRubrica } from '@/components/ui/SceltaPersona'
 
 interface Props {
   entity: RUEntity
   iniziali: RURecord[]
+  /** Account attivi della cooperativa: alimentano il menu della mail aziendale. */
+  rubrica?: VoceRubrica[]
 }
 
 const inputCls =
@@ -207,7 +210,7 @@ function scaricaBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-export function GestioneRU({ entity, iniziali }: Props) {
+export function GestioneRU({ entity, iniziali, rubrica = [] }: Props) {
   const config = RU_CONFIG[entity]
   const fields = config.fields
   const [lista, setLista] = useState<RURecord[]>(iniziali)
@@ -510,7 +513,19 @@ export function GestioneRU({ entity, iniziali }: Props) {
                     {f.label}
                     {(f.key === 'Cognome' || f.key === 'Nome') && <span className="text-red-500"> *</span>}
                   </label>
-                  <CampoInput field={f} value={form[f.key] ?? ''} onChange={(v) => set(f.key, v)} />
+                  {f.key === 'MailAziendale' ? (
+                    <CampoMailAziendale
+                      value={form[f.key] ?? ''}
+                      onChange={(v) => set(f.key, v)}
+                      rubrica={rubrica}
+                      giaUsate={lista
+                        .filter((r) => r.spItemId !== editId)
+                        .map((r) => String(r.MailAziendale ?? '').trim().toLowerCase())
+                        .filter(Boolean)}
+                    />
+                  ) : (
+                    <CampoInput field={f} value={form[f.key] ?? ''} onChange={(v) => set(f.key, v)} />
+                  )}
                 </div>
               ))}
             </div>
@@ -966,5 +981,103 @@ function CampoInput({
       onChange={(e) => onChange(e.target.value)}
       className={inputCls}
     />
+  )
+}
+
+// ------------------------------------------------------------------
+/**
+ * Mail aziendale scelta da un menu degli account attivi della cooperativa.
+ *
+ * La mail aziendale non e' un dato descrittivo: e' la chiave con cui le
+ * timbrature riconoscono la persona. Un refuso ("eilsa.cominetti") non da'
+ * errore al salvataggio e si scopre solo a fine mese, col foglio ore bloccato.
+ * Quindi qui non si scrive: si sceglie fra gli account che esistono davvero.
+ *
+ * Le schede gia' esistenti con un indirizzo fuori rubrica restano leggibili e
+ * salvabili cosi' come sono, ma con l'avviso. Se la rubrica non e' leggibile
+ * (Graph muto) si torna al campo libero, per non bloccare l'anagrafica.
+ */
+function CampoMailAziendale({
+  value,
+  onChange,
+  rubrica,
+  giaUsate,
+}: {
+  value: string
+  onChange: (v: string) => void
+  rubrica: VoceRubrica[]
+  giaUsate: string[]
+}) {
+  const [cambia, setCambia] = useState(false)
+  const mail = value.trim().toLowerCase()
+  const voce = rubrica.find((v) => v.email === mail)
+
+  if (!rubrica.length) {
+    return (
+      <div className="space-y-1">
+        <input type="email" value={value} onChange={(e) => onChange(e.target.value)} className={inputCls} />
+        <p className="text-[11px] text-amber-700">
+          Elenco degli account non disponibile: controlla bene l’indirizzo.
+        </p>
+      </div>
+    )
+  }
+
+  if (mail && !cambia) {
+    return (
+      <div className="space-y-1">
+        <div className="flex items-center gap-2 rounded-xl border border-gray-300 px-3 py-2">
+          <span className="min-w-0 flex-1">
+            {voce && <span className="block truncate text-sm font-medium text-gray-800">{voce.nome}</span>}
+            <span className={`block truncate ${voce ? 'text-xs text-gray-500' : 'text-sm text-gray-800'}`}>{mail}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => setCambia(true)}
+            className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
+          >
+            Cambia
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-gray-500 hover:bg-gray-50"
+          >
+            Togli
+          </button>
+        </div>
+        {!voce && (
+          <p className="text-[11px] text-amber-700">
+            Questo indirizzo non è un account attivo della cooperativa: la persona non potrà timbrare. Usa “Cambia”.
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-1">
+      <SceltaPersona
+        rubrica={rubrica}
+        giaPresenti={giaUsate}
+        notaPresenti="già in anagrafica"
+        consentiLibera={false}
+        autoFocus={cambia}
+        segnaposto="Cerca l’account per nome o mail…"
+        onScegli={(v) => {
+          onChange(v.email)
+          setCambia(false)
+        }}
+      />
+      {cambia && (
+        <button
+          type="button"
+          onClick={() => setCambia(false)}
+          className="text-[11px] font-semibold text-gray-500 hover:text-gray-700"
+        >
+          Annulla, tieni {mail}
+        </button>
+      )}
+    </div>
   )
 }

@@ -31,6 +31,8 @@ export function SceltaPersona({
   onScegli,
   notaPresenti = 'già in elenco',
   autoFocus = false,
+  consentiLibera = true,
+  segnaposto,
 }: {
   rubrica: VoceRubrica[]
   /** Email già in elenco: si possono scegliere, ma vanno segnalate. */
@@ -39,6 +41,15 @@ export function SceltaPersona({
   /** Testo accanto alle email di `giaPresenti`. */
   notaPresenti?: string
   autoFocus?: boolean
+  /**
+   * Se false, con la rubrica disponibile si sceglie SOLO fra gli account veri:
+   * niente indirizzo scritto a mano. Serve dove un refuso fa danni silenziosi
+   * (mail aziendale in anagrafica RU, caso Cominetti 06/11/2026). Se la rubrica
+   * e' vuota (Graph muto) l'inserimento a mano resta comunque possibile.
+   */
+  consentiLibera?: boolean
+  /** Testo del campo vuoto, se quello standard non va bene. */
+  segnaposto?: string
 }) {
   const [testo, setTesto] = useState('')
   const [aperto, setAperto] = useState(false)
@@ -63,9 +74,10 @@ export function SceltaPersona({
   const emailLibera = useMemo(() => {
     const e = testo.toLowerCase().trim()
     if (!EMAIL_RE.test(e)) return null
+    if (!consentiLibera && rubrica.length) return null
     if (risultati.some((v) => v.email === e)) return null
     return e
-  }, [testo, risultati])
+  }, [testo, risultati, consentiLibera, rubrica.length])
 
   const voci: VoceRubrica[] = emailLibera
     ? [...risultati, { email: emailLibera, nome: emailLibera }]
@@ -118,7 +130,9 @@ export function SceltaPersona({
         autoComplete="off"
         autoFocus={autoFocus}
         placeholder={
-          rubrica.length
+          segnaposto && rubrica.length
+            ? segnaposto
+            : rubrica.length
             ? 'Cerca una persona per nome o email…'
             : 'Scrivi l’email aziendale…'
         }
@@ -141,7 +155,9 @@ export function SceltaPersona({
           {voci.length === 0 ? (
             <p className="px-3 py-3 text-sm text-gray-400">
               {rubrica.length
-                ? 'Nessuna persona trovata. Scrivi l’email per intero per aggiungerla comunque.'
+                ? consentiLibera
+                  ? 'Nessuna persona trovata. Scrivi l’email per intero per aggiungerla comunque.'
+                  : 'Nessun account attivo della cooperativa corrisponde. Se la persona è nuova, chiedi che le venga creato l’account Microsoft.'
                 : 'Rubrica non disponibile: scrivi l’email aziendale per intero.'}
             </p>
           ) : (

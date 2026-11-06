@@ -4,6 +4,7 @@ import { Header } from '@/components/ui/Header'
 import { getItems } from '@/lib/risorse-umane/data'
 import { graphRU, isRiautenticazione, isAccessoNegato } from '@/lib/core/graph-delegato'
 import { RU_CONFIG, type RUEntity, type RURecord } from '@/types/risorse-umane'
+import { getRubrica, invalidaRubrica } from '@/lib/core/rubrica'
 import { GestioneRU } from './GestioneRU'
 
 const ENV_HINT: Record<RUEntity, string> = {
@@ -52,6 +53,15 @@ export async function PaginaRU({ entity }: { entity: RUEntity }) {
     }
   }
 
+  // Account attivi della cooperativa, per scegliere la mail aziendale da un
+  // menu invece di batterla a mano (un refuso blocca il foglio ore a fine
+  // mese: caso Cominetti, 06/11/2026). Sempre fresca: l'account di un nuovo
+  // assunto viene creato poco prima di compilarne la scheda, e la cache di
+  // dieci minuti lo nasconderebbe. Non lancia: se Graph e' muto torna vuota e
+  // il campo ricade sull'inserimento a mano.
+  invalidaRubrica()
+  const rubrica = await getRubrica()
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Header title={config.label} backHref="/risorse-umane" backLabel="Torna a Risorse Umane" />
@@ -73,7 +83,7 @@ export async function PaginaRU({ entity }: { entity: RUEntity }) {
           </div>
         )}
 
-        <GestioneRU entity={entity} iniziali={items} />
+        <GestioneRU entity={entity} iniziali={items} rubrica={rubrica} />
       </main>
     </div>
   )
