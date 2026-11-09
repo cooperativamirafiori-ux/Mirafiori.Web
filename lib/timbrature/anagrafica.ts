@@ -15,6 +15,7 @@ import type {
   Dipendente,
   FasciaProfilo,
   ProfiloOrario,
+  RipartizioneOre,
   MonteOreSettimana,
   VariazioneOrarioInput,
 } from '@/types/timbrature'
@@ -241,6 +242,13 @@ function mapProfilo(r: any): ProfiloOrario {
     fileUrl: r.file_url ?? null,
     fileNome: r.file_nome ?? null,
     fasce: (r.fasce ?? []).map(mapFascia).sort(ordinaFasce),
+    ripartizione: [...(r.ripartizione ?? [])]
+      .sort((a: any, b: any) => (a.ordine ?? 0) - (b.ordine ?? 0))
+      .map((q: any) => ({
+        servizioId: q.servizio_id,
+        oreSettimanali: Number(q.ore_settimanali),
+        servizioNome: q.servizio?.nome,
+      })),
   }
 }
 
@@ -260,8 +268,12 @@ function ordinaFasce(a: FasciaProfilo, b: FasciaProfilo): number {
   return a.giorno - b.giorno || a.oraInizio.localeCompare(b.oraInizio)
 }
 
+// ⚠️ La ripartizione legge la tabella `profilo_ripartizione`
+// (supabase/timbrature_ripartizione.sql): se manca, si rompe OGNI lettura del
+// monte ore. La migrazione va eseguita prima del deploy.
 const SELECT_PROFILO =
-  '*, fasce:profilo_fascia ( id, giorno, ora_inizio, ora_fine, servizio_id, servizio:servizio_id ( nome ) )'
+  '*, fasce:profilo_fascia ( id, giorno, ora_inizio, ora_fine, servizio_id, servizio:servizio_id ( nome ) ), ' +
+  'ripartizione:profilo_ripartizione ( servizio_id, ore_settimanali, ordine, servizio:servizio_id ( nome ) )'
 
 /** Le ore di una giornata secondo le fasce dell'orario teorico. */
 export function oreDaFasce(fasce: FasciaProfilo[], giorno: number): number {
@@ -314,6 +326,34 @@ export function normalizzaFasce(input: unknown): FasciaProfilo[] {
           `${cur.oraInizio}-${cur.oraFine} si sovrappongono.`,
       )
     }
+  }
+  return out
+}
+
+/**
+ * Normalizza e valida la ripartizione delle ore fra i servizi.
+ *
+ * Lo stesso servizio due volte e' un errore, non una somma: chi lo scrive ha
+ * quasi sempre sbagliato a scegliere dalla tendina, e sommare nasconderebbe lo
+ * sbaglio. La coerenza con il totale settimanale si controlla in `salvaProfilo`,
+ * dove il totale e' noto.
+ */
+export function normalizzaRipartizione(input: unknown): RipartizioneOre[] {
+  if (!Array.isArray(input)) return []
+  const out: RipartizioneOre[] = []
+  for (const q of input) {
+    const servizioId = Number((q as any)?.servizioId)
+    const ore = Math.round(Number((q as any)?.oreSettimanali) * 100) / 100
+    if (!Number.isFinite(servizioId) || servizioId <= 0) {
+      throw new Error('Ripartizione: manca il servizio su una riga')
+    }
+    if (!Number.isFinite(ore) || ore <= 0) {
+      throw new Error('Ripartizione: le ore di ogni servizio devono essere piu\' di zero')
+    }
+    if (out.some((x) => x.servizioId === servizioId)) {
+      throw new Error('Ripartizione: lo stesso servizio compare due volte')
+    }
+    out.push({ servizioId, oreSettimanali: ore })
   }
   return out
 }
@@ -431,11 +471,27 @@ export async function salvaProfilo(input: {
   file?: { url: string; nome: string } | null
   /** `undefined`/`null` = non toccare l'orario teorico; un array lo sostituisce. */
   fasce?: FasciaProfilo[] | null
+  /** `undefined`/`null` = non toccare la ripartizione; un array la sostituisce. */
+  ripartizione?: RipartizioneOre[] | null
 }): Promise<ProfiloOrario> {
   const ore = { ...input.ore }
   if (input.fasce) {
     for (let g = 1 as 1 | 2 | 3 | 4 | 5 | 6 | 7; g <= 7; g++) {
       if (input.fasce.some((f) => f.giorno === g)) ore[g] = oreDaFasce(input.fasce, g)
+    }
+  }
+
+  // La ripartizione deve fare esattamente il totale settimanale. Se fosse
+  // diversa, "Compila il mese" la riproporzionerebbe in silenzio e le ore per
+  // centro di costo non sarebbero quelle scritte da HR: meglio fermarsi qui.
+  if (input.ripartizione?.length) {
+    const settimanali = round4(Object.values(ore).reduce((t, n) => t + n, 0))
+    const ripartite = round4(input.ripartizione.reduce((t, q) => t + q.oreSettimanali, 0))
+    if (Math.abs(settimanali - ripartite) > 0.01) {
+      throw new Error(
+        `La ripartizione fa ${ripartite} ore ma l'orario settimanale ne fa ${settimanali}: ` +
+          'le ore sui servizi devono fare esattamente il totale della settimana.',
+      )
     }
   }
 
@@ -467,6 +523,7 @@ export async function salvaProfilo(input: {
   if (error) throw new Error(error.message)
 
   if (input.fasce) await sostituisciFasce(data.id, input.fasce)
+  if (input.ripartizione) await sostituisciRipartizione(data.id, input.ripartizione)
 
   const salvato = await getProfiloById(data.id)
   if (!salvato) throw new Error('Variazione salvata ma non rileggibile')
@@ -493,6 +550,23 @@ async function sostituisciFasce(profiloId: number, fasce: FasciaProfilo[]): Prom
       ora_inizio: f.oraInizio,
       ora_fine: f.oraFine,
       servizio_id: f.servizioId,
+    })),
+  )
+  if (e2) throw new Error(e2.message)
+}
+
+/** Come `sostituisciFasce`: poche righe, senza identita' propria. */
+async function sostituisciRipartizione(profiloId: number, quote: RipartizioneOre[]): Promise<void> {
+  const { error: e1 } = await supabase().from('profilo_ripartizione').delete().eq('profilo_id', profiloId)
+  if (e1) throw new Error(e1.message)
+  if (!quote.length) return
+
+  const { error: e2 } = await supabase().from('profilo_ripartizione').insert(
+    quote.map((q, i) => ({
+      profilo_id: profiloId,
+      servizio_id: q.servizioId,
+      ore_settimanali: q.oreSettimanali,
+      ordine: i,
     })),
   )
   if (e2) throw new Error(e2.message)
@@ -555,5 +629,9 @@ export function leggiVariazione(body: any): VariazioneOrarioInput {
     // fasce, e non deve cancellarle); il secondo vuol dire "togli l'orario
     // teorico", ed e' un'azione deliberata.
     fasce: body?.fasce === undefined || body?.fasce === null ? null : normalizzaFasce(body.fasce),
+    ripartizione:
+      body?.ripartizione === undefined || body?.ripartizione === null
+        ? null
+        : normalizzaRipartizione(body.ripartizione),
   }
 }

@@ -117,6 +117,27 @@ Nota organizzativa: il referente di tutti i responsabili è la casella Risorse
 Umane, altrimenti il loro foglio resterebbe fermo in `da_validare` senza un
 destinatario.
 
+### 6. Ripartizione delle ore fra servizi (novembre 2026)
+
+I responsabili d'area dividono il lavoro su più centri di costo in quote fisse, che
+possono cambiare durante l'anno. Decisioni di Dennis (9/11/2026):
+
+- **ore settimanali** per servizio, non percentuali: è come lo dicono le HR. La somma deve
+  fare il totale settimanale dell'orario teorico, e il server lo ricontrolla
+  (`salvaProfilo`): una somma diversa verrebbe riproporzionata in silenzio;
+- la imposta **solo HR**, dentro «Variazioni orario»;
+- divisione **giorno per giorno**, non sul mese: ogni giornata ha un pezzo di ogni servizio
+  (`spezzaGiornata` in `lib/timbrature/da-profilo.ts`, minuti interi, resti maggiori).
+
+Tabella `profilo_ripartizione`, **figlia di `profilo_orario`** come le fasce: segue la
+stessa decorrenza. Cambiare la divisione = nuova variazione (il modulo riparte dalla
+precedente). Vuota = vale il servizio della fascia, come prima. Con la ripartizione il
+servizio della fascia è ignorato, e le fasce vengono tagliate in pezzi consecutivi: gli
+orari dei pezzi sono una convenzione, le ore per servizio sono il dato.
+
+SQL: `supabase/timbrature_ripartizione.sql`, **prima del deploy**: `SELECT_PROFILO` la
+legge in ogni lettura del monte ore. Prova: `node scripts/prova-da-profilo.mjs`.
+
 ## Messa in opera
 
 1. **Supabase** — eseguire `supabase/timbrature_non_timbra.sql` nel SQL editor.

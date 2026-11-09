@@ -126,6 +126,20 @@ export interface ProfiloOrario {
    * c'e' niente da generare, perche' una riga di lavoro vuole ingresso e uscita.
    */
   fasce: FasciaProfilo[]
+  /**
+   * Come si dividono le ore settimanali fra i servizi, per chi non timbra e
+   * lavora su piu' centri di costo (i responsabili d'area). Vuota = vale il
+   * servizio scritto sulla fascia. Se c'e', "Compila il mese" divide ogni
+   * giornata in queste proporzioni e il servizio della fascia non conta.
+   */
+  ripartizione: RipartizioneOre[]
+}
+
+/** Una quota della ripartizione: tante ore a settimana su questo servizio. */
+export interface RipartizioneOre {
+  servizioId: number
+  oreSettimanali: number
+  servizioNome?: string
 }
 
 /**
@@ -155,6 +169,8 @@ export interface VariazioneOrarioInput {
    * un array = sostituisce in blocco quello che c'era.
    */
   fasce: FasciaProfilo[] | null
+  /** Come `fasce`: `null` = non toccarla, un array la sostituisce. */
+  ripartizione: RipartizioneOre[] | null
 }
 
 /** Ore attese indicizzate 1..7 (lun..dom), per allineamento con WEEKDAY(x,2) di Excel */

@@ -35,7 +35,9 @@ import { inserisci, listTimbrature } from '@/lib/timbrature/righe'
 import { MOTIVO_STATO, statoMese } from '@/lib/timbrature/stati'
 import type {
   EsitoCompilazioneProfilo,
+  FasciaProfilo,
   ProfiloOrario,
+  RipartizioneOre,
   Servizio,
 } from '@/types/timbrature'
 
@@ -120,7 +122,10 @@ export async function compilaMeseDaProfilo(
     }
 
     try {
-      for (const f of fasce) {
+      // Con una ripartizione la giornata si divide fra i servizi nelle sue
+      // proporzioni; senza, vale il servizio scritto su ogni fascia.
+      const pezzi = prof?.ripartizione.length ? spezzaGiornata(fasce, prof.ripartizione) : fasce
+      for (const f of pezzi) {
         let serv = servizi.get(f.servizioId)
         if (!serv) {
           serv = await servizioById(f.servizioId)
@@ -145,6 +150,67 @@ export async function compilaMeseDaProfilo(
 
   esito.avviso = raccontaEsito(esito, !!opts.rigenera)
   return esito
+}
+
+/**
+ * Divide le fasce di una giornata fra i servizi della ripartizione.
+ *
+ * Giorno per giorno, non sul mese (scelta di Dennis, 9/11/2026): ogni giornata
+ * ha un pezzo di ogni servizio, nella stessa proporzione delle ore settimanali.
+ * Così un giorno di ferie toglie a tutti i servizi la loro parte, e i conti
+ * tornano su qualunque periodo, non solo a fine mese.
+ *
+ * Una riga vuole ingresso e uscita, quindi le fasce si tagliano in pezzi
+ * consecutivi. Con 9-13 e 14-17:36 (7h36) e 20 + 18 ore settimanali: 9:00-13:00
+ * sul primo servizio, 14:00-17:36 sul secondo. Con quote meno tonde il taglio
+ * cade dentro una fascia: gli orari dei pezzi sono una convenzione, le ore per
+ * servizio sono il dato.
+ *
+ * Si lavora in minuti interi: le quote si arrotondano col metodo dei resti
+ * maggiori, così la somma dei pezzi e' esattamente la giornata, senza minuti
+ * persi o inventati. Funzione pura.
+ */
+export function spezzaGiornata(
+  fasce: Pick<FasciaProfilo, 'oraInizio' | 'oraFine'>[],
+  ripartizione: RipartizioneOre[],
+): { oraInizio: string; oraFine: string; servizioId: number }[] {
+  const minuti = (s: string) => Number(s.slice(0, 2)) * 60 + Number(s.slice(3, 5))
+  const orario = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+
+  const ordinate = [...fasce].sort((a, b) => a.oraInizio.localeCompare(b.oraInizio))
+  const tratti = ordinate.map((f) => ({ da: minuti(f.oraInizio), a: minuti(f.oraFine) }))
+  const totale = tratti.reduce((t, x) => t + (x.a - x.da), 0)
+  const sommaOre = ripartizione.reduce((t, q) => t + q.oreSettimanali, 0)
+  if (!totale || sommaOre <= 0) return []
+
+  // Quote in minuti, resti maggiori.
+  const esatte = ripartizione.map((q) => (totale * q.oreSettimanali) / sommaOre)
+  const quote = esatte.map(Math.floor)
+  let avanzo = totale - quote.reduce((t, n) => t + n, 0)
+  const perResto = esatte
+    .map((x, i) => ({ i, resto: x - Math.floor(x) }))
+    .sort((a, b) => b.resto - a.resto || a.i - b.i)
+  for (let k = 0; avanzo > 0; k++, avanzo--) quote[perResto[k % perResto.length].i]++
+
+  const out: { oraInizio: string; oraFine: string; servizioId: number }[] = []
+  let t = 0
+  let cursore = tratti[0].da
+  ripartizione.forEach((q, i) => {
+    let resta = quote[i]
+    while (resta > 0 && t < tratti.length) {
+      const fine = Math.min(tratti[t].a, cursore + resta)
+      if (fine > cursore) {
+        out.push({ oraInizio: orario(cursore), oraFine: orario(fine), servizioId: q.servizioId })
+        resta -= fine - cursore
+      }
+      cursore = fine
+      if (cursore >= tratti[t].a) {
+        t++
+        if (t < tratti.length) cursore = tratti[t].da
+      }
+    }
+  })
+  return out
 }
 
 function oreFascia(oraInizio: string, oraFine: string): number {

@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
       motivo: v.motivo,
       file: v.file,
       fasce: v.fasce,
+      ripartizione: v.ripartizione,
     })
     await logAzione({
       utente: g.session.user.email!,
@@ -93,6 +94,7 @@ export async function POST(req: NextRequest) {
         motivo: v.motivo,
         conAllegato: !!v.file,
         fasceOrarioTeorico: v.fasce?.length ?? null,
+        ripartizione: v.ripartizione?.map((q) => `${q.servizioId}:${q.oreSettimanali}`) ?? null,
       },
     })
     return NextResponse.json({ profilo })

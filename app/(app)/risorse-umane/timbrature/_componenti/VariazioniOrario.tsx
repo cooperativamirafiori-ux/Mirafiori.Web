@@ -21,6 +21,7 @@ import { Allegato } from '@/components/ui/Allegato'
 import { caricaDirettamente } from '@/lib/core/upload-diretto'
 import type { FasciaProfilo, ProfiloOrario, Servizio } from '@/types/timbrature'
 import { OrarioTeorico, oreFascia } from './OrarioTeorico'
+import { RipartizioneOre, aQuote, daQuote, type RigaRipartizione } from './RipartizioneOre'
 
 const GG = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
 const oreFmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, ''))
@@ -49,6 +50,7 @@ export function VariazioniOrario({
 }) {
   const [ore, setOre] = useState<Record<number, string>>({})
   const [fasce, setFasce] = useState<FasciaProfilo[]>([])
+  const [ripartizione, setRipartizione] = useState<RigaRipartizione[]>([])
   const [decorrenza, setDecorrenza] = useState('')
   const [motivo, setMotivo] = useState('')
   const [lettera, setLettera] = useState<File | null>(null)
@@ -69,6 +71,7 @@ export function VariazioniOrario({
     // teorico nuovo, appeso alla variazione nuova, non una modifica di quella
     // vecchia — che deve restare com'è per i mesi già passati.
     setFasce((p?.fasce ?? []).map(({ giorno, oraInizio, oraFine, servizioId }) => ({ giorno, oraInizio, oraFine, servizioId })))
+    setRipartizione(daQuote(p?.ripartizione ?? []))
     const oggi = new Date()
     setDecorrenza(`${oggi.getFullYear()}-${String(oggi.getMonth() + 1).padStart(2, '0')}-01`)
     setMotivo('')
@@ -78,6 +81,15 @@ export function VariazioniOrario({
 
   async function salva() {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(decorrenza)) { setErrore('Indica la data di decorrenza'); return }
+    const quote = aQuote(ripartizione)
+    if (nonTimbra && quote.length) {
+      if (quote.some((q) => !q.servizioId)) { setErrore('Ore per servizio: scegli il servizio su ogni riga'); return }
+      const somma = quote.reduce((t, q) => t + q.oreSettimanali, 0)
+      if (Math.abs(somma - settimanali) > 0.01) {
+        setErrore(`Ore per servizio: la somma fa ${oreFmt(somma)} h, deve fare ${oreFmt(settimanali)} h`)
+        return
+      }
+    }
     setAzione(true); setErrore('')
     try {
       // La lettera si carica PRIMA di registrare la variazione: se il caricamento
@@ -110,7 +122,7 @@ export function VariazioniOrario({
           // Solo per chi non timbra. Per gli altri il campo non parte affatto,
           // ed è quello che dice al server "non toccare l'orario teorico" —
           // diverso da un array vuoto, che vorrebbe dire "cancellalo".
-          ...(nonTimbra ? { fasce } : {}),
+          ...(nonTimbra ? { fasce, ripartizione: quote } : {}),
         }),
       })
       const d = await r.json()
@@ -175,6 +187,13 @@ export function VariazioniOrario({
                 <span className="text-gray-500">
                   {' '}· {v.map(oreFmt).join('-')} = {oreFmt(v.reduce((s, n) => s + n, 0))} h/sett.
                 </span>
+                {p.ripartizione.length > 0 && (
+                  <div className="text-gray-500">
+                    {p.ripartizione
+                      .map((q) => `${oreFmt(q.oreSettimanali)} h ${q.servizioNome ?? servizi.find((s) => s.id === q.servizioId)?.nome ?? ''}`)
+                      .join(' · ')}
+                  </div>
+                )}
                 {p.motivo && <div className="text-gray-500">{p.motivo}</div>}
                 <div className="text-gray-400">
                   {p.aggiornatoDa ?? '—'}
@@ -203,6 +222,15 @@ export function VariazioniOrario({
 
       {nonTimbra && (
         <OrarioTeorico fasce={fasce} servizi={servizi} onChange={setFasce} disabilitato={azione} />
+      )}
+      {nonTimbra && (
+        <RipartizioneOre
+          righe={ripartizione}
+          servizi={servizi}
+          settimanali={settimanali}
+          onChange={setRipartizione}
+          disabilitato={azione}
+        />
       )}
 
       <div className="grid grid-cols-7 gap-1 mb-1">

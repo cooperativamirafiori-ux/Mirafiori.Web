@@ -123,6 +123,27 @@ Poi, nella stessa scheda, il riquadro **«Foglio ore da orario teorico»** perme
 premere **«Compila …»** o **«Rigenera»** per quella persona (vedi la guida Timbrature, «Non
 timbro»).
 
+## Come divido le ore di chi non timbra su più servizi (centri di costo)?
+
+Serve a chi lavora su più centri di costo, per esempio i responsabili d'area. Sotto
+«Orario teorico» c'è il riquadro **«Ore per servizio (centro di costo)»**.
+
+1. Premi **«+ aggiungi un servizio»**, scegli il **«Servizio»** e scrivi le **«Ore/sett.»**.
+2. Ripeti per ogni servizio. La somma deve fare il totale settimanale dell'orario teorico:
+   sotto vedi quante ore mancano o sono di troppo.
+3. Imposta decorrenza e motivo e premi **«Registra variazione»**.
+
+«Compila …» divide **ogni giornata** fra i servizi nelle stesse proporzioni (per esempio 20 e
+18 ore su 38: ogni giorno poco più di metà sul primo servizio, il resto sul secondo). Il
+servizio scritto sulle fasce dell'orario teorico non conta più. Ferie, malattia e permessi
+tolgono a ogni servizio la sua parte.
+
+Se la divisione cambia durante l'anno, registra una nuova variazione con la data da cui vale:
+parte già compilata con la divisione precedente, cambi solo le ore. I mesi passati restano
+come erano; un mese già compilato con la divisione vecchia si rifà con **«Rigenera»**.
+
+Se lavora su un servizio solo, lascia il riquadro vuoto.
+
 ## Come valido o correggo un foglio ore?
 
 Come un responsabile (vedi la guida Timbrature, parte «Per i responsabili»): **«Controlla»**,

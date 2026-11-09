@@ -36,7 +36,7 @@ Module._resolveFilename = function (richiesta, ...resto) {
 // Tre tabelle in memoria e un builder che capisce le catene usate dal modulo
 // (select/insert/delete + eq/gte/lte/in/order/limit/single/maybeSingle).
 
-const db = { dipendente: [], profilo_orario: [], profilo_fascia: [], servizio: [], timbratura: [], chiusura_mese: [] }
+const db = { dipendente: [], profilo_orario: [], profilo_fascia: [], profilo_ripartizione: [], servizio: [], timbratura: [], chiusura_mese: [] }
 let seqTimbratura = 1
 
 const DENTRO = {
@@ -100,6 +100,9 @@ const espandi = (tabella) => (r) => {
       fasce: db.profilo_fascia
         .filter((f) => f.profilo_id === r.id)
         .map((f) => ({ ...f, servizio: db.servizio.find((s) => s.id === f.servizio_id) })),
+      ripartizione: db.profilo_ripartizione
+        .filter((q) => q.profilo_id === r.id)
+        .map((q) => ({ ...q, servizio: db.servizio.find((s) => s.id === q.servizio_id) })),
     }
   }
   if (tabella === 'timbratura') {
@@ -114,7 +117,7 @@ require.cache[require.resolve(path.join(RADICE, 'lib/core/supabase.ts'))] = {
 }
 
 // ================================================================== scenario
-const { compilaMeseDaProfilo } = require(path.join(RADICE, 'lib/timbrature/da-profilo.ts'))
+const { compilaMeseDaProfilo, spezzaGiornata } = require(path.join(RADICE, 'lib/timbrature/da-profilo.ts'))
 const { creaTimbratura, listTimbrature } = require(path.join(RADICE, 'lib/timbrature/righe.ts'))
 const { creaAssenzaPeriodo } = require(path.join(RADICE, 'lib/timbrature/assenze.ts'))
 
@@ -133,6 +136,24 @@ for (let g = 1; g <= 5; g++) {
   db.profilo_fascia.push({ id: g * 2 - 1, profilo_id: 1, giorno: g, ora_inizio: '09:00', ora_fine: '13:00', servizio_id: 10 })
   db.profilo_fascia.push({ id: g * 2, profilo_id: 1, giorno: g, ora_inizio: '14:00', ora_fine: '18:00', servizio_id: 10 })
 }
+
+// Una responsabile d'area: 7h36 al giorno (9-13 e 14-17:36), 38 h divise in
+// 20 su Ed. amb. Nord e 18 su Progettazione. La fascia dice "UFFICIO", ma con
+// la ripartizione il servizio della fascia non deve contare.
+db.dipendente.push({ id: 3, email: 'area@x.it', cognome_nome: 'Verdi Carla', attivo: true, non_timbra: true })
+db.servizio.push({ id: 20, nome: 'Ed. amb. Nord', centro_costo: 4, tipo_voce: 'lavoro', attivo: true, ordine: 20, ad_ore: false, chiede_progetto: false })
+db.servizio.push({ id: 21, nome: 'Progettazione', centro_costo: 1, tipo_voce: 'lavoro', attivo: true, ordine: 21, ad_ore: false, chiede_progetto: false })
+db.profilo_orario.push({
+  id: 2, dipendente_id: 3, decorrenza: '2026-01-01',
+  ore_lun: 7.6, ore_mar: 7.6, ore_mer: 7.6, ore_gio: 7.6, ore_ven: 7.6, ore_sab: 0, ore_dom: 0,
+  aggiornato_il: '2026-01-01T00:00:00Z',
+})
+for (let g = 1; g <= 5; g++) {
+  db.profilo_fascia.push({ id: 100 + g * 2, profilo_id: 2, giorno: g, ora_inizio: '09:00', ora_fine: '13:00', servizio_id: 10 })
+  db.profilo_fascia.push({ id: 101 + g * 2, profilo_id: 2, giorno: g, ora_inizio: '14:00', ora_fine: '17:36', servizio_id: 10 })
+}
+db.profilo_ripartizione.push({ id: 1, profilo_id: 2, servizio_id: 20, ore_settimanali: 20, ordine: 0 })
+db.profilo_ripartizione.push({ id: 2, profilo_id: 2, servizio_id: 21, ore_settimanali: 18, ordine: 1 })
 
 let falliti = 0
 const ok = (etichetta, atteso, avuto) => {
@@ -178,6 +199,28 @@ async function main() {
   } catch (err) {
     ok('rifiutato con un messaggio che dice cosa fare', true, /Non timbra/.test(err.message))
   }
+
+  console.log('\n▶ Ripartizione: la giornata si divide fra i servizi')
+  ok('20+18 su 7h36: il taglio cade sulla pausa', [
+    { oraInizio: '09:00', oraFine: '13:00', servizioId: 20 },
+    { oraInizio: '14:00', oraFine: '17:36', servizioId: 21 },
+  ], spezzaGiornata([{ oraInizio: '09:00', oraFine: '13:00' }, { oraInizio: '14:00', oraFine: '17:36' }],
+    [{ servizioId: 20, oreSettimanali: 20 }, { servizioId: 21, oreSettimanali: 18 }]))
+  const tre = spezzaGiornata([{ oraInizio: '08:00', oraFine: '12:00' }, { oraInizio: '13:00', oraFine: '16:00' }],
+    [{ servizioId: 1, oreSettimanali: 10 }, { servizioId: 2, oreSettimanali: 15 }, { servizioId: 3, oreSettimanali: 10 }])
+  const min = (s) => Number(s.slice(0, 2)) * 60 + Number(s.slice(3, 5))
+  const perServ = (id) => tre.filter((p) => p.servizioId === id).reduce((t, p) => t + min(p.oraFine) - min(p.oraInizio), 0)
+  ok('tre servizi su 7 h: nessun minuto perso o inventato', 420, perServ(1) + perServ(2) + perServ(3))
+  ok('quote 120/180/120 minuti', [120, 180, 120], [perServ(1), perServ(2), perServ(3)])
+  ok('il pezzo a cavallo della pausa si spezza in due righe', 4, tre.length)
+
+  e = await compilaMeseDaProfilo(3, 2026, 9, 'hr@x.it', { perConto: true })
+  const rr = await listTimbrature(3, '2026-09-01', '2026-09-30')
+  const oreSu = (id) => Math.round(rr.filter((t) => t.servizioId === id).reduce((t, x) => t + x.ore, 0) * 100) / 100
+  ok('22 giornate compilate', 22, e.compilate.length)
+  ok('Ed. amb. Nord: 22 x 4 h', 88, oreSu(20))
+  ok('Progettazione: 22 x 3,6 h', 79.2, oreSu(21))
+  ok('niente sul servizio della fascia', 0, oreSu(10))
 
   console.log(falliti ? `\n✗ ${falliti} controlli falliti\n` : '\n✓ Tutto a posto\n')
   process.exit(falliti ? 1 : 0)
