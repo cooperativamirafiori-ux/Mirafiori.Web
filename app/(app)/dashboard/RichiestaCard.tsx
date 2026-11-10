@@ -129,6 +129,7 @@ export function RichiestaCard({ richiesta: r, tecnici, nonLetti = 0, apertaAllIn
                 ⏳ Lungo corso{r.previsioneLungoCorso ? ` · ${r.previsioneLungoCorso}` : ''}
               </span>
             )}
+            {r.allegatoUrl && <span className="text-xs text-gray-500" title="Con foto">📷</span>}
             {daLeggere > 0 && (
               <span className="text-xs font-semibold text-white bg-primary px-2 py-0.5 rounded-full">
                 ✉ {daLeggere === 1 ? '1 messaggio nuovo' : `${daLeggere} messaggi nuovi`}
@@ -183,6 +184,17 @@ export function RichiestaCard({ richiesta: r, tecnici, nonLetti = 0, apertaAllIn
               <p className="text-xs font-medium text-gray-500 mb-1">Descrizione completa</p>
               <p className="text-sm text-gray-700 bg-white rounded-lg p-3 border border-gray-200 whitespace-pre-line">{r.descrizione}</p>
             </div>
+          )}
+
+          {r.allegatoUrl && (
+            <a
+              href={r.allegatoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-sm text-primary underline"
+            >
+              📷 Foto allegata{r.allegatoNome ? ` · ${r.allegatoNome}` : ''}
+            </a>
           )}
 
           {!isCompletata && <PresaInCarico richiesta={r} />}

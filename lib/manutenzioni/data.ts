@@ -11,7 +11,7 @@ import type { Struttura, Tecnico, RichiestaManutenzione } from '@/types/manutenz
 // Person columns (Richiedente) ritornano come oggetto { DisplayName, Email, LookupId }
 // Lookup columns (Struttura, Tecnico) ritornano come oggetto { Value, LookupId }
 const RICHIESTA_FIELDS =
-  'id,fields&$expand=fields($select=Title,Richiedente,RichiedenteLookupId,DataRichiesta,TipoIntervento,Priorita,Stato,Struttura,StrutturaLookupId,Descrizione,NoteDennis,DataIntervento,ImportoFattura,DataPagamento,Pagato,OrePulizia,Tecnico,TecnicoLookupId,NumeroFattura,LungoCorso,PrevisioneLungoCorso)'
+  'id,fields&$expand=fields($select=Title,Richiedente,RichiedenteLookupId,DataRichiesta,TipoIntervento,Priorita,Stato,Struttura,StrutturaLookupId,Descrizione,NoteDennis,DataIntervento,ImportoFattura,DataPagamento,Pagato,OrePulizia,Tecnico,TecnicoLookupId,NumeroFattura,LungoCorso,PrevisioneLungoCorso,AllegatoUrl,AllegatoNome)'
 
 function mapRichiesta(item: any): RichiestaManutenzione {
   const f = item.fields
@@ -51,6 +51,8 @@ function mapRichiesta(item: any): RichiestaManutenzione {
     noteResponsabile: f.NoteDennis ?? undefined,
     lungoCorso: f.LungoCorso === true,
     previsioneLungoCorso: f.PrevisioneLungoCorso || undefined,
+    allegatoUrl: f.AllegatoUrl || undefined,
+    allegatoNome: f.AllegatoNome || undefined,
   }
 }
 

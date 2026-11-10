@@ -80,13 +80,19 @@ Gli amministratori vedono anche, con l'etichetta «Admin»:
    «Pulizia straordinaria» oppure «Altro».
 5. In «Priorità» scegli «Normale», «Alta» oppure «Urgente (esecuzione in giornata)».
 6. In «Descrizione problema» spiega cosa succede: dove, cosa non funziona, da quando.
-7. Tocca «Invia richiesta».
+7. Se vuoi, in «Foto del problema» tocca «Scegli file»: dal telefono puoi scattare la foto
+   al momento o prenderne una dalla galleria. È facoltativa. Sotto compaiono il nome e il peso
+   della foto scelta.
+8. Tocca «Invia richiesta».
 
-Tutti i campi sono obbligatori.
+Struttura, tipo, priorità e descrizione sono obbligatori; la foto no.
 
 Quando la richiesta è salvata compare il messaggio «Richiesta inviata» con il suo numero,
 per esempio `MAN-2026-047`. Accanto c'è «Vedi le mie richieste →» per andare all'elenco.
-Il modulo si svuota, così puoi inviarne subito un'altra.
+Il modulo si svuota, così puoi inviarne subito un'altra. Se hai allegato una foto, accanto al
+numero leggi «· foto allegata». Se la foto non è partita (rete debole, file troppo grande)
+leggi «la foto non è stata caricata»: la richiesta è partita lo stesso, e puoi mandare la foto
+nei messaggi della richiesta. Il massimo è 50 MB.
 
 ## Cosa succede dopo che ho inviato la richiesta?
 
@@ -118,7 +124,9 @@ Il modulo si svuota, così puoi inviarne subito un'altra.
    - **Completata** (verde): l'intervento è chiuso.
 4. Se c'è un tecnico, leggi «Tecnico assegnato:» con il suo nome e, se c'è, il telefono.
 5. Se è un lavoro lungo leggi «⏳ Lavoro di lungo corso» e, se c'è, la previsione.
-6. Sotto ogni richiesta c'è il tasto «Messaggi e cose da fare». Se ci sono messaggi che
+6. Se avevi allegato una foto, trovi il collegamento «📷 La tua foto»: toccandolo si apre
+   l'immagine.
+7. Sotto ogni richiesta c'è il tasto «Messaggi e cose da fare». Se ci sono messaggi che
    non hai ancora letto, accanto compare «1 nuovo» o «… nuovi».
 
 Se non hai mai inviato richieste leggi «Nessuna richiesta trovata.» e il collegamento
@@ -180,7 +188,8 @@ contatta gli amministratori delle manutenzioni.
 
 Ogni richiesta mostra numero, struttura, stato, priorità, da quanti giorni è aperta (in
 rosso se più di 7), richiedente e tecnico. Se il tecnico manca leggi «⚠ Tecnico da
-assegnare». Se il richiedente ti ha scritto e non hai ancora letto, compare «✉ 1 messaggio
+assegnare». Se la richiesta ha una foto compare il simbolo 📷 accanto allo stato, e aprendo la
+richiesta trovi il collegamento «📷 Foto allegata». Se il richiedente ti ha scritto e non hai ancora letto, compare «✉ 1 messaggio
 nuovo»: si toglie quando apri la richiesta.
 
 «Da assegnare» conta le richieste Aperte o Prese in carico senza tecnico, fuori dal lungo

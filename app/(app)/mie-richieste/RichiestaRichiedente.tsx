@@ -47,6 +47,17 @@ export function RichiestaRichiedente({
       </p>
       <p className={`text-sm text-gray-500 whitespace-pre-line ${aperta ? '' : 'line-clamp-2'}`}>{r.descrizione}</p>
 
+      {r.allegatoUrl && (
+        <a
+          href={r.allegatoUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-sm text-primary underline"
+        >
+          📷 La tua foto{r.allegatoNome ? ` · ${r.allegatoNome}` : ''}
+        </a>
+      )}
+
       {r.lungoCorso && r.stato !== 'Completata' && (
         <p className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg px-2 py-1 inline-block">
           ⏳ Lavoro di lungo corso{r.previsioneLungoCorso ? ` · previsione: ${r.previsioneLungoCorso}` : ''}

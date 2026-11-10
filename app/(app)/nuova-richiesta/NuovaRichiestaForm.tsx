@@ -2,19 +2,24 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Allegato } from '@/components/ui/Allegato'
+import { caricaDirettamente } from '@/lib/core/upload-diretto'
 import type { Struttura } from '@/types/manutenzioni'
 
 interface Props {
   strutture: Struttura[]
   tipiIntervento: string[]
   priorita: string[]
+  allegatiAttivi: boolean
 }
 
-export function NuovaRichiestaForm({ strutture, tipiIntervento, priorita }: Props) {
+export function NuovaRichiestaForm({ strutture, tipiIntervento, priorita, allegatiAttivi }: Props) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [foto, setFoto] = useState<File | null>(null)
+  const [avanzamento, setAvanzamento] = useState<number | null>(null)
 
   const [form, setForm] = useState({
     strutturaId: '',
@@ -55,7 +60,30 @@ export function NuovaRichiestaForm({ strutture, tipiIntervento, priorita }: Prop
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Errore invio')
 
-      setSuccess(`✅ Richiesta inviata: ${data.idRichiesta}`)
+      // La foto si carica dopo: il nome del file porta il codice della richiesta,
+      // che prima dell'invio non esiste ancora.
+      let esitoFoto = ''
+      if (foto && allegatiAttivi) {
+        try {
+          setAvanzamento(0)
+          await caricaDirettamente({
+            file: foto,
+            urlSessione: `/api/manutenzioni/${data.spItemId}/allegato`,
+            urlConferma: `/api/manutenzioni/${data.spItemId}/allegato`,
+            metodoConferma: 'PUT',
+            onAvanzamento: setAvanzamento,
+          })
+          esitoFoto = ' · foto allegata'
+        } catch (e: any) {
+          // La richiesta è partita: una foto mancata non la annulla, si dice e basta.
+          esitoFoto = ` · ⚠️ la foto non è stata caricata (${e.message}): mandala nei messaggi della richiesta`
+        } finally {
+          setAvanzamento(null)
+        }
+      }
+
+      setSuccess(`✅ Richiesta inviata: ${data.idRichiesta}${esitoFoto}`)
+      setFoto(null)
       setForm({ strutturaId: '', tipoIntervento: '', priorita: '', descrizione: '' })
     } catch (err: any) {
       setError(err.message)
@@ -149,6 +177,23 @@ export function NuovaRichiestaForm({ strutture, tipiIntervento, priorita }: Prop
           required
         />
       </div>
+
+      {/* Foto (facoltativa) */}
+      {allegatiAttivi && (
+        <div>
+          <Allegato
+            etichetta="Foto del problema"
+            file={foto}
+            onChange={setFoto}
+            accetta="image/*"
+            disabilitato={loading}
+            aiuto="Facoltativa. Dal telefono puoi scattarla subito: aiuta chi interviene a capire il problema."
+          />
+          {avanzamento !== null && (
+            <p className="text-xs text-gray-500 mt-1">Caricamento foto… {avanzamento}%</p>
+          )}
+        </div>
+      )}
 
       {/* Azioni */}
       <div className="flex gap-3 pt-2">

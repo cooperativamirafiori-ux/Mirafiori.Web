@@ -79,6 +79,9 @@ export interface RichiestaManutenzione {
   lungoCorso: boolean
   /** Testo libero, es. "primavera 2027". */
   previsioneLungoCorso?: string
+  /** Foto allegata alla richiesta, su SharePoint (`lib/manutenzioni/allegati.ts`). */
+  allegatoUrl?: string
+  allegatoNome?: string
 }
 
 // ============================================================

@@ -3,6 +3,7 @@ import { auth } from '@/lib/core/auth'
 import { puoRichiedereManutenzione } from '@/lib/core/permessi'
 import { getStrutture } from '@/lib/strutture/data'
 import { Header } from '@/components/ui/Header'
+import { allegatiAttivi } from '@/lib/manutenzioni/allegati'
 import { NuovaRichiestaForm } from './NuovaRichiestaForm'
 
 export default async function NuovaRichiestaPage() {
@@ -35,6 +36,7 @@ export default async function NuovaRichiestaPage() {
           strutture={strutture}
           tipiIntervento={tipiIntervento}
           priorita={priorita}
+          allegatiAttivi={allegatiAttivi()}
         />
       </main>
     </div>
