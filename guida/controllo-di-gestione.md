@@ -13,7 +13,7 @@ pagine:
   - percorso: /controllo-gestione/fatture
     titolo: Fatture del servizio
     accesso: [permesso:Controllo di Gestione, permesso:Pagamenti, coordinatore-cc]
-    cosa: Il coordinatore segna quali fatture arrivate sono del suo servizio.
+    cosa: Il coordinatore segna quali fatture arrivate sono del suo servizio; chi vede tutto segna le fatture carburante, che si dividono fra i servizi.
   - percorso: /controllo-gestione/qonto
     titolo: Qonto
     accesso: [permesso:Controllo di Gestione, coordinatore-cc]
@@ -378,6 +378,40 @@ vecchie.
 
 Puoi liberarla da solo **finché non è stata pagata**. Dopo, sulla riga compare «pagata» e
 devi chiedere a chi ha il permesso Controllo di Gestione o Pagamenti, che possono spostarla.
+
+## Come funzionano le fatture del carburante?
+
+Le fatture delle carte carburante IP le paga l'Amministrazione, ma il costo va ai servizi
+che hanno fatto i rifornimenti. Sulla riga della fattura si legge «carburante» e
+«Pagata da …, costo diviso fra i servizi».
+
+- Ogni mese Claudia carica l'export delle carte, con il centro di costo scritto su ogni
+  rifornimento (colonna «CENTRO DI COSTO», per esempio «CC9»), nella cartella
+  SharePoint **General/schede carburante** del Controllo di Gestione.
+- L'app legge la cartella ogni notte, trova i rifornimenti di ogni fattura e divide
+  l'imponibile fra i servizi in proporzione a quanto ha speso ciascuno.
+- Premi «Vedi la divisione fra i servizi» sotto la fattura per vedere quanto va a ogni
+  servizio e i rifornimenti usati.
+- «in attesa del file» vuol dire che i rifornimenti di quella fattura non ci sono ancora
+  nei file caricati: si divide da sola appena arriva il file giusto. Finché aspetta, nel
+  Cruscotto il costo è «da attribuire».
+- Le piccole fatture «SERVICE FEE» si dividono come i rifornimenti dello stesso mese.
+
+Il costo del carburante **non** entra nelle percentuali dei costi generali: va
+direttamente ai servizi.
+
+## Come segno una fattura come carburante?
+
+Lo fa chi ha il permesso Controllo di Gestione o Pagamenti.
+
+1. Apri [Fatture del servizio](/controllo-gestione/fatture).
+2. Spunta la fattura, nella linguetta «Libere» o «Segnate».
+3. Premi «Carburante (N)».
+
+L'app si ricorda il fornitore: le sue fatture nuove si segnano carburante da sole. Per
+tornare indietro, nella linguetta «Segnate» spunta la fattura e premi «Togli carburante».
+Se hai appena caricato un file e non vuoi aspettare la notte, premi «Leggi i file adesso»
+nel riquadro «Carburante».
 
 # Qonto
 

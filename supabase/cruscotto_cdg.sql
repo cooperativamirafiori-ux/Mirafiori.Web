@@ -18,6 +18,8 @@
 -- Note di credito: sempre negative, qualunque segno abbia il documento.
 -- ============================================================================
 
+-- ⚠️ 11/11/2026: la versione in uso di cdg_fatture_anno è in supabase/carburante.sql
+-- (le fatture carburante escono divise nelle loro quote). Questa resta come storia.
 create or replace function cdg_fatture_anno(p_anno int)
 returns table (
   id           uuid,

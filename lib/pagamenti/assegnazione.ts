@@ -30,6 +30,13 @@ export async function accessoAssegnazione(
   return { tutti: false, codici: await getCentriCoordinati(user.email) }
 }
 
+/**
+ * Liberare una fattura toglie anche il carburante: chi la riprende sceglie da
+ * capo. Le quote restano finché il ricalcolo notturno non le pulisce, ma il
+ * cruscotto le ignora (legge le quote solo delle fatture carburante).
+ */
+const NON_CARBURANTE = { carburante: false, carburante_stato: null, carburante_nota: null }
+
 export const puoAssegnare = (a: AccessoQonto) => a.tutti || a.codici.length > 0
 
 export interface FatturaDaSegnare {
@@ -51,9 +58,13 @@ export interface FatturaDaSegnare {
   suggeriti: string[]
   /** Pagata (anche solo in parte) dopo che è stata segnata: non si libera più da soli. */
   bloccata: boolean
+  /** Fattura carburante: pagata da `cc`, costo diviso fra i servizi (lib/carburante). */
+  carburante: boolean
+  carburanteStato: 'divisa' | 'in_attesa' | null
+  carburanteNota: string | null
 }
 
-const CAMPI = 'id, fornitore, piva, numero_fornitore, data_fornitore, totale, descrizione, tipo_documento, pdf_url, file_sdi_url, cc_codice, cc_rivendicata_da, cc_rivendicata_il'
+const CAMPI = 'id, fornitore, piva, numero_fornitore, data_fornitore, totale, descrizione, tipo_documento, pdf_url, file_sdi_url, cc_codice, cc_rivendicata_da, cc_rivendicata_il, carburante, carburante_stato, carburante_nota'
 
 interface Row {
   id: string
@@ -69,6 +80,9 @@ interface Row {
   cc_codice: string | null
   cc_rivendicata_da: string | null
   cc_rivendicata_il: string | null
+  carburante: boolean | null
+  carburante_stato: string | null
+  carburante_nota: string | null
 }
 
 const aFattura = (r: Row, suggeriti: string[] = [], bloccata = false): FatturaDaSegnare => ({
@@ -87,6 +101,9 @@ const aFattura = (r: Row, suggeriti: string[] = [], bloccata = false): FatturaDa
   segnataIl: r.cc_rivendicata_il,
   suggeriti,
   bloccata,
+  carburante: !!r.carburante,
+  carburanteStato: r.carburante_stato === 'divisa' || r.carburante_stato === 'in_attesa' ? r.carburante_stato : null,
+  carburanteNota: r.carburante_nota,
 })
 
 /** Le fatture libere, con i centri di costo già usati per lo stesso fornitore. */
@@ -201,7 +218,7 @@ export async function libera(ids: string[], a: AccessoQonto): Promise<EsitoLiber
     }
     const { error: eU } = await supabase()
       .from('fattura_passiva')
-      .update({ cc_codice: null, cc_rivendicata_da: null, cc_rivendicata_il: null })
+      .update({ cc_codice: null, cc_rivendicata_da: null, cc_rivendicata_il: null, ...NON_CARBURANTE })
       .eq('id', r.id)
       .eq('cc_codice', r.cc_codice)
     if (eU) throw new Error(`Liberazione: ${eU.message}`)
@@ -223,7 +240,7 @@ export async function sposta(id: string, cc: string | null, email: string, a: Ac
     .update(
       codice
         ? { cc_codice: codice, cc_rivendicata_da: email, cc_rivendicata_il: new Date().toISOString() }
-        : { cc_codice: null, cc_rivendicata_da: null, cc_rivendicata_il: null },
+        : { cc_codice: null, cc_rivendicata_da: null, cc_rivendicata_il: null, ...NON_CARBURANTE },
     )
     .eq('id', id)
   if (error) throw new Error(`Assegnazione: ${error.message}`)

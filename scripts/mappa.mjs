@@ -194,6 +194,7 @@ const AREE = [
       'docs/controllo-di-gestione', 'supabase/uscite_manuali', 'docs/uscite-senza-fattura',
       'docs/fatture-sdi', 'supabase/fatture_sdi', 'app/api/cron/fatture-sdi', 'app/api/centri-costo/fatture',
       'scripts/prova-fatture-sdi', 'scripts/importa-fatture-sdi', 'scripts/rimetti-in-arrivo-sdi',
+      'lib/carburante', 'app/api/carburante', 'supabase/carburante', 'docs/carburante', 'scripts/prova-carburante',
     ],
   },
   {

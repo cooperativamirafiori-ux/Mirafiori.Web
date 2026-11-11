@@ -11,6 +11,10 @@
  *
  * Il suggerimento "di solito: …" viene dalle altre fatture dello stesso
  * fornitore già attribuite. È un aiuto, non una decisione: non preseleziona.
+ *
+ * **Carburante** (11/11/2026, solo chi vede tutto): una fattura segnata così
+ * la paga l'Amministrazione e il costo si divide fra i servizi con i file
+ * mensili delle carte (`_componenti/Carburante.tsx`, lib/carburante/).
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -18,6 +22,7 @@ import { Banner } from '@/components/ui/Banner'
 import { Pill } from '@/components/ui/Pill'
 import { Vuoto } from '@/components/ui/Vuoto'
 import type { FatturaDaSegnare } from '@/lib/pagamenti/assegnazione'
+import { DivisioneCarburante, LeggiCarburante } from './_componenti/Carburante'
 
 interface Dati {
   libere: FatturaDaSegnare[]
@@ -103,6 +108,34 @@ export function FattureCentro({ email }: { email: string }) {
     }
   }
 
+  async function carburante(metodo: 'POST' | 'DELETE') {
+    setInCorso(true)
+    setErrore('')
+    setMessaggio('')
+    try {
+      const res = await fetch('/api/carburante', {
+        method: metodo,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [...scelte] }),
+      })
+      const j = await res.json()
+      if (!res.ok) throw new Error(j.error ?? 'Operazione non riuscita')
+      setMessaggio(
+        metodo === 'POST'
+          ? `${j.segnate} ${j.segnate === 1 ? 'fattura segnata' : 'fatture segnate'} come carburante · ${j.divise} divise, ${j.inAttesa} in attesa del file. D'ora in poi le fatture nuove di questo fornitore si segnano da sole.`
+          : `Carburante tolto da ${j.tolte} ${j.tolte === 1 ? 'fattura' : 'fatture'}: tornano un costo del servizio che le paga.`,
+      )
+      setScelte(new Set())
+      await carica()
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : 'Operazione non riuscita')
+    } finally {
+      setInCorso(false)
+    }
+  }
+
+  const sceltaCarburante = (dati?.segnate ?? []).filter((f) => scelte.has(f.id) && f.carburante).length
+
   const toggle = (id: string) =>
     setScelte((s) => {
       const n = new Set(s)
@@ -127,6 +160,8 @@ export function FattureCentro({ email }: { email: string }) {
 
       <Banner tono="errore">{errore}</Banner>
       <Banner tono="ok">{messaggio}</Banner>
+
+      {dati.tutti && <LeggiCarburante dopo={carica} />}
 
       <div className="flex flex-wrap gap-2">
         <Tab attivo={vista === 'libere'} onClick={() => setVista('libere')}>
@@ -170,6 +205,8 @@ export function FattureCentro({ email }: { email: string }) {
                   {f.notaCredito && <Pill text="nota di credito" tono="viola" />}
                   {vista === 'segnate' && f.cc && <Pill text={nomeCc(f.cc)} tono="azzurro" />}
                   {vista === 'segnate' && f.bloccata && <Pill text="pagata" tono="verde" />}
+                  {f.carburante && <Pill text="carburante" tono="ambra" />}
+                  {f.carburante && f.carburanteStato === 'in_attesa' && <Pill text="in attesa del file" tono="rosso" />}
                 </div>
                 <p className="text-sm text-gray-500">
                   {f.numero ? `n. ${f.numero}` : 'senza numero'} del {dataIt(f.data)}
@@ -182,6 +219,15 @@ export function FattureCentro({ email }: { email: string }) {
                   <p className="text-xs text-gray-400 mt-0.5">
                     {f.segnataDa === email ? 'segnata da te' : `segnata da ${f.segnataDa}`} il {dataIt(f.segnataIl)}
                   </p>
+                )}
+                {f.carburante && (
+                  <>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Pagata da {f.cc ? nomeCc(f.cc) : '—'}, costo diviso fra i servizi
+                      {f.carburanteStato === 'in_attesa' && f.carburanteNota ? `: ${f.carburanteNota}` : '.'}
+                    </p>
+                    <DivisioneCarburante id={f.id} nomeCc={nomeCc} />
+                  </>
                 )}
                 {f.pdfUrl && (
                   <a
@@ -223,6 +269,15 @@ export function FattureCentro({ email }: { email: string }) {
           >
             {dati.centri.length === 1 ? `Sono di ${dati.centri[0].nome}` : 'Sono del mio servizio'} ({scelte.size})
           </button>
+          {dati.tutti && (
+            <button
+              onClick={() => void carburante('POST')}
+              disabled={inCorso}
+              className="w-full sm:w-auto rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-900 disabled:opacity-40"
+            >
+              Carburante ({scelte.size})
+            </button>
+          )}
         </Barra>
       )}
 
@@ -235,6 +290,24 @@ export function FattureCentro({ email }: { email: string }) {
           >
             Libera ({scelte.size})
           </button>
+          {dati.tutti && sceltaCarburante < scelte.size && (
+            <button
+              onClick={() => void carburante('POST')}
+              disabled={inCorso}
+              className="w-full sm:w-auto rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-900 disabled:opacity-40"
+            >
+              Carburante ({scelte.size - sceltaCarburante})
+            </button>
+          )}
+          {dati.tutti && sceltaCarburante > 0 && (
+            <button
+              onClick={() => void carburante('DELETE')}
+              disabled={inCorso}
+              className="w-full sm:w-auto rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 disabled:opacity-40"
+            >
+              Togli carburante ({sceltaCarburante})
+            </button>
+          )}
         </Barra>
       )}
     </div>
