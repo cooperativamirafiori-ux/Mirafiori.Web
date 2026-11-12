@@ -8,7 +8,9 @@
  * abbinamento è SICURO solo se tutte queste cose tornano:
  *   - stesso importo, al centesimo;
  *   - fornitore riconosciuto: IBAN della controparte, oppure una controparte
- *     già abbinata a mano a quel fornitore, oppure il nome;
+ *     già abbinata a mano a quel fornitore, oppure il nome — OPPURE stessa
+ *     data di movimento e fattura (12/11/2026: «Carrefour» paga «GS S.p.A.»,
+ *     il nome non torna ma importo al centesimo + stesso giorno bastano);
  *   - date vicine (da 45 giorni prima a 180 dopo la data della fattura);
  *   - un solo candidato da tutte e due le parti.
  * Fra più fatture dello stesso importo decide il centro di costo scritto in
@@ -134,6 +136,9 @@ export function indice(controparti: Controparte[]) {
 }
 export type Indice = ReturnType<typeof indice>
 
+/** Movimento e fattura dello stesso giorno (regola del 12/11/2026). */
+export const stessaData = (m: Pick<MovimentoDaAbbinare, 'data'>, c: Pick<ScadenzaCandidata, 'dataRif'>) => m.data === c.dataRif
+
 /** Come il movimento riconosce il fornitore di quella scadenza (null = non lo riconosce). */
 export function riconosce(m: MovimentoDaAbbinare, c: ScadenzaCandidata, idx: Indice): Riconoscimento {
   const ibanM = normIbanQ(m.controparteIban)
@@ -153,7 +158,7 @@ export const daIgnorare = (m: MovimentoDaAbbinare, idx: Indice) => chiaviMovimen
  * non è mai un candidato sicuro.
  */
 function candidatiSicuri(m: MovimentoDaAbbinare, cs: ScadenzaCandidata[], idx: Indice): ScadenzaCandidata[] {
-  let l = cs.filter((c) => stessoImporto(m.importo, c.importo) && inFinestra(m, c) && riconosce(m, c, idx) !== null)
+  let l = cs.filter((c) => stessoImporto(m.importo, c.importo) && inFinestra(m, c) && (riconosce(m, c, idx) !== null || stessaData(m, c)))
   if (m.ccCodice) {
     l = l.filter((c) => !c.ccIndicato || c.ccIndicato === m.ccCodice)
     const conCc = l.filter((c) => c.ccIndicato === m.ccCodice)
@@ -219,7 +224,9 @@ export function abbina(movimenti: MovimentoDaAbbinare[], candidate: ScadenzaCand
       movimentoId: m.id,
       scadenzaIds: [c.id],
       come: 'singolo',
-      perche: `stesso importo, fornitore riconosciuto ${r === 'iban' ? 'dall’IBAN' : r === 'imparato' ? 'da un abbinamento precedente' : 'dal nome'}`
+      perche: (r === null
+        ? 'stesso importo e stessa data'
+        : `stesso importo, fornitore riconosciuto ${r === 'iban' ? 'dall’IBAN' : r === 'imparato' ? 'da un abbinamento precedente' : 'dal nome'}`)
         + (m.ccCodice && c.ccIndicato === m.ccCodice ? `, centro di costo ${m.ccCodice} in fattura` : ''),
     })
   }

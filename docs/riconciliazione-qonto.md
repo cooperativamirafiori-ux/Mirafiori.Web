@@ -37,7 +37,9 @@ Tutte insieme, altrimenti si va a mano:
 - **fornitore riconosciuto**: per i bonifici dall'IBAN della controparte (quello della fattura o
   quello noto del fornitore); per le carte dal nome della controparte su Qonto confrontato con la
   ragione sociale, oppure da un abbinamento fatto a mano in passato (l'app impara:
-  tabella `qonto_controparte`);
+  tabella `qonto_controparte`) — **oppure stessa data**: importo al centesimo e movimento dello
+  stesso giorno della fattura bastano anche se il nome non torna (Dennis, 12/11/2026: la carta
+  scrive «Carrefour», la fattura «GS S.p.A.»);
 - **date vicine**: il movimento fra 45 giorni prima e 180 giorni dopo la data della fattura;
 - **un solo candidato da tutte e due le parti**: quel movimento ha una sola fattura possibile e
   quella fattura ha un solo movimento possibile. Fra più fatture dello stesso importo decide il
