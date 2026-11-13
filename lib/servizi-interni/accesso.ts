@@ -43,7 +43,9 @@ export async function accessoServiziInterni(
 }
 
 export const puoUsareServiziInterni = (a: AccessoServiziInterni) => a.tutti || a.codici.length > 0
-export const puoScrivereDa = (a: AccessoServiziInterni, cc: string) => a.tutti || a.codici.includes(cc.toLowerCase())
+/** cc null = costo esterno (bonifico senza fattura): lo scrive solo "Controllo di Gestione". */
+export const puoScrivereDa = (a: AccessoServiziInterni, cc: string | null) =>
+  a.tutti || (cc != null && a.codici.includes(cc.toLowerCase()))
 export const puoVistare = (a: AccessoServiziInterni, cc: string) => a.tutti || a.codici.includes(cc.toLowerCase())
 /** Le percentuali dei costi generali le salva solo chi ha "Controllo di Gestione". */
 export const puoRipartire = (a: AccessoServiziInterni) => a.tutti

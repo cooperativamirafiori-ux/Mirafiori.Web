@@ -4,10 +4,14 @@
  * Addebiti interni: un servizio addebita a un altro il lavoro fatto per lui.
  * Ore di lavoro × forfait (18 €/h, uguale per tutti) + altri costi descritti.
  * Piano: docs/servizi-interni-piano.md.
+ *
+ * Costo esterno (13/11/2026): senza servizio di partenza, per allocare a un
+ * servizio un bonifico fatto senza fattura. Solo "Controllo di Gestione",
+ * niente ore, solo costi.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ORIGINI_ADDEBITO, type AddebitoInterno, type AltroCosto, type CentroScelta } from '@/types/servizi-interni'
+import { NOME_COSTO_ESTERNO, ORIGINI_ADDEBITO, type AddebitoInterno, type AltroCosto, type CentroScelta } from '@/types/servizi-interni'
 import { Banner } from '@/components/ui/Banner'
 import { Kpi } from '@/components/ui/Kpi'
 import { Vuoto } from '@/components/ui/Vuoto'
@@ -19,6 +23,8 @@ const euro = (n: number) => n.toLocaleString('it-IT', { style: 'currency', curre
 const meseIt = (m: string) => new Date(`${m.slice(0, 7)}-15T12:00:00`).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })
 const numero = (s: string) => Number(s.replace(/\s/g, '').replace(',', '.'))
 const virgola = (n: number) => String(n).replace('.', ',')
+/** Valore della tendina "Chi ha fatto il lavoro" per un costo esterno (ccDa null). */
+const ESTERNO = '__esterno'
 
 /** Primo mese ancora aperto: il precedente fino al 10, poi il corrente. Stessa regola del server. */
 function primoMeseAperto(oggi = new Date()): string {
@@ -71,7 +77,7 @@ export function AddebitiInterni({ apri }: { apri?: string }) {
       setDati(j)
       if (apri) {
         const a = (j.addebiti as AddebitoInterno[]).find((x) => x.id === apri)
-        if (a && !j.tutti && j.mieiCentri.includes(a.ccA) && !j.mieiCentri.includes(a.ccDa)) setVista('ricevuti')
+        if (a && !j.tutti && j.mieiCentri.includes(a.ccA) && (a.ccDa == null || !j.mieiCentri.includes(a.ccDa))) setVista('ricevuti')
         if (j.tutti) setVista('tutti')
       } else if (j.tutti) setVista('tutti')
     } catch (e: any) {
@@ -85,7 +91,10 @@ export function AddebitiInterni({ apri }: { apri?: string }) {
     if (apri && dati) document.getElementById(`addebito-${apri}`)?.scrollIntoView({ block: 'center' })
   }, [apri, dati])
 
-  const nome = useCallback((c: string) => dati?.centri.find((x) => x.codice === c)?.nome ?? c, [dati])
+  const nome = useCallback(
+    (c: string | null) => (c == null ? NOME_COSTO_ESTERNO : dati?.centri.find((x) => x.codice === c)?.nome ?? c),
+    [dati],
+  )
   const miei = useMemo(() => new Set(dati?.mieiCentri ?? []), [dati])
 
   const forfaitOggi = useMemo(() => {
@@ -96,12 +105,12 @@ export function AddebitiInterni({ apri }: { apri?: string }) {
   const visibili = useMemo(() => {
     const tutti = dati?.addebiti ?? []
     return tutti
-      .filter((a) => (vista === 'fatti' ? miei.has(a.ccDa) : vista === 'ricevuti' ? miei.has(a.ccA) : true))
+      .filter((a) => (vista === 'fatti' ? a.ccDa != null && miei.has(a.ccDa) : vista === 'ricevuti' ? miei.has(a.ccA) : true))
       .filter((a) => !mese || a.mese.startsWith(mese))
   }, [dati, vista, mese, miei])
 
   const totale = (righe: AddebitoInterno[]) => righe.reduce((s, a) => s + (a.totale ?? 0), 0)
-  const fatti = (dati?.addebiti ?? []).filter((a) => miei.has(a.ccDa) && (!mese || a.mese.startsWith(mese)))
+  const fatti = (dati?.addebiti ?? []).filter((a) => a.ccDa != null && miei.has(a.ccDa) && (!mese || a.mese.startsWith(mese)))
   const ricevuti = (dati?.addebiti ?? []).filter((a) => miei.has(a.ccA) && (!mese || a.mese.startsWith(mese)))
   const daVistare = ricevuti.filter((a) => !a.visto).length
 
@@ -113,14 +122,15 @@ export function AddebitiInterni({ apri }: { apri?: string }) {
 
   function modifica(a: AddebitoInterno) {
     setBozza({
-      id: a.id, ccDa: a.ccDa, ccA: a.ccA, mese: a.mese.slice(0, 7), descrizione: a.descrizione,
+      id: a.id, ccDa: a.ccDa ?? ESTERNO, ccA: a.ccA, mese: a.mese.slice(0, 7), descrizione: a.descrizione,
       ore: a.ore ? virgola(a.ore) : '', altri: a.altriCosti.map((c) => ({ descrizione: c.descrizione, importo: virgola(c.importo) })),
     })
     setErrore(null); setOk(null)
     setTimeout(() => document.getElementById('modulo-addebito')?.scrollIntoView({ block: 'start' }), 50)
   }
 
-  const oreBozza = bozza && bozza.ore.trim() ? numero(bozza.ore) : 0
+  const esternoBozza = bozza?.ccDa === ESTERNO
+  const oreBozza = bozza && !esternoBozza && bozza.ore.trim() ? numero(bozza.ore) : 0
   const altriBozza: AltroCosto[] = (bozza?.altri ?? []).map((c) => ({ descrizione: c.descrizione, importo: c.importo.trim() ? numero(c.importo) : NaN }))
   const totaleBozza = (Number.isFinite(oreBozza) ? oreBozza : 0) * (forfaitOggi?.euroOra ?? 0)
     + altriBozza.reduce((s, c) => s + (Number.isFinite(c.importo) ? c.importo : 0), 0)
@@ -131,7 +141,7 @@ export function AddebitiInterni({ apri }: { apri?: string }) {
     setInvio(true); setErrore(null)
     try {
       const corpo = {
-        ccDa: bozza.ccDa, ccA: bozza.ccA, mese: bozza.mese, descrizione: bozza.descrizione,
+        ccDa: esternoBozza ? null : bozza.ccDa, ccA: bozza.ccA, mese: bozza.mese, descrizione: bozza.descrizione,
         ore: oreBozza, altriCosti: altriBozza,
       }
       const res = await fetch(bozza.id ? `/api/servizi-interni/addebiti/${bozza.id}` : '/api/servizi-interni/addebiti', {
@@ -141,7 +151,9 @@ export function AddebitiInterni({ apri }: { apri?: string }) {
       })
       const j = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(j.error ?? 'Errore')
-      setOk(bozza.id ? 'Addebito modificato: chi lo riceve ha una mail.' : 'Addebito salvato: chi lo riceve ha una mail.')
+      setOk(esternoBozza
+        ? (bozza.id ? 'Costo esterno modificato: chi lo riceve ha una mail.' : 'Costo esterno attribuito: chi lo riceve ha una mail.')
+        : (bozza.id ? 'Addebito modificato: chi lo riceve ha una mail.' : 'Addebito salvato: chi lo riceve ha una mail.'))
       setBozza(null)
       await carica()
     } catch (e: any) {
@@ -243,14 +255,28 @@ export function AddebitiInterni({ apri }: { apri?: string }) {
 
       {bozza && (
         <section id="modulo-addebito" className="bg-white rounded-2xl border border-gray-200 p-4 space-y-3 scroll-mt-4" aria-label="Addebito">
-          <p className="font-semibold text-gray-800">{bozza.id ? 'Modifica addebito' : 'Nuovo addebito'}</p>
+          <p className="font-semibold text-gray-800">
+            {esternoBozza ? (bozza.id ? 'Modifica costo esterno' : 'Nuovo costo esterno') : bozza.id ? 'Modifica addebito' : 'Nuovo addebito'}
+          </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelCls} htmlFor="ai-da">Chi ha fatto il lavoro</label>
-              <select id="ai-da" value={bozza.ccDa} onChange={(e) => setBozza({ ...bozza, ccDa: e.target.value })} className={inputCls}>
+              <select id="ai-da" value={bozza.ccDa} className={inputCls}
+                onChange={(e) => {
+                  const v = e.target.value
+                  // Un costo esterno è fatto solo di costi: ne prepara subito una riga.
+                  const altri = v === ESTERNO && bozza.altri.length === 0 ? [{ descrizione: '', importo: '' }] : bozza.altri
+                  setBozza({ ...bozza, ccDa: v, altri })
+                }}>
                 <option value="">— scegli —</option>
+                {dati.tutti && <option value={ESTERNO}>Nessuno: costo esterno (es. bonifico senza fattura)</option>}
                 {daScegliere.map((c) => <option key={c.codice} value={c.codice}>{c.codice} · {c.nome}</option>)}
               </select>
+              {esternoBozza && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Un costo pagato senza fattura: nel cruscotto pesa solo sul servizio che lo riceve, fra i costi a mano.
+                </p>
+              )}
             </div>
             <div>
               <label className={labelCls} htmlFor="ai-a">A chi si addebita</label>
@@ -264,23 +290,24 @@ export function AddebitiInterni({ apri }: { apri?: string }) {
               <input id="ai-mese" type="month" value={bozza.mese} min={primoMeseAperto()} max={meseCorrente()}
                 onChange={(e) => setBozza({ ...bozza, mese: e.target.value })} className={inputCls} />
             </div>
-            <div>
+            {!esternoBozza && <div>
               <label className={labelCls} htmlFor="ai-ore">Ore di lavoro</label>
               <input id="ai-ore" value={bozza.ore} onChange={(e) => setBozza({ ...bozza, ore: e.target.value })} inputMode="decimal" className={inputCls} placeholder="es. 3,5" />
               <p className="text-xs text-gray-500 mt-1">
                 × {forfaitOggi ? euro(forfaitOggi.euroOra) : '—'}/h forfait
                 {oreBozza > 0 && forfaitOggi ? ` = ${euro(oreBozza * forfaitOggi.euroOra)}` : ''}
               </p>
-            </div>
+            </div>}
             <div className="sm:col-span-2">
-              <label className={labelCls} htmlFor="ai-cosa">Cosa è stato fatto</label>
+              <label className={labelCls} htmlFor="ai-cosa">{esternoBozza ? 'Che cos\'è' : 'Cosa è stato fatto'}</label>
               <textarea id="ai-cosa" value={bozza.descrizione} onChange={(e) => setBozza({ ...bozza, descrizione: e.target.value })}
-                className={`${inputCls} resize-none h-20`} maxLength={500} placeholder="es. Trasporto ragazzi alla gita del 12, due educatori" />
+                className={`${inputCls} resize-none h-20`} maxLength={500}
+                placeholder={esternoBozza ? 'es. Bonifico del 5/11 a Mario Rossi per riparazione cancello, senza fattura' : 'es. Trasporto ragazzi alla gita del 12, due educatori'} />
             </div>
           </div>
 
           <div className="space-y-2">
-            <p className={labelCls}>Altri costi (facoltativi): cosa e quanto</p>
+            <p className={labelCls}>{esternoBozza ? 'Costi: cosa e quanto (almeno uno)' : 'Altri costi (facoltativi): cosa e quanto'}</p>
             {bozza.altri.map((c, i) => (
               <div key={i} className="flex gap-2 flex-wrap sm:flex-nowrap">
                 <input value={c.descrizione} aria-label={`Cosa, riga ${i + 1}`} placeholder="es. Carburante"
@@ -316,7 +343,7 @@ export function AddebitiInterni({ apri }: { apri?: string }) {
         <ul className="space-y-3">
           {visibili.map((a) => {
             // Gli automatici (Lavori di Cura Ambienti, manutenzioni) si correggono alla loro origine.
-            const scrive = miei.has(a.ccDa) && !a.bloccato && a.origine === 'manuale'
+            const scrive = (a.ccDa == null ? dati.tutti : miei.has(a.ccDa)) && !a.bloccato && a.origine === 'manuale'
             const vista_ = miei.has(a.ccA)
             return (
               <li key={a.id} id={`addebito-${a.id}`}
@@ -329,6 +356,11 @@ export function AddebitiInterni({ apri }: { apri?: string }) {
                   <strong className="text-gray-800 whitespace-nowrap">{a.totale != null ? euro(a.totale) : '—'}</strong>
                 </div>
                 <p className="text-sm text-gray-700 whitespace-pre-line break-words">{a.descrizione}</p>
+                {a.ccDa == null && (
+                  <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-2 py-1">
+                    Pagato senza fattura e attribuito a {nome(a.ccA)}: nel cruscotto è un costo a mano del servizio.
+                  </p>
+                )}
                 {a.origine !== 'manuale' && (
                   <p className="text-xs text-violet-700 bg-violet-50 border border-violet-100 rounded-lg px-2 py-1 break-words">
                     {ORIGINI_ADDEBITO[a.origine]}{a.strutturaNome ? ` · ${a.strutturaNome}` : ''}: lo scrive l&apos;app e si aggiorna da solo fino al 10 del mese dopo.

@@ -186,3 +186,20 @@ Decisioni (risposte di Dennis del 2/11):
 - **Registro** (`movimento`): ancora vuoto, nemmeno le fatture ci sono. Gli addebiti ci
   entreranno quando il cruscotto passerà a leggerlo (voci `SINT`/`RINT`): il punto unico da
   cui partire sono gli addebiti interni, automatici compresi.
+
+### Costo esterno, senza servizio di partenza (13/11/2026)
+
+Dennis: «può succedere che si facciano dei bonifici senza fattura e devono essere allocati».
+
+- `addebito_interno.cc_da` può essere **NULL** = costo esterno (`supabase/addebiti_costo_esterno.sql`).
+  Vincolo `addebito_interno_esterno_chk`: se `cc_da` è NULL, origine `manuale` e `ore = 0`.
+- Lo scrive solo chi ha **Controllo di Gestione** (`puoScrivereDa(a, null)` = `a.tutti`).
+- Niente ore (il forfait è il prezzo del lavoro di un servizio): almeno una riga di costi.
+- Visto e mail ai coordinatori di chi riceve come gli altri; «Non mi torna» non manda mail
+  (non c'è un servizio di partenza a cui scrivere).
+- **Cruscotto**: non è un giro fra servizi ma un costo vero, quindi va in `costiDiretti` del
+  centro che riceve (fonte `diretto`, «Senza fattura: …») e nessuno lo recupera. Non è un
+  doppione: i movimenti Qonto senza fattura oggi non entrano nel cruscotto.
+- Nella UI: tendina «Chi ha fatto il lavoro» → «Nessuno: costo esterno», nome in elenco
+  `NOME_COSTO_ESTERNO`.
+- Possibile passo dopo (non fatto): collegarlo al movimento Qonto segnato «non serve fattura».

@@ -48,7 +48,7 @@ export interface InputCruscotto {
    * Addebiti interni dell'anno (a mano e automatici: Lavori di Cura Ambienti,
    * manutenzioni). Costo per chi riceve, recupero per chi dà.
    */
-  interni?: Array<{ da: string; a: string; mese: number; importo: number; descrizione: string }>
+  interni?: Array<{ da: string | null; a: string; mese: number; importo: number; descrizione: string }>
   /**
    * Costi generali da dividere (2/11/2026): il centro d'origine (cc23), i suoi
    * costi mese per mese (fatture di TUTTA la cooperativa, anche se chi guarda
@@ -209,7 +209,23 @@ export function costruisciCruscotto(i: InputCruscotto): DatiCruscotto {
       ultimeCc.get(da)!.push({ data, chi: `Addebitato a ${nomeDi(a)}: ${chi}`, importo: -importo, fonte: 'interno' })
     }
   }
-  for (const x of i.interni ?? []) interno(x.da, x.a, x.mese, x.importo, x.descrizione)
+  for (const x of i.interni ?? []) {
+    if (x.da != null) {
+      interno(x.da, x.a, x.mese, x.importo, x.descrizione)
+      continue
+    }
+    // Costo esterno senza fattura (es. bonifico) attribuito a un servizio dagli
+    // Addebiti interni: è un costo vero, non un giro fra servizi. Pesa solo su
+    // chi lo riceve, fra i costi a mano; nessuno lo recupera.
+    const c = centri.get(x.a)
+    if (!c || !(x.importo > 0) || x.mese < 1 || x.mese > 12) continue
+    c.costiDiretti += x.importo
+    c.nDiretti += 1
+    c.mensileCosti[x.mese - 1] += x.importo
+    const data = `${i.anno}-${String(x.mese).padStart(2, '0')}-01`
+    fornitoriCc.get(c.codice)!.push({ nome: `Senza fattura: ${x.descrizione}`, importo: x.importo })
+    ultimeCc.get(c.codice)!.push({ data, chi: `Senza fattura: ${x.descrizione}`, importo: x.importo, fonte: 'diretto' })
+  }
 
   if (i.generali) {
     const g = i.generali

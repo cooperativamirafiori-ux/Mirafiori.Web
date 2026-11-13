@@ -14,7 +14,8 @@ export interface AltroCosto {
 export interface AddebitoInterno {
   id: string
   numero: number
-  ccDa: string
+  /** null = costo esterno senza servizio di partenza (es. bonifico senza fattura). */
+  ccDa: string | null
   ccA: string
   mese: string            // YYYY-MM-01
   descrizione: string
@@ -52,13 +53,17 @@ export const ORIGINI_ADDEBITO: Record<OrigineAddebito, string> = {
 }
 
 export interface DatiAddebito {
-  ccDa: string
+  /** null = costo esterno (es. bonifico senza fattura): solo altri costi, niente ore. */
+  ccDa: string | null
   ccA: string
   mese: string
   descrizione: string
   ore: number
   altriCosti: AltroCosto[]
 }
+
+/** Come si chiama, in elenco e nelle mail, il "da" di un costo esterno. */
+export const NOME_COSTO_ESTERNO = 'Costo esterno (senza fattura)'
 
 export interface CentroScelta {
   codice: string

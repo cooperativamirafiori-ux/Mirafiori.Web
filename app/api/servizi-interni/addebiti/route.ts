@@ -16,6 +16,7 @@ import { creaAddebito, getAddebiti, getCentriScelta, getForfait } from '@/lib/se
 import { bloccato, validaAddebito } from '@/lib/servizi-interni/flusso'
 import { notificaAddebito } from '@/lib/servizi-interni/notifiche'
 import { logAzione } from '@/lib/core/audit'
+import { NOME_COSTO_ESTERNO } from '@/types/servizi-interni'
 
 export async function GET(req: NextRequest) {
   const g = await guardServiziInterni()
@@ -47,14 +48,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e.message ?? 'Dati non validi' }, { status: 400 })
   }
   if (!puoScrivereDa(g.accesso, dati.ccDa)) {
-    return NextResponse.json({ error: 'Puoi addebitare solo per i servizi che coordini' }, { status: 403 })
+    const msg = dati.ccDa == null
+      ? 'Un costo esterno lo attribuisce solo chi ha il permesso Controllo di Gestione'
+      : 'Puoi addebitare solo per i servizi che coordini'
+    return NextResponse.json({ error: msg }, { status: 403 })
   }
   if (bloccato(dati.mese)) {
     return NextResponse.json({ error: 'Quel mese è chiuso: metti l\'addebito nel mese corrente' }, { status: 400 })
   }
   try {
     const centri = await getCentriScelta()
-    const nome = (c: string) => centri.find((x) => x.codice === c)?.nome ?? c
+    const nome = (c: string | null) => (c == null ? NOME_COSTO_ESTERNO : centri.find((x) => x.codice === c)?.nome ?? c)
     if (!centri.some((c) => c.codice === dati.ccA)) {
       return NextResponse.json({ error: 'Servizio di destinazione non trovato' }, { status: 400 })
     }

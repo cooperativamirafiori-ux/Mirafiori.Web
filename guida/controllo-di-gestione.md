@@ -623,6 +623,24 @@ Un addebito è fatto di:
 Ai coordinatori del servizio che riceve arriva una mail con il dettaglio. Puoi mettere
 anche solo le ore o solo altri costi, ma almeno una delle due cose.
 
+## Come attribuisco a un servizio un bonifico fatto senza fattura?
+
+Capita di pagare con un bonifico qualcosa che non avrà mai una fattura. Quel costo va
+comunque messo sul servizio giusto, e si fa dagli Addebiti interni come **costo esterno**.
+Lo può fare solo chi ha il permesso Controllo di Gestione.
+
+1. Apri [Addebiti interni](/controllo-gestione/addebiti-interni) e tocca «+ Nuovo».
+2. In «Chi ha fatto il lavoro» scegli «Nessuno: costo esterno (es. bonifico senza fattura)».
+3. In «A chi si addebita» scegli il servizio che ha avuto la spesa.
+4. Scegli il «Mese» e in «Che cos'è» scrivi a chi è andato il bonifico e per cosa.
+5. Nella riga dei costi scrivi cosa e quanto (puoi aggiungerne altre con «+ Altro costo»).
+   Le ore non ci sono: un costo esterno è fatto solo di costi.
+6. Tocca «Salva addebito».
+
+Nel cruscotto quel costo pesa solo sul servizio che lo riceve, fra i costi «A mano», con
+scritto «Senza fattura». Ai coordinatori del servizio arriva la solita mail e possono
+mettere il visto. Le regole per cambiarlo sono le stesse degli altri addebiti.
+
 ## Fino a quando posso cambiare un addebito?
 
 Fino al **10 del mese dopo** (un addebito di ottobre si cambia fino al 10 novembre). Tocca

@@ -51,9 +51,11 @@ export function forfaitDelMese(forfait: Array<{ dal: string; euroOra: number }>,
 /** Controlla e ripulisce i dati di un addebito. Lancia un Error con un messaggio da mostrare. */
 export function validaAddebito(d: Partial<DatiAddebito>): DatiAddebito {
   const testo = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '')
-  const ccDa = testo(d.ccDa, 40).toLowerCase()
+  // ccDa null = costo esterno (bonifico senza fattura): nessun servizio di partenza.
+  const esterno = d.ccDa === null
+  const ccDa = esterno ? null : testo(d.ccDa, 40).toLowerCase()
   const ccA = testo(d.ccA, 40).toLowerCase()
-  if (!ccDa) throw new Error('Scegli il servizio che ha fatto il lavoro')
+  if (!esterno && !ccDa) throw new Error('Scegli il servizio che ha fatto il lavoro')
   if (!ccA) throw new Error('Scegli il servizio a cui addebitare')
   if (ccDa === ccA) throw new Error('Un servizio non può addebitare a se stesso')
   const mese = typeof d.mese === 'string' && /^\d{4}-\d{2}$/.test(d.mese.slice(0, 7)) ? `${d.mese.slice(0, 7)}-01` : ''
@@ -69,6 +71,8 @@ export function validaAddebito(d: Partial<DatiAddebito>): DatiAddebito {
     if (!c.descrizione) throw new Error('Ogni altro costo ha bisogno di dire cos\'è')
     if (!(c.importo > 0)) throw new Error(`L'importo di "${c.descrizione}" deve essere maggiore di zero`)
   }
+  if (esterno && ore > 0) throw new Error('Un costo esterno non ha ore di lavoro: metti l\'importo fra i costi')
+  if (esterno && altriCosti.length === 0) throw new Error('Scrivi almeno un costo con il suo importo')
   if (ore === 0 && altriCosti.length === 0) throw new Error('Metti le ore di lavoro o almeno un altro costo')
   return { ccDa, ccA, mese, descrizione, ore, altriCosti }
 }

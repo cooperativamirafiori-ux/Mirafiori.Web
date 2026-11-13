@@ -34,7 +34,9 @@ export async function notificaAddebito(opts: {
     to: destinatari,
     subject: `${opts.modificato ? 'Addebito interno modificato' : 'Nuovo addebito interno'}: ${opts.nomeDa} → ${opts.nomeA}`,
     html: BOX(`
-      <p><strong>${esc(opts.nomeDa)}</strong> ha ${opts.modificato ? 'modificato un addebito' : 'addebitato un lavoro'} a <strong>${esc(opts.nomeA)}</strong> per ${meseIt(a.mese)}.</p>
+      ${a.ccDa
+        ? `<p><strong>${esc(opts.nomeDa)}</strong> ha ${opts.modificato ? 'modificato un addebito' : 'addebitato un lavoro'} a <strong>${esc(opts.nomeA)}</strong> per ${meseIt(a.mese)}.</p>`
+        : `<p>${opts.modificato ? 'È stato modificato un costo esterno' : 'È stato attribuito un costo esterno'} (pagato senza fattura) a <strong>${esc(opts.nomeA)}</strong> per ${meseIt(a.mese)}.</p>`}
       ${TABELLA(RIGA('Cosa', esc(a.descrizione)) + ore + altri + RIGA('Totale', a.totale != null ? euro(a.totale) : '—'))}
       <p style="color:#555">Puoi mettere il visto o scrivere che non ti torna. Il visto serve a sapere che l'hai visto: l'addebito vale comunque.</p>
       ${BTN(`${APP()}/controllo-gestione/addebiti-interni?r=${a.id}`, 'Apri l\'addebito', '#1f4e79')}
@@ -50,6 +52,8 @@ export async function notificaNonTorna(opts: {
   chi: string
 }): Promise<void> {
   const a = opts.addebito
+  // Un costo esterno non ha un servizio di partenza a cui scrivere.
+  if (!a.ccDa) return
   const destinatari = (await getCoordinatoriCentri())[a.ccDa] ?? []
   if (!destinatari.length) return
   await sendEmail({

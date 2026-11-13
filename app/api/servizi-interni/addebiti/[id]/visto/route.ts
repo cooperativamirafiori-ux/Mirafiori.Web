@@ -13,6 +13,7 @@ import { puoVistare } from '@/lib/servizi-interni/accesso'
 import { getAddebito, getCentriScelta, vistaAddebito } from '@/lib/servizi-interni/data'
 import { notificaNonTorna } from '@/lib/servizi-interni/notifiche'
 import { logAzione } from '@/lib/core/audit'
+import { NOME_COSTO_ESTERNO } from '@/types/servizi-interni'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const addebito = await vistaAddebito(id, visto, nota, g.email)
     if (visto === 'non_torna') {
       const centri = await getCentriScelta()
-      const nome = (c: string) => centri.find((x) => x.codice === c)?.nome ?? c
+      const nome = (c: string | null) => (c == null ? NOME_COSTO_ESTERNO : centri.find((x) => x.codice === c)?.nome ?? c)
       notificaNonTorna({ addebito, nomeDa: nome(a.ccDa), nomeA: nome(a.ccA), chi: g.nome }).catch(console.error)
     }
     await logAzione({

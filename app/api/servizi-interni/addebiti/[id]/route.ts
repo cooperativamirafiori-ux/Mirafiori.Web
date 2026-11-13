@@ -15,6 +15,7 @@ import { aggiornaAddebito, eliminaAddebito, getAddebito, getCentriScelta } from 
 import { bloccato, validaAddebito } from '@/lib/servizi-interni/flusso'
 import { notificaAddebito } from '@/lib/servizi-interni/notifiche'
 import { logAzione } from '@/lib/core/audit'
+import { NOME_COSTO_ESTERNO } from '@/types/servizi-interni'
 
 type Ctx = { params: Promise<{ id: string }> }
 
@@ -54,7 +55,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   }
   try {
     const centri = await getCentriScelta()
-    const nome = (x: string) => centri.find((y) => y.codice === x)?.nome ?? x
+    const nome = (x: string | null) => (x == null ? NOME_COSTO_ESTERNO : centri.find((y) => y.codice === x)?.nome ?? x)
     const addebito = await aggiornaAddebito(id, dati, c.g.email)
     notificaAddebito({ addebito, nomeDa: nome(dati.ccDa), nomeA: nome(dati.ccA), modificato: true }).catch(console.error)
     await logAzione({
