@@ -39,7 +39,7 @@ import {
 const TABELLA = 'lavoro_cura_ambienti'
 const RICORRENZE = 'ricorrenza_cura_ambienti'
 /** Il lavoro con le due cose della sua ricorrenza che servono alla scheda. */
-const CON_RICORRENZA = '*, ricorrenza:ricorrenza_cura_ambienti ( frequenza, giorno_settimana )'
+const CON_RICORRENZA = '*, ricorrenza:ricorrenza_cura_ambienti ( frequenza, giorno_settimana, prima_data )'
 
 const n = (v: unknown) => (v === null || v === undefined ? null : Number(v))
 
@@ -60,6 +60,7 @@ function daRiga(r: any): Lavoro {
     ricorrenzaId: r.ricorrenza_id ?? null,
     frequenza: r.ricorrenza?.frequenza ?? null,
     giornoSettimana: r.ricorrenza?.giorno_settimana ?? null,
+    primaData: r.ricorrenza?.prima_data ? String(r.ricorrenza.prima_data).slice(0, 10) : null,
     stato: r.stato as StatoLavoro,
     prevOrePulizie: Number(r.prev_ore_pulizie ?? 0),
     prevOreManutenzione: Number(r.prev_ore_manutenzione ?? 0),
@@ -91,6 +92,7 @@ function daRigaRicorrenza(r: any): Ricorrenza {
     descrizione: r.descrizione ?? null,
     frequenza: r.frequenza,
     giornoSettimana: r.giorno_settimana ?? null,
+    primaData: r.prima_data ? String(r.prima_data).slice(0, 10) : null,
     orePulizie: Number(r.ore_pulizie ?? 0),
     oreManutenzione: Number(r.ore_manutenzione ?? 0),
     oreSostituzione: Number(r.ore_sostituzione ?? 0),
@@ -273,13 +275,13 @@ async function colonneDestinatario(d: DatiLavoro) {
 }
 
 /**
- * Le ore del preventivo nel mese. Per un settimanale arrivano PER VOLTA: si
- * moltiplicano per le volte che quel giorno cade nel mese.
+ * Le ore del preventivo nel mese. Per settimanale e quindicinale arrivano PER
+ * VOLTA: si moltiplicano per le volte che il lavoro cade nel mese.
  */
 const colonneOre = (d: DatiLavoro) => ({
-  prev_ore_pulizie: d.prevOrePulizie * volte(d.mese, d.frequenza, d.giornoSettimana),
-  prev_ore_manutenzione: d.prevOreManutenzione * volte(d.mese, d.frequenza, d.giornoSettimana),
-  prev_ore_sostituzione: d.prevOreSostituzione * volte(d.mese, d.frequenza, d.giornoSettimana),
+  prev_ore_pulizie: d.prevOrePulizie * volte(d.mese, d.frequenza, d.giornoSettimana, d.primaData),
+  prev_ore_manutenzione: d.prevOreManutenzione * volte(d.mese, d.frequenza, d.giornoSettimana, d.primaData),
+  prev_ore_sostituzione: d.prevOreSostituzione * volte(d.mese, d.frequenza, d.giornoSettimana, d.primaData),
   prev_materiali: d.prevMateriali,
   cons_ore_pulizie: d.consOrePulizie,
   cons_ore_manutenzione: d.consOreManutenzione,
@@ -295,7 +297,8 @@ const colonneRicorrenza = (d: DatiLavoro, dest: Record<string, unknown>) => ({
   titolo: d.titolo,
   descrizione: d.descrizione,
   frequenza: d.frequenza,
-  giorno_settimana: d.frequenza === 'settimanale' ? d.giornoSettimana : null,
+  giorno_settimana: d.frequenza === 'settimanale' || d.frequenza === 'quindicinale' ? d.giornoSettimana : null,
+  prima_data: d.frequenza === 'quindicinale' ? d.primaData : null,
   ore_pulizie: d.prevOrePulizie,
   ore_manutenzione: d.prevOreManutenzione,
   ore_sostituzione: d.prevOreSostituzione,
@@ -354,7 +357,7 @@ export async function aggiornaLavoro(id: string, d: DatiLavoro, email: string): 
     // Un lavoro legato a una ricorrenza non smette di ripetersi da qui: per
     // fermarla c'è la sezione Ricorrenti. Senza frequenza si tiene quella che c'era.
     if (!d.frequenza) {
-      d = { ...d, frequenza: prima.frequenza ?? 'mensile', giornoSettimana: prima.giornoSettimana }
+      d = { ...d, frequenza: prima.frequenza ?? 'mensile', giornoSettimana: prima.giornoSettimana, primaData: prima.primaData }
     }
     const { error: eR } = await supabase()
       .from(RICORRENZE)
@@ -418,6 +421,8 @@ export async function cambiaStato(id: string, nuovo: StatoLavoro, email: string)
  * Prepara il mese: crea il lavoro del mese per ogni ricorrenza ATTIVA (in
  * pausa e chiuse si saltano). Preventivo:
  *  - settimanale → ore per volta × volte che il giorno cade nel mese;
+ *  - quindicinale → ore per volta × volte nel mese, a passi di 14 giorni
+ *                  dalla prima pulizia (2 o 3);
  *  - mensile     → il consuntivo del mese prima, se c'è (com'era prima delle
  *                  ricorrenze), altrimenti le ore della ricorrenza.
  * Rilanciarlo non crea doppioni: c'è l'indice unico (ricorrenza_id, mese).
@@ -447,7 +452,7 @@ export async function preparaMese(mese: string, email: string): Promise<{ creati
   const righe = ricorrenze
     .filter((r) => !gia.has(r.id))
     .map((r) => {
-      const n = volte(mese, r.frequenza, r.giornoSettimana)
+      const n = volte(mese, r.frequenza, r.giornoSettimana, r.primaData)
       const prima = r.frequenza === 'mensile' ? delMesePrima.get(r.id) : undefined
       return {
         mese,

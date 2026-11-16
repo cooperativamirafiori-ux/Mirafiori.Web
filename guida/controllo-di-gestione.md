@@ -534,7 +534,7 @@ rivedere.
    - «Per chi»: «Una nostra struttura» oppure «Un cliente esterno»;
    - «Struttura» (l'addebito va sul suo centro di costo) oppure «Cliente»;
    - «Che lavoro è» (per esempio «Pulizia ordinaria»), e «Dettagli» se servono;
-   - «Si ripete»: «No, una volta sola», «Ogni mese» o «Ogni settimana» (con «Che giorno»);
+   - «Si ripete»: «No, una volta sola», «Ogni mese», «Ogni settimana» (con «Che giorno») o «Ogni due settimane» (con «Prima pulizia il»: da quella data si va avanti di due settimane in due, e nel mese le volte sono 2 o 3);
    - il **Preventivo**: «Ore pulizie», «Ore manutenzione», «Ore sostituzione personale»,
      «Materiali dedicati (€)».
      L'importo si calcola mentre scrivi.
@@ -542,6 +542,8 @@ rivedere.
 
 Per un lavoro **ogni settimana** le ore si scrivono **per volta**: l'app le moltiplica per
 quante volte quel giorno cade nel mese (4 o 5) e te lo scrive.
+Lo stesso vale **ogni due settimane**: le ore sono per volta, e il mese le moltiplica per 2 o 3
+secondo il calendario (per esempio l'ufficio di Strada del Drosso, pulito ogni 15 giorni).
 
 ## Come porto avanti un lavoro fino al consuntivo?
 

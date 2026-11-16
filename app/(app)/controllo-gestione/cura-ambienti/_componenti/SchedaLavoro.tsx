@@ -10,10 +10,11 @@
  * I cambi di stato salvano prima i dati: "Chiudi il consuntivo" con le ore
  * appena scritte non deve perderle.
  *
- * "Si ripete": ogni mese oppure ogni settimana in un giorno fisso. Per il
- * settimanale le ore del preventivo si scrivono PER VOLTA e il mese le
- * moltiplica per le volte che quel giorno cade (4 o 5). Pausa e chiusura
- * della ricorrenza stanno nella sezione Ricorrenti, non qui.
+ * "Si ripete": ogni mese, ogni settimana in un giorno fisso, oppure ogni due
+ * settimane a partire da una prima data. Per settimanale e quindicinale le ore
+ * del preventivo si scrivono PER VOLTA e il mese le moltiplica per le volte
+ * (4 o 5 a settimana, 2 o 3 ogni due). Pausa e chiusura della ricorrenza
+ * stanno nella sezione Ricorrenti, non qui.
  */
 
 import { useState } from 'react'
@@ -21,7 +22,7 @@ import { Modale } from '@/components/ui/Modale'
 import { Campo } from '@/components/ui/Campo'
 import { Banner } from '@/components/ui/Banner'
 import { Pill } from '@/components/ui/Pill'
-import { importo, lavoroFermo, modificabile, passaggiDa, tariffeDi, volteNelMese } from '@/lib/cura-ambienti/flusso'
+import { giornoDi, importo, lavoroFermo, modificabile, passaggiDa, tariffeDi, volte } from '@/lib/cura-ambienti/flusso'
 import {
   GIORNI_SETTIMANA,
   STATI_LAVORO,
@@ -77,9 +78,11 @@ export function SchedaLavoro({
     lavoro?.frequenza ?? (lavoro?.ricorrente ? 'mensile' : 'no'),
   )
   const [giorno, setGiorno] = useState(s(lavoro?.giornoSettimana ?? null))
-  // Un settimanale salvato ha le ore del mese: nella scheda tornano per volta.
-  const voltePrima =
-    lavoro?.frequenza === 'settimanale' && lavoro.giornoSettimana ? volteNelMese(lavoro.mese, lavoro.giornoSettimana) : 1
+  const [primaData, setPrimaData] = useState(lavoro?.primaData ?? '')
+  // Un settimanale o quindicinale salvato ha le ore del mese: nella scheda tornano per volta.
+  const voltePrima = lavoro
+    ? Math.max(1, volte(lavoro.mese, lavoro.frequenza, lavoro.giornoSettimana, lavoro.primaData))
+    : 1
   const perVolta = (n: number | undefined) => (n === undefined ? null : Math.round((n / voltePrima) * 100) / 100)
   const [pP, setPP] = useState(s(perVolta(lavoro?.prevOrePulizie)))
   const [pM, setPM] = useState(s(perVolta(lavoro?.prevOreManutenzione)))
@@ -94,8 +97,14 @@ export function SchedaLavoro({
   const [errore, setErrore] = useState('')
 
   const mostraConsuntivo = !nuovo && stato !== 'bozza'
-  const settimanale = frequenza === 'settimanale'
-  const volteMese = settimanale && giorno ? volteNelMese(meseLavoro, Number(giorno)) : 1
+  const ogniSettimana = frequenza === 'settimanale'
+  const ogniDue = frequenza === 'quindicinale'
+  /** Le ore si scrivono per volta: settimanale o quindicinale. */
+  const settimanale = ogniSettimana || ogniDue
+  const giornoScelto = ogniDue ? giornoDi(primaData) : Number(giorno) || null
+  const volteMese = settimanale && giornoScelto
+    ? volte(meseLavoro, ogniDue ? 'quindicinale' : 'settimanale', giornoScelto, ogniDue ? primaData : null)
+    : 1
   const t = tariffeDi(tariffe, tariffeStrutture, destinatario === 'struttura' ? strutturaCodice || null : null)
   const tariffaPropria = destinatario === 'struttura' && !!strutturaCodice && !!tariffeStrutture[strutturaCodice]
   const prev = importo(num(pP) * volteMese, num(pM) * volteMese, num(pMat), t, num(pS) * volteMese)
@@ -110,7 +119,8 @@ export function SchedaLavoro({
     titolo,
     descrizione,
     frequenza: frequenza === 'no' ? null : frequenza,
-    giornoSettimana: settimanale ? Number(giorno) || null : null,
+    giornoSettimana: settimanale ? giornoScelto : null,
+    primaData: ogniDue ? primaData || null : null,
     prevOrePulizie: pP,
     prevOreManutenzione: pM,
     prevOreSostituzione: pS,
@@ -170,8 +180,9 @@ export function SchedaLavoro({
     ...(legato ? [] : [{ valore: 'no', etichetta: 'No, una volta sola' }]),
     { valore: 'mensile', etichetta: 'Ogni mese' },
     { valore: 'settimanale', etichetta: 'Ogni settimana' },
+    { valore: 'quindicinale', etichetta: 'Ogni due settimane' },
   ]
-  const nomeGiorno = giorno ? GIORNI_SETTIMANA[Number(giorno) - 1] : ''
+  const nomeGiorno = giornoScelto ? GIORNI_SETTIMANA[giornoScelto - 1] : ''
 
   return (
     <Modale
@@ -273,7 +284,7 @@ export function SchedaLavoro({
           }
           disabilitato={!aperto}
         />
-        {settimanale && (
+        {ogniSettimana && (
           <Campo
             etichetta="Che giorno"
             tipo="choice"
@@ -281,6 +292,21 @@ export function SchedaLavoro({
             onChange={setGiorno}
             scelte={GIORNI_SETTIMANA.map((g, i) => ({ valore: String(i + 1), etichetta: g }))}
             obbligatorio
+            disabilitato={!aperto}
+          />
+        )}
+        {ogniDue && (
+          <Campo
+            etichetta="Prima pulizia il"
+            tipo="date"
+            valore={primaData}
+            onChange={setPrimaData}
+            obbligatorio
+            aiuto={
+              nomeGiorno
+                ? `Da qui, un ${nomeGiorno} sì e uno no.`
+                : 'Il giorno della settimana è quello di questa data; poi si va avanti di due settimane in due.'
+            }
             disabilitato={!aperto}
           />
         )}
@@ -329,9 +355,17 @@ export function SchedaLavoro({
               disabilitato={!aperto}
             />
           </div>
-          {settimanale && giorno && (
+          {settimanale && giornoScelto && (
             <p className="text-sm text-gray-600">
-              A {nomeMese(meseLavoro)} i {nomeGiorno} sono <b>{volteMese}</b>: nel mese{' '}
+              {ogniDue ? (
+                <>
+                  A {nomeMese(meseLavoro)}, un {nomeGiorno} ogni due, le volte sono <b>{volteMese}</b>: nel mese{' '}
+                </>
+              ) : (
+                <>
+                  A {nomeMese(meseLavoro)} i {nomeGiorno} sono <b>{volteMese}</b>: nel mese{' '}
+                </>
+              )}
               <b>{ore(Math.round((num(pP) + num(pM) + num(pS)) * volteMese * 100) / 100)}</b>.
             </p>
           )}

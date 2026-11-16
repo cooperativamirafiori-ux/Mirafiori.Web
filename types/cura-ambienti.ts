@@ -50,7 +50,7 @@ export type TariffeStrutture = Record<string, Partial<Record<Figura, number>>>
 export type Destinatario = 'struttura' | 'esterno'
 
 /** Come si ripete un lavoro. `null` = una volta sola. */
-export type Frequenza = 'mensile' | 'settimanale'
+export type Frequenza = 'mensile' | 'settimanale' | 'quindicinale'
 
 /** 1 = lunedì … 7 = domenica. */
 export const GIORNI_SETTIMANA = ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'] as const
@@ -78,6 +78,8 @@ export interface Ricorrenza {
   descrizione: string | null
   frequenza: Frequenza
   giornoSettimana: number | null
+  /** Solo quindicinale: la prima pulizia, `YYYY-MM-DD`. Fissa quali settimane. */
+  primaData: string | null
   orePulizie: number
   oreManutenzione: number
   oreSostituzione: number
@@ -105,6 +107,7 @@ export interface Lavoro {
   /** Copiati dalla ricorrenza, per mostrarli nella scheda. */
   frequenza: Frequenza | null
   giornoSettimana: number | null
+  primaData: string | null
   stato: StatoLavoro
   prevOrePulizie: number
   prevOreManutenzione: number
@@ -145,11 +148,13 @@ export interface DatiLavoro {
   titolo: string
   descrizione: string | null
   /**
-   * Si ripete? Con `settimanale` le ore del preventivo arrivano PER VOLTA e il
+   * Si ripete? Con `settimanale` e `quindicinale` le ore del preventivo arrivano PER VOLTA e il
    * server le moltiplica per le volte del mese.
    */
   frequenza: Frequenza | null
   giornoSettimana: number | null
+  /** Solo quindicinale: la prima pulizia. Il giorno della settimana è il suo. */
+  primaData: string | null
   prevOrePulizie: number
   prevOreManutenzione: number
   prevOreSostituzione: number

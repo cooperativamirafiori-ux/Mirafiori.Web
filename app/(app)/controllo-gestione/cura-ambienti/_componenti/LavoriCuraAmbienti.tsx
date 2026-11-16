@@ -38,7 +38,11 @@ interface Dati {
 }
 
 const quando = (f: Frequenza | null, g: number | null) =>
-  f === 'settimanale' && g ? `Ogni ${GIORNI_SETTIMANA[g - 1]}` : 'Ogni mese'
+  f === 'settimanale' && g
+    ? `Ogni ${GIORNI_SETTIMANA[g - 1]}`
+    : f === 'quindicinale' && g
+      ? `Ogni due settimane, di ${GIORNI_SETTIMANA[g - 1]}`
+      : 'Ogni mese'
 
 function oreRicorrenza(r: Ricorrenza): string {
   const parti = [
@@ -47,7 +51,7 @@ function oreRicorrenza(r: Ricorrenza): string {
     r.oreSostituzione ? `${ore(r.oreSostituzione)} sostituzione personale` : null,
   ].filter(Boolean)
   if (!parti.length) return 'ore da definire'
-  return `${parti.join(' + ')}${r.frequenza === 'settimanale' ? ' ogni volta' : ' al mese'}`
+  return `${parti.join(' + ')}${r.frequenza === 'settimanale' || r.frequenza === 'quindicinale' ? ' ogni volta' : ' al mese'}`
 }
 
 export function LavoriCuraAmbienti() {

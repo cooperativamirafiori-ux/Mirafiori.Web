@@ -101,9 +101,47 @@ export function volteNelMese(mese: string, giorno: number): number {
   return Math.floor((giorni - 1 - scarto) / 7) + 1
 }
 
-/** Volte nel mese per una frequenza: 1 per mensile, i giorni giusti per settimanale. */
-export function volte(mese: string, frequenza: Frequenza | null, giorno: number | null): number {
-  return frequenza === 'settimanale' && giorno ? volteNelMese(mese, giorno) : 1
+/** Giorno della settimana (1 = lunedì) di una data `YYYY-MM-DD`; null se non è una data. */
+export function giornoDi(data: string | null | undefined): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(data ?? '')
+  if (!m) return null
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]))
+  if (d.getUTCMonth() !== +m[2] - 1) return null
+  return ((d.getUTCDay() + 6) % 7) + 1
+}
+
+/**
+ * Ogni due settimane: quante volte cade nel mese `YYYY-MM-01`, contando a passi
+ * di 14 giorni dalla prima pulizia. I giorni prima della prima non contano.
+ * Di solito 2, a volte 3.
+ */
+export function volteOgniDueSettimane(mese: string, primaData: string): number {
+  const [a, m] = mese.split('-').map(Number)
+  const [pa, pm, pg] = primaData.split('-').map(Number)
+  const giorno = 86_400_000
+  const prima = Date.UTC(pa, pm - 1, pg)
+  const fine = Date.UTC(a, m, 0)
+  let n = 0
+  for (let t = Date.UTC(a, m - 1, 1); t <= fine; t += giorno) {
+    const scarto = Math.round((t - prima) / giorno)
+    if (scarto >= 0 && scarto % 14 === 0) n++
+  }
+  return n
+}
+
+/**
+ * Volte nel mese per una frequenza: 1 per mensile, i giorni giusti per
+ * settimanale e quindicinale. Se manca il giorno (o la prima data) vale 1.
+ */
+export function volte(
+  mese: string,
+  frequenza: Frequenza | null,
+  giorno: number | null,
+  primaData: string | null = null,
+): number {
+  if (frequenza === 'settimanale' && giorno) return volteNelMese(mese, giorno)
+  if (frequenza === 'quindicinale' && giornoDi(primaData)) return volteOgniDueSettimane(mese, primaData!)
+  return 1
 }
 
 export function importiLavoro(l: Lavoro, t: Tariffe): ImportiLavoro {
@@ -192,10 +230,25 @@ export function leggiDati(b: Record<string, unknown>): { dati: DatiLavoro } | { 
   if (!titolo) problemi.push('Scrivi che lavoro è')
   // `ricorrente: true` è il vecchio modulo: valeva "ogni mese".
   const frequenza: Frequenza | null =
-    b.frequenza === 'settimanale' ? 'settimanale' : b.frequenza === 'mensile' || b.ricorrente === true ? 'mensile' : null
+    b.frequenza === 'settimanale' || b.frequenza === 'quindicinale'
+      ? b.frequenza
+      : b.frequenza === 'mensile' || b.ricorrente === true
+        ? 'mensile'
+        : null
   const g = Number(b.giornoSettimana)
-  const giornoSettimana = frequenza === 'settimanale' && Number.isInteger(g) && g >= 1 && g <= 7 ? g : null
+  // Quindicinale: conta la prima pulizia, il giorno della settimana è il suo.
+  const primaData = frequenza === 'quindicinale' && giornoDi(testo(b.primaData)) ? testo(b.primaData) : null
+  const giornoSettimana =
+    frequenza === 'quindicinale'
+      ? giornoDi(primaData)
+      : frequenza === 'settimanale' && Number.isInteger(g) && g >= 1 && g <= 7
+        ? g
+        : null
   if (frequenza === 'settimanale' && !giornoSettimana) problemi.push('Scegli il giorno della settimana')
+  if (frequenza === 'quindicinale' && !primaData) problemi.push('Scrivi la data della prima pulizia')
+  if (frequenza === 'quindicinale' && primaData && mese && volte(mese, frequenza, giornoSettimana, primaData) === 0) {
+    problemi.push('La prima pulizia deve cadere entro il mese del lavoro')
+  }
 
   const dati: DatiLavoro = {
     mese: mese ?? '',
@@ -206,6 +259,7 @@ export function leggiDati(b: Record<string, unknown>): { dati: DatiLavoro } | { 
     descrizione: testo(b.descrizione),
     frequenza,
     giornoSettimana,
+    primaData,
     prevOrePulizie: num(b.prevOrePulizie, 0),
     prevOreManutenzione: num(b.prevOreManutenzione, 0),
     prevOreSostituzione: num(b.prevOreSostituzione, 0),
