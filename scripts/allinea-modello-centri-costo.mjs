@@ -12,7 +12,8 @@
  *     colonna persona "Coordinatori", che poi svuota. Non toglie mai nessuno;
  *   - Responsabile d'area → colonna EmailResponsabileArea, ripetuta su ogni
  *     centro dell'area. Vede i conti Qonto di tutta l'area;
- *   - Attivo: cc6 Toc Toc Roberto si spegne (deciso 12/10). Non si cancella.
+ *   - Attivo: cc6 Toc Toc Roberto, spento il 12/10, è RIATTIVATO il 16/11/2026
+ *     con coordinatrice Simona Bortolai (senza sottoconto Qonto). Nessun CC è spento.
  *
  * Prima ancora: crea le due colonne di testo se mancano e mette nella colonna
  * Area le scelte nuove.
@@ -80,7 +81,7 @@ const MODELLO = {
   cc3: { area: 'Ristorazione', coord: ['federico.palumbo'] },
   cc4: { area: 'Contrasto violenza di genere', coord: ['maddalena.saponara'] },
   cc5: { area: 'Contrasto violenza di genere', coord: ['simona.finetti'] },
-  cc6: { area: 'Contrasto violenza di genere', coord: [], spento: true },
+  cc6: { area: 'Contrasto violenza di genere', coord: ['simona.bortolai'] }, // riattivato 16/11/2026
   cc7: { area: 'Socio Culturale', coord: ['massimiliano.giannelli'] },
   cc8: { area: 'Socio Culturale', coord: ['federico.palumbo'] },
   cc9: { area: 'Socio Sanitaria', coord: ['giorgia.picatto'] },

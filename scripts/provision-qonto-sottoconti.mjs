@@ -32,9 +32,12 @@ import { loadEnvLocal, qonto, modoAccesso } from './_qonto.mjs'
 
 const APPLY = process.argv.includes('--apply')
 const iSalta = process.argv.indexOf('--salta')
-const SALTA = new Set(
-  iSalta > -1 ? (process.argv[iSalta + 1] || '').split(',').map((s) => s.trim()).filter(Boolean) : [],
-)
+/** Centri di costo attivi che per scelta NON hanno un sottoconto Qonto. */
+const SENZA_SOTTOCONTO = ['cc6'] // Toc Toc Roberto: deciso da Dennis il 16/11/2026
+const SALTA = new Set([
+  ...SENZA_SOTTOCONTO,
+  ...(iSalta > -1 ? (process.argv[iSalta + 1] || '').split(',').map((s) => s.trim()).filter(Boolean) : []),
+])
 const SEP = ' · '
 
 /**

@@ -146,7 +146,7 @@ ma è una decisione da prendere con l'ufficio, non ora.
 | LOCANDA | cc2 La Locanda nel Parco | ok |
 | PROGETTI TIROCINI | cc1 Scat.to Orientamento lavoro | ok |
 | **SANITARIA TORINO** | cc10? cc9? | **da decidere** |
-| **CUAV** | cc6 (ha la struttura Via Monte Cengio) o cc4 CAV In Rete? | **da decidere** |
+| CUAV | cc6 Toc Toc Roberto (struttura A07 Via Monte Cengio) — cc6 riattivato il 16/11/2026, coord. Simona Bortolai, senza sottoconto Qonto | ok |
 | **BIBLIOTECHE** | cc8 MirArte? | **da decidere** |
 | **MUSEI** | cc8 MirArte? | **da decidere** |
 | **EDUCATIVA SPECIALISTICA SCUOLE** | va spaccato fra cc15 Nord e cc16 Sud | **da decidere** |
