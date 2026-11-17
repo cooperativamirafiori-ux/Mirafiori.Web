@@ -37,6 +37,8 @@ export interface MovimentoDaAbbinare {
   etichetta: string | null
   completato: boolean
   soloAMano?: boolean
+  /** Spesa Amazon con carta: non si abbina mai in automatico (Dennis, 17/11/2026). */
+  amazon?: boolean
 }
 
 export interface ScadenzaCandidata {
@@ -54,6 +56,8 @@ export interface ScadenzaCandidata {
   ccIndicato: string | null
   /** Vera = da chiudere; falsa = già pagata, solo da collegare al suo movimento. */
   aperta: boolean
+  /** Fattura Amazon con carta: si sistema a mano nella scheda Amazon. */
+  amazon?: boolean
 }
 
 export interface Controparte {
@@ -216,9 +220,11 @@ export function abbina(movimenti: MovimentoDaAbbinare[], candidate: ScadenzaCand
   const ignorati: string[] = []
   const attivi: MovimentoDaAbbinare[] = []
   for (const m of movimenti) {
+    if (m.amazon) continue // Amazon con carta: scheda Amazon, a mano
     if (daIgnorare(m, idx)) ignorati.push(m.id)
     else if (m.completato && !m.soloAMano) attivi.push(m)
   }
+  candidate = candidate.filter((c) => !c.amazon)
 
   const perMov = new Map<string, ScadenzaCandidata[]>()
   const perScad = new Map<string, string[]>()

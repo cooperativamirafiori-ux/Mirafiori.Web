@@ -38,6 +38,11 @@
  * Unica eccezione voluta alla regola sopra: Dennis ha scelto di vederle in
  * coda piuttosto che darle per pagate senza prova. RID/SDD restano come sono.
  * Vedi docs/riconciliazione-qonto.md.
+ *
+ * Amazon con carta dal 1/11/2026 (Dennis, 17/11/2026): nasce PAGATA, senza
+ * avviso, con `amazon: 'aperta'` — finisce nella scheda Amazon, dove si abbina
+ * o si chiude a mano; il costo nel cruscotto lo dà il movimento Qonto.
+ * Amazon Business a bonifico (MP05) no: è un debito vero, segue la regola 7.
  */
 
 import type { FamigliaModalita, StatoScadenza } from '@/types/pagamenti'
@@ -70,6 +75,8 @@ export interface ScadenzaNuova {
   segnalazione: string | null
   /** La fattura dice "già pagata" ma (ancora) nessun movimento su Qonto. */
   alert: 'pagata_senza_movimento' | null
+  /** Amazon con carta: va nella scheda Amazon. */
+  amazon: 'aperta' | null
 }
 
 /** Da questa data di fattura il pagato si controlla su Qonto. */
@@ -113,6 +120,7 @@ export function scadenzeDa(f: FatturaSdi, c: Contesto): ScadenzaNuova[] {
       pagata: false,
       segnalazione: 'nota di credito: da appaiare alla fattura che riduce',
       alert: null,
+      amazon: null,
     }]
   }
 
@@ -141,6 +149,7 @@ export function scadenzeDa(f: FatturaSdi, c: Contesto): ScadenzaNuova[] {
     let motivo: ScadenzaNuova['motivo_verifica'] = null
     let pagata = false
     let alert: ScadenzaNuova['alert'] = null
+    let amazon: ScadenzaNuova['amazon'] = null
     // Dal 1/11/2026 niente contanti: «contanti» in fattura vale come «già pagata».
     const conQonto = !!f.data && f.data >= PARTENZA_QONTO
     const giaPagataSecondoFattura =
@@ -149,7 +158,12 @@ export function scadenzeDa(f: FatturaSdi, c: Contesto): ScadenzaNuova[] {
       ((senzaModalita || contanti) && !!c.fornitore?.pagaAlMomento)
 
     if (giaPagataSecondoFattura) {
-      if (conQonto) {
+      if (conQonto && famiglia === 'negozio' && /amazon/i.test(f.fornitore ?? '')) {
+        // Amazon con carta: pagata davvero, si sistema nella scheda Amazon.
+        stato = 'pagata'
+        pagata = true
+        amazon = 'aperta'
+      } else if (conQonto) {
         // La prova la dà Qonto: finché il movimento non c'è, va in coda a Claudia.
         stato = 'da_pagare'
         alert = 'pagata_senza_movimento'
@@ -204,6 +218,7 @@ export function scadenzeDa(f: FatturaSdi, c: Contesto): ScadenzaNuova[] {
       pagata,
       segnalazione: note,
       alert,
+      amazon,
     }
   })
 }

@@ -29,6 +29,7 @@ import { NuovaUscita } from './NuovaUscita'
 import { IbanRiga } from './IbanRiga'
 import { ServizioRiga, type Centro } from './ServizioRiga'
 import { AbbinaQonto } from './AbbinaQonto'
+import { AmazonQonto } from './AmazonQonto'
 import type { EsitoVerifica, RicevutaImport, RigaScadenza, TotaliCoda } from '@/types/pagamenti'
 
 type Coda = 'da_verificare' | 'da_pagare' | 'da_approvare' | 'automatiche'
@@ -44,6 +45,8 @@ interface Dati {
   centri: Centro[]
   /** Uscite Qonto senza fattura; null se la riconciliazione non è attiva. */
   qontoDaAbbinare: number | null
+  /** Scheda Amazon: spese con carta + fatture da sistemare; null se non attiva. */
+  amazonDaSistemare?: number | null
 }
 
 const euro = (n: number) =>
@@ -96,7 +99,18 @@ export function FlussiFatture({
   const [messaggio, setMessaggio] = useState('')
   const [coda, setCodaGrezza] = useState<Coda>(puoApprovare && !puoPagare ? 'da_approvare' : 'da_pagare')
   // La scheda "Da abbinare (Qonto)" non è una coda di scadenze: ha la sua vista.
-  const [qontoAperta, setQontoAperta] = useState(false)
+  const [qontoAperta, setQontoApertaGrezza] = useState(false)
+  // Scheda "Amazon" (17/11/2026): spese Amazon con carta, a mano.
+  const [amazonAperta, setAmazonAperta] = useState(false)
+  const vistaSpeciale = qontoAperta || amazonAperta
+  const setQontoAperta = (v: boolean) => {
+    setAmazonAperta(false)
+    setQontoApertaGrezza(v)
+  }
+  const apriAmazon = () => {
+    setQontoApertaGrezza(false)
+    setAmazonAperta(true)
+  }
   const setCoda = (c: Coda) => {
     setQontoAperta(false)
     setCodaGrezza(c)
@@ -155,7 +169,7 @@ export function FlussiFatture({
     } satisfies Record<Coda, RigaScadenza[]>
   }, [dati, cerca])
 
-  const righe = qontoAperta ? [] : filtrate[coda]
+  const righe = vistaSpeciale ? [] : filtrate[coda]
   const ricercaAttiva = cerca.trim().length > 0
 
   // Le fatture già chiuse non sono fra le code: si chiedono al server, con un
@@ -189,7 +203,7 @@ export function FlussiFatture({
   // si preme un tasto su righe che non si stanno guardando.
   useEffect(() => {
     setScelte(new Set())
-  }, [coda, cerca, qontoAperta])
+  }, [coda, cerca, qontoAperta, amazonAperta])
 
   const selezionate = righe.filter((r) => scelte.has(r.id))
   const totaleSelezione = selezionate.reduce((s, r) => s + r.importo, 0)
@@ -458,17 +472,17 @@ export function FlussiFatture({
 
       <div className="flex flex-wrap gap-2">
         {dati && dati.daVerificare.length > 0 && (
-          <Tab attivo={!qontoAperta && coda === 'da_verificare'} onClick={() => setCoda('da_verificare')} avviso>
+          <Tab attivo={!vistaSpeciale && coda === 'da_verificare'} onClick={() => setCoda('da_verificare')} avviso>
             Da verificare ({filtrate.da_verificare.length})
           </Tab>
         )}
-        <Tab attivo={!qontoAperta && coda === 'da_pagare'} onClick={() => setCoda('da_pagare')}>
+        <Tab attivo={!vistaSpeciale && coda === 'da_pagare'} onClick={() => setCoda('da_pagare')}>
           Da pagare {dati ? `(${filtrate.da_pagare.length})` : ''}
         </Tab>
-        <Tab attivo={!qontoAperta && coda === 'da_approvare'} onClick={() => setCoda('da_approvare')}>
+        <Tab attivo={!vistaSpeciale && coda === 'da_approvare'} onClick={() => setCoda('da_approvare')}>
           Da approvare {dati ? `(${filtrate.da_approvare.length})` : ''}
         </Tab>
-        <Tab attivo={!qontoAperta && coda === 'automatiche'} onClick={() => setCoda('automatiche')}>
+        <Tab attivo={!vistaSpeciale && coda === 'automatiche'} onClick={() => setCoda('automatiche')}>
           Escono da sole {dati ? `(${filtrate.automatiche.length})` : ''}
         </Tab>
         {puoPagare && dati && dati.qontoDaAbbinare != null && (
@@ -476,11 +490,17 @@ export function FlussiFatture({
             Da abbinare (Qonto) ({dati.qontoDaAbbinare})
           </Tab>
         )}
+        {puoPagare && dati && dati.amazonDaSistemare != null && (
+          <Tab attivo={amazonAperta} onClick={apriAmazon}>
+            Amazon ({dati.amazonDaSistemare})
+          </Tab>
+        )}
       </div>
 
       {qontoAperta && <AbbinaQonto onCambiato={carica} />}
+      {amazonAperta && <AmazonQonto onCambiato={carica} />}
 
-      {!qontoAperta && coda === 'da_verificare' && (
+      {!vistaSpeciale && coda === 'da_verificare' && (
         <p className="text-sm text-gray-500">
           Fatture di cui l’app non sa se vanno ancora pagate: o la fattura non dice come si paga
           (scontrini fatti fattura, parcelle), o è un bonifico già scaduto quando l’app ha
@@ -489,20 +509,20 @@ export function FlussiFatture({
         </p>
       )}
 
-      {!qontoAperta && coda === 'automatiche' && (
+      {!vistaSpeciale && coda === 'automatiche' && (
         <p className="text-sm text-gray-500">
           RID, SDD e domiciliazioni: nessuno le paga, se ne vanno da sole alla scadenza.
           Stanno qui perché il denaro esce comunque e chi guarda la cassa deve saperlo.
         </p>
       )}
 
-      {caricando && !qontoAperta && <p className="text-sm text-gray-500">Caricamento…</p>}
+      {caricando && !vistaSpeciale && <p className="text-sm text-gray-500">Caricamento…</p>}
 
-      {!caricando && !qontoAperta && righe.length === 0 && !ricercaAttiva && (
+      {!caricando && !vistaSpeciale && righe.length === 0 && !ricercaAttiva && (
         <Vuoto>{coda === 'da_approvare' ? 'Niente da approvare.' : 'Niente in coda.'}</Vuoto>
       )}
 
-      {!caricando && !qontoAperta && righe.length === 0 && ricercaAttiva && (
+      {!caricando && !vistaSpeciale && righe.length === 0 && ricercaAttiva && (
         <AltroveRicerca filtrate={filtrate} onScegli={setCoda} />
       )}
 
@@ -560,7 +580,7 @@ export function FlussiFatture({
         </>
       )}
 
-      {!qontoAperta && ricercaAttiva && cerca.trim().length >= 2 && (
+      {!vistaSpeciale && ricercaAttiva && cerca.trim().length >= 2 && (
         <section className="space-y-2 pt-2">
           <h3 className="text-sm font-semibold text-gray-700">
             Già pagate o chiuse

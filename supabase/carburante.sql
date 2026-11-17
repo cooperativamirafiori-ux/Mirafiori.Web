@@ -116,6 +116,7 @@ alter table carburante_quota       enable row level security;
 -- divisa esce senza centro di costo ("da attribuire"), non su cc23: sennò
 -- finirebbe nella ripartizione a percentuale dei costi generali.
 -- ----------------------------------------------------------------------------
+-- ⚠️ 17/11/2026: sostituita da supabase/amazon_carta.sql (stessa funzione + regole Amazon).
 create or replace function cdg_fatture_anno(p_anno int)
 returns table (
   id           uuid,

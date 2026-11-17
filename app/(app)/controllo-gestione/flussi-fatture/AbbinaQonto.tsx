@@ -18,7 +18,7 @@ import { Pill } from '@/components/ui/Pill'
 import { Banner } from '@/components/ui/Banner'
 import { Vuoto } from '@/components/ui/Vuoto'
 
-interface ScadenzaInBreve {
+export interface ScadenzaInBreve {
   id: string
   fornitore: string
   numero: string | null
@@ -31,7 +31,7 @@ interface ScadenzaInBreve {
   fornitoreRiconosciuto?: string | null
 }
 
-interface Movimento {
+export interface Movimento {
   id: string
   data: string
   importo: number
@@ -56,9 +56,9 @@ interface Dati {
   ultimaLettura: string | null
 }
 
-const euro = (n: number) => n.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })
-const dataIt = (iso: string | null) => (iso ? new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString('it-IT') : '—')
-const quando = (iso: string | null) =>
+export const euro = (n: number) => n.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })
+export const dataIt = (iso: string | null) => (iso ? new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString('it-IT') : '—')
+export const quando = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'mai'
 
 const STATI: Record<string, string> = {
@@ -254,14 +254,17 @@ function Testa({ m }: { m: Movimento }) {
   )
 }
 
-function MovimentoDaAbbinare({
+export function MovimentoDaAbbinare({
   m,
   inCorso,
   onAbbina,
   onIgnora,
+  amazon = false,
 }: {
   m: Movimento
   inCorso: boolean
+  /** Scheda Amazon: niente «anche le prossime volte», testi diversi. */
+  amazon?: boolean
   onAbbina: (ids: string[]) => Promise<boolean>
   onIgnora: (nota: string, sempre: boolean) => Promise<boolean>
 }) {
@@ -278,7 +281,9 @@ function MovimentoDaAbbinare({
 
       {m.scadenze.length === 0 ? (
         <p className="text-sm text-gray-500">
-          Nessuna fattura aperta gli somiglia. Forse la fattura deve ancora arrivare: si riprova ogni notte.
+          {amazon
+            ? 'Nessuna fattura Amazon da sistemare nei 30 giorni intorno a questa spesa. Il costo è già registrato.'
+            : 'Nessuna fattura aperta gli somiglia. Forse la fattura deve ancora arrivare: si riprova ogni notte.'}
         </p>
       ) : (
         <div className="space-y-1.5">
@@ -344,7 +349,7 @@ function MovimentoDaAbbinare({
             disabled={inCorso}
             className="rounded-xl border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-600 disabled:opacity-50"
           >
-            Non serve fattura
+            {amazon ? 'Chiudi senza fattura' : 'Non serve fattura'}
           </button>
         )}
       </div>
@@ -354,9 +359,10 @@ function MovimentoDaAbbinare({
           <input
             value={nota}
             onChange={(e) => setNota(e.target.value)}
-            placeholder="Perché? (stipendio, commissione, rimborso…)"
+            placeholder={amazon ? 'Perché? (fattura già abbinata a un\'altra spesa, reso…)' : 'Perché? (stipendio, commissione, rimborso…)'}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base sm:text-sm"
           />
+          {!amazon && (
           <label className="flex items-start gap-2 text-sm text-gray-600">
             <input type="checkbox" className="mt-0.5 h-4 w-4" checked={sempre} onChange={(e) => setSempre(e.target.checked)} />
             <span>
@@ -364,6 +370,7 @@ function MovimentoDaAbbinare({
               <span className="block text-xs text-gray-400">Solo per chi non manderà mai una fattura: stipendi, rimborsi, tasse.</span>
             </span>
           </label>
+          )}
           <div className="flex flex-wrap gap-2">
             <button
               onClick={async () => {
@@ -384,7 +391,7 @@ function MovimentoDaAbbinare({
   )
 }
 
-function Sistemato({ m, inCorso, onAnnulla }: { m: Movimento; inCorso: boolean; onAnnulla: () => Promise<boolean> }) {
+export function Sistemato({ m, inCorso, onAnnulla }: { m: Movimento; inCorso: boolean; onAnnulla: () => Promise<boolean> }) {
   const [conferma, setConferma] = useState(false)
   return (
     <li className="rounded-lg border border-gray-100 px-3 py-2 space-y-1">

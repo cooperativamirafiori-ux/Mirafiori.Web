@@ -155,6 +155,15 @@ ok(ccDaTesti(['CC 5']) === 'cc5', 'CC 5')
 ok(ccDaTesti(['c/c 12345', 'carta CC 123456']) === null, 'né c/c né numeri di carta')
 ok(ccDaTesti(['cc18', 'cc5']) === null, 'due CC diversi: nessuno')
 
+// --- 11b. Amazon con carta (17/11/2026): mai in automatico
+{
+  const cs = [scad({ id: 's1', importo: 29.9, fornitore: 'Amazon EU S.a r.l.', piva: 'AMZ', dataRif: '2026-11-05', amazon: true })]
+  ok(abbina([mov({ id: 'm1', importo: 29.9, controparte: 'AMZN Mktp IT', data: '2026-11-05', amazon: true })], cs, []).abbinamenti.length === 0, 'movimento Amazon con carta: niente abbinamento automatico')
+  const normale = [scad({ id: 's2', importo: 29.9, fornitore: 'Leroy Merlin', dataRif: '2026-11-05' }), ...cs]
+  const r = abbina([mov({ id: 'm2', importo: 29.9, controparte: 'Leroy Merlin', data: '2026-11-05' })], normale, [])
+  ok(r.abbinamenti.length === 1 && r.abbinamenti[0].scadenzaIds[0] === 's2', 'la fattura Amazon non è candidata per gli altri movimenti')
+}
+
 // --- 12. Regole d'import dal 1/11/2026
 {
   const base: FatturaSdi = {
@@ -179,6 +188,12 @@ ok(ccDaTesti(['cc18', 'cc5']) === null, 'due CC diversi: nessuno')
   const senza = scadenzeDa({ ...base, rate: [] }, { ...ctx, fornitore: { pagaAlMomento: true, iban: null, ibanConfermato: false } })[0]
   ok(senza.stato === 'da_pagare' && senza.alert === 'pagata_senza_movimento', 'fornitore «si paga al momento» dal 1/11: aspetta il movimento')
   const bonifico = scadenzeDa({ ...base, rate: [{ ...base.rate[0], modalita: 'MP05', famiglia: 'bonifico', iban: 'IT60X0542811101000000123456' }] }, ctx)[0]
+  const amz = scadenzeDa({ ...base, fornitore: 'Amazon Business EU S.a.r.l, Sede Secondaria' }, ctx)[0]
+  ok(amz.stato === 'pagata' && amz.pagata && amz.amazon === 'aperta' && amz.alert === null, 'Amazon con carta dal 1/11: pagata, nella scheda Amazon, senza avviso')
+  const amzBonifico = scadenzeDa({ ...base, fornitore: 'Amazon Business EU S.a.r.l, Sede Secondaria', rate: [{ ...base.rate[0], modalita: 'MP05', famiglia: 'bonifico', iban: 'IE50BOFA99006201325883' }] }, ctx)[0]
+  ok(amzBonifico.stato === 'da_pagare' && amzBonifico.amazon === null, 'Amazon Business a bonifico (pagamento in fattura): in coda da pagare come le altre')
+  const amzVecchia = scadenzeDa({ ...base, fornitore: 'Amazon EU S.a r.l.', data: '2026-10-30' }, ctx)[0]
+  ok(amzVecchia.stato === 'pagata' && amzVecchia.amazon === null, 'Amazon con carta di ottobre: regola vecchia')
   ok(bonifico.stato === 'da_pagare' && bonifico.alert === null, 'bonifico: in coda senza avviso')
 }
 

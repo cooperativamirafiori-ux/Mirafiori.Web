@@ -14,6 +14,7 @@ import { supabase } from '@/lib/core/supabase'
 import { qontoGet } from './client'
 import { getContiQonto, mappaIban, mappaMovimento, type QontoTransaction } from './data'
 import { PARTENZA_QONTO } from '@/lib/pagamenti/sdi/regole'
+import { eMovimentoAmazon, fattureAmazonAperte, fattureAmazonChiuse, sistemaFattureAmazon, type FatturaAmazon } from './amazon'
 import {
   abbina,
   candidatiManuali,
@@ -115,6 +116,12 @@ export async function leggiMovimentiQonto(opz: { dal?: Date } = {}): Promise<Esi
             // Scontrino (o qualsiasi allegato) caricato su Qonto: il movimento non
             // chiede fattura. Si rilegge a ogni giro: lo scontrino arriva anche dopo.
             con_allegato: (t.attachment_ids?.length ?? 0) > 0,
+            // Amazon con carta: costo dal movimento, fattura nella scheda Amazon (17/11/2026).
+            amazon: eMovimentoAmazon({
+              tipo: t.operation_type ?? null,
+              controparte: (t.clean_counterparty_name || t.label || '').trim() || null,
+              etichetta: t.label ?? null,
+            }),
             visto_il: adesso,
           })
         }
@@ -174,10 +181,11 @@ interface RigaMovimento {
   nota_abbinamento: string | null
   solo_a_mano: boolean
   con_allegato: boolean
+  amazon: boolean
 }
 
 const CAMPI_MOV =
-  'id, conto_nome, cc_codice, data, emesso_il, importo, stato_qonto, tipo, controparte, controparte_iban, etichetta, riferimento, carta, abbinamento, modo, abbinato_da, abbinato_il, nota_abbinamento, solo_a_mano, con_allegato'
+  'id, conto_nome, cc_codice, data, emesso_il, importo, stato_qonto, tipo, controparte, controparte_iban, etichetta, riferimento, carta, abbinamento, modo, abbinato_da, abbinato_il, nota_abbinamento, solo_a_mano, con_allegato, amazon'
 
 const aMovimento = (r: RigaMovimento): MovimentoDaAbbinare => ({
   id: r.id,
@@ -191,6 +199,7 @@ const aMovimento = (r: RigaMovimento): MovimentoDaAbbinare => ({
   etichetta: r.etichetta,
   completato: r.stato_qonto === 'completed',
   soloAMano: r.solo_a_mano,
+  amazon: r.amazon,
 })
 
 interface RigaScad {
@@ -202,6 +211,7 @@ interface RigaScad {
   data_pagamento: string | null
   segnalazione: string | null
   qonto_stato: string | null
+  amazon: string | null
   fattura_passiva: {
     id: string
     fornitore: string
@@ -214,7 +224,7 @@ interface RigaScad {
   } | null
 }
 
-const CAMPI_SCAD = `id, stato, importo, iban, data_scadenza, data_pagamento, segnalazione, qonto_stato,
+const CAMPI_SCAD = `id, stato, importo, iban, data_scadenza, data_pagamento, segnalazione, qonto_stato, amazon,
   fattura_passiva!inner ( id, fornitore, piva, numero_fornitore, data_fornitore, cc_codice, cc_indicato, tipo_documento )`
 
 /**
@@ -265,6 +275,7 @@ async function scadenzeCandidate(db: Db, pagateDal = PARTENZA_QONTO): Promise<{ 
       ibanFornitore: f.piva ? ibanFornitore.get(f.piva) ?? null : null,
       ccIndicato: f.cc_indicato,
       aperta: r.stato !== 'pagata',
+      amazon: r.amazon != null,
     }
   })
   return { righe, candidate }
@@ -418,7 +429,7 @@ export async function abbinaAutomatico(opz: { pagateDal?: string; prova?: boolea
     esito.prova = true
     esito.ignorati = ignorati.length
     const abbinatiIds = new Set(abbinamenti.map((a) => a.movimentoId))
-    esito.daAbbinare = righeMov.filter((r) => !r.con_allegato && !abbinatiIds.has(r.id) && !ignorati.includes(r.id)).length
+    esito.daAbbinare = righeMov.filter((r) => !r.con_allegato && !r.amazon && !abbinatiIds.has(r.id) && !ignorati.includes(r.id)).length
     return esito
   }
 
@@ -430,7 +441,7 @@ export async function abbinaAutomatico(opz: { pagateDal?: string; prova?: boolea
     esito.ignorati = ign?.length ?? 0
   }
 
-  const { count } = await db.from('qonto_movimento').select('id', { count: 'exact', head: true }).eq('abbinamento', 'da_abbinare').eq('con_allegato', false)
+  const { count } = await db.from('qonto_movimento').select('id', { count: 'exact', head: true }).eq('abbinamento', 'da_abbinare').eq('con_allegato', false).eq('amazon', false)
   esito.daAbbinare = count ?? 0
   return esito
 }
@@ -438,6 +449,7 @@ export async function abbinaAutomatico(opz: { pagateDal?: string; prova?: boolea
 /** Il giro completo: lettura da Qonto + abbinamento. */
 export async function riconciliaQonto(): Promise<{ lettura: EsitoLettura; abbinamento: EsitoAbbinamento }> {
   const lettura = await leggiMovimentiQonto()
+  await sistemaFattureAmazon()
   const abbinamento = await abbinaAutomatico()
   delete abbinamento.dettaglio
   return { lettura, abbinamento }
@@ -568,7 +580,8 @@ export async function elencoRiconciliazione(): Promise<{
     // Con lo scontrino su Qonto non serve fattura: non si chiede di abbinarli a mano.
     // Restano però «da abbinare» nel database, così una fattura sicura che arriva
     // dopo li chiude lo stesso (Dennis, 17/11/2026).
-    db.from('qonto_movimento').select(CAMPI_MOV).eq('abbinamento', 'da_abbinare').eq('con_allegato', false).order('data', { ascending: false }).limit(300),
+    // Amazon con carta: hanno la loro scheda (elencoAmazon).
+    db.from('qonto_movimento').select(CAMPI_MOV).eq('abbinamento', 'da_abbinare').eq('con_allegato', false).eq('amazon', false).order('data', { ascending: false }).limit(300),
     db.from('qonto_movimento').select(CAMPI_MOV).neq('abbinamento', 'da_abbinare').gte('abbinato_il', da30)
       // L'archivio del giro sullo storico non è una decisione da rivedere: resta fuori.
       .or('nota_abbinamento.is.null,nota_abbinamento.not.like.storico*').order('abbinato_il', { ascending: false }).limit(200),
@@ -577,7 +590,8 @@ export async function elencoRiconciliazione(): Promise<{
   if (aperti.error) throw new Error(`Lettura movimenti: ${aperti.error.message}`)
   if (fatti.error) throw new Error(`Lettura abbinamenti: ${fatti.error.message}`)
 
-  const [{ righe, candidate }, cp] = await Promise.all([scadenzeCandidate(db), controparti(db)])
+  const [{ righe, candidate: tutte }, cp] = await Promise.all([scadenzeCandidate(db), controparti(db)])
+  const candidate = tutte.filter((c) => !c.amazon)
   const perId = new Map(righe.map((r) => [r.id, r]))
   const daAbbinare = ((aperti.data ?? []) as RigaMovimento[]).map((r) =>
     inElenco(
@@ -603,8 +617,61 @@ export async function elencoRiconciliazione(): Promise<{
   return { daAbbinare, recenti, ultimaLettura: (ultima.data?.[0]?.visto_il as string | undefined) ?? null }
 }
 
+/**
+ * Scheda «Amazon» (Dennis, 17/11/2026): le spese Amazon con carta e le fatture
+ * Amazon con carta ancora da sistemare. Il costo è già nel cruscotto dal
+ * movimento: qui Claudia abbina (anche più fatture a un movimento) o chiude.
+ * Per ogni movimento si propongono le fatture Amazon aperte entro 30 giorni,
+ * prima quelle dello stesso centro di costo e di data più vicina.
+ */
+export async function elencoAmazon(): Promise<{
+  movimenti: MovimentoInElenco[]
+  recenti: MovimentoInElenco[]
+  fatture: FatturaAmazon[]
+  chiuse: FatturaAmazon[]
+}> {
+  const db = supabase()
+  await sistemaFattureAmazon(db)
+  const da30 = new Date(Date.now() - 30 * 86_400_000).toISOString()
+  const [aperti, fatti, fatture, chiuse] = await Promise.all([
+    db.from('qonto_movimento').select(CAMPI_MOV).eq('amazon', true).eq('abbinamento', 'da_abbinare').order('data', { ascending: false }).limit(300),
+    db.from('qonto_movimento').select(CAMPI_MOV).eq('amazon', true).neq('abbinamento', 'da_abbinare').gte('abbinato_il', da30)
+      .order('abbinato_il', { ascending: false }).limit(200),
+    fattureAmazonAperte(db),
+    fattureAmazonChiuse(db),
+  ])
+  if (aperti.error) throw new Error(`Lettura movimenti Amazon: ${aperti.error.message}`)
+  if (fatti.error) throw new Error(`Lettura movimenti Amazon: ${fatti.error.message}`)
+
+  const giorni = (a: string, b: string) => Math.abs(Date.parse(a) - Date.parse(b)) / 86_400_000
+  const movimenti = ((aperti.data ?? []) as RigaMovimento[]).map((r) => {
+    const proposte = fatture
+      .filter((f) => !f.dataFattura || giorni(f.dataFattura, r.data) <= 30)
+      .map((f) => ({ f, stessoCc: !!r.cc_codice && (f.cc === r.cc_codice || f.ccIndicato === r.cc_codice), d: f.dataFattura ? giorni(f.dataFattura, r.data) : 99 }))
+      .sort((x, y) => Number(y.stessoCc) - Number(x.stessoCc) || x.d - y.d)
+      .slice(0, 12)
+      .map(({ f }): ScadenzaInBreve => ({
+        id: f.id, fornitore: f.fornitore, numero: f.numero, dataFattura: f.dataFattura, importo: f.importo,
+        stato: 'pagata', cc: f.cc, ccIndicato: f.ccIndicato,
+        stessoImporto: Math.round(f.importo * 100) === Math.round(Number(r.importo) * 100),
+      }))
+    return inElenco(r, proposte)
+  })
+
+  const righeFatti = (fatti.data ?? []) as RigaMovimento[]
+  const collegate = new Map<string, ScadenzaInBreve[]>()
+  if (righeFatti.length) {
+    const { data } = await db.from('scadenza').select(`qonto_movimento_id, ${CAMPI_SCAD}`)
+      .in('qonto_movimento_id', righeFatti.map((r) => r.id))
+    for (const s of (data ?? []) as unknown as Array<RigaScad & { qonto_movimento_id: string }>) {
+      collegate.set(s.qonto_movimento_id, [...(collegate.get(s.qonto_movimento_id) ?? []), inBreve(s)])
+    }
+  }
+  return { movimenti, recenti: righeFatti.map((r) => inElenco(r, collegate.get(r.id) ?? [])), fatture, chiuse }
+}
+
 export async function contaDaAbbinare(): Promise<number | null> {
-  const { count, error } = await supabase().from('qonto_movimento').select('id', { count: 'exact', head: true }).eq('abbinamento', 'da_abbinare').eq('con_allegato', false)
+  const { count, error } = await supabase().from('qonto_movimento').select('id', { count: 'exact', head: true }).eq('abbinamento', 'da_abbinare').eq('con_allegato', false).eq('amazon', false)
   return error ? null : count ?? 0
 }
 
@@ -655,7 +722,8 @@ export async function abbinaAMano(movimentoId: string, scadenzaIds: string[], ut
   }
 
   // L'app impara: la prossima uscita verso questa controparte riconosce il fornitore.
-  const chiave = chiaveDi(m)
+  // (Non per Amazon con carta: quelle non si abbinano mai in automatico.)
+  const chiave = m.amazon ? null : chiaveDi(m)
   const pive = [...new Set(scad.map((s) => s.fattura_passiva?.piva).filter((p): p is string => !!p))]
   if (chiave && pive.length) {
     await db.from('qonto_controparte').upsert(

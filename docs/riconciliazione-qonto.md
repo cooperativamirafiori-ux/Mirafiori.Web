@@ -24,11 +24,20 @@ Da qui in avanti **il pagato si controlla da quello che è uscito su Qonto**.
    giorno si tratta come una carta (punto 3).
 6. **Prima di inviare un bonifico a Qonto**: se su Qonto c'è già un'uscita non abbinata compatibile
    con quella fattura (stesso importo, stesso fornitore), l'invio si ferma e lo dice.
-7. **Amazon**: ogni centro di costo compra con la sua carta, e le fatture Amazon portano il centro di
-   costo nei riferimenti (causale / numero d'ordine). L'app lo legge (`cc_indicato`) e lo usa due
-   volte: per scegliere fra due fatture dello stesso importo, e per non abbinare in automatico se il
-   centro di costo della fattura e il sottoconto della carta non coincidono.
-
+7. **Amazon con carta** (17/11/2026, sostituisce la regola del 1/11): Amazon fa una fattura per
+   tanti prodotti e più fatture per una spesa, l'abbinamento automatico non torna. Per le spese
+   **con carta** dal 1/11/2026:
+   - il **costo** nel cruscotto lo dà il **movimento Qonto**, sul centro di costo del sottoconto
+     della carta, stimato IVA esclusa al 22% (`cdg_fatture_anno`, `supabase/amazon_carta.sql`);
+   - la **fattura Amazon** (MP08) nasce **pagata**, senza avviso, **non conta come costo** e va
+     nella scheda **Amazon** di Flussi fatture (`scadenza.amazon = 'aperta'`);
+   - l'abbinamento automatico **non tocca** i movimenti Amazon con carta (`qonto_movimento.amazon`);
+   - nella scheda Amazon Claudia **abbina** (anche più fatture a una spesa) o **chiude** a mano,
+     quando c'è tempo: il costo è già registrato. Si può riaprire.
+   - Le fatture **Amazon Business a bonifico** (MP05, «Pagamento in fattura», IBAN IE50BOFA…) sono
+     debiti veri: restano in **Da pagare** con il costo dalla fattura (Dennis, 17/11/2026).
+   Riconoscimento: fornitore che contiene «amazon»; movimento di tipo carta con «amzn» o «amazon»
+   nella controparte. Codice: `lib/qonto/amazon.ts`, scheda `flussi-fatture/AmazonQonto.tsx`.
 8. **Scontrino su Qonto** (17/11/2026): se sul movimento c'è un allegato qualsiasi (lo scontrino
    caricato dall'app Qonto, ma anche un PDF), il movimento **non chiede fattura** e non compare in
    *Da abbinare*. Se però arriva una fattura che si abbina in modo sicuro, **si abbina lo stesso**:

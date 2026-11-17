@@ -183,12 +183,19 @@ async function salvaFattura(
       blocco: s.blocco,
       segnalazione: s.segnalazione,
       alert: s.alert,
+      amazon: s.amazon,
       origine: 'sdi',
       soglia_applicata: ctxBase.soglia,
       import_id: importId,
       vista_il: adesso,
       ...(s.pagata
-        ? { data_pagamento: s.data_scadenza, origine_pagamento: 'app', pagata_da: 'import fatture SDI', pagata_il: adesso }
+        ? {
+            // Amazon con carta: pagata il giorno della fattura, non alla scadenza stimata.
+            data_pagamento: s.amazon ? (f.data || s.data_scadenza) : s.data_scadenza,
+            origine_pagamento: 'app',
+            pagata_da: s.amazon ? 'carta Amazon (scheda Amazon)' : 'import fatture SDI',
+            pagata_il: adesso,
+          }
         : {}),
     }))
     const { error } = await db.from('scadenza').insert(righe)

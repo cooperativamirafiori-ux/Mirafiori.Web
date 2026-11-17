@@ -6,6 +6,10 @@
  *      { azione: 'abbina', movimentoId, scadenzaIds }           abbinamento a mano
  *      { azione: 'ignora', movimentoId, nota?, sempre? }        non serve fattura
  *      { azione: 'annulla', movimentoId }                       annulla abbinamento o "ignora"
+ *      { azione: 'chiudi_amazon', scadenzaId }                  scheda Amazon: chiude la fattura a mano
+ *      { azione: 'riapri_amazon', scadenzaId }                  scheda Amazon: la riapre
+ * GET  ?vista=amazon — scheda Amazon: spese con carta e fatture da sistemare
+ *      (Dennis, 17/11/2026: il costo viene dal movimento, l'abbinamento è a mano).
  *
  * Permesso: 'Pagamenti' (chiudere una fattura è registrare un pagamento).
  * Regole: docs/riconciliazione-qonto.md.
@@ -18,18 +22,21 @@ import { qontoConfigurato } from '@/lib/qonto/client'
 import {
   abbinaAMano,
   annullaAbbinamento,
+  elencoAmazon,
   elencoRiconciliazione,
   ignora,
   riconciliaQonto,
 } from '@/lib/qonto/riconciliazione'
+import { chiudiFatturaAmazon, riapriFatturaAmazon } from '@/lib/qonto/amazon'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const g = await guardPagamento()
   if (g.error) return g.error
   try {
+    if (req.nextUrl.searchParams.get('vista') === 'amazon') return NextResponse.json(await elencoAmazon())
     return NextResponse.json(await elencoRiconciliazione())
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Errore di lettura' }, { status: 500 })
@@ -47,12 +54,16 @@ export async function POST(req: NextRequest) {
   }
   const azione = String(body.azione ?? '')
   const movimentoId = typeof body.movimentoId === 'string' ? body.movimentoId : ''
+  const scadenzaId = typeof body.scadenzaId === 'string' ? body.scadenzaId : ''
 
   try {
     let esito: unknown
     if (azione === 'controlla') {
       if (!qontoConfigurato()) return NextResponse.json({ error: 'Qonto non è configurato sul server' }, { status: 503 })
       esito = await riconciliaQonto()
+    } else if (azione === 'chiudi_amazon' || azione === 'riapri_amazon') {
+      if (!scadenzaId) return NextResponse.json({ error: 'Fattura non indicata' }, { status: 400 })
+      esito = azione === 'chiudi_amazon' ? await chiudiFatturaAmazon(scadenzaId) : await riapriFatturaAmazon(scadenzaId)
     } else if (!movimentoId) {
       return NextResponse.json({ error: 'Movimento non indicato' }, { status: 400 })
     } else if (azione === 'abbina') {
@@ -71,8 +82,8 @@ export async function POST(req: NextRequest) {
       utente: g.email,
       nome: g.session.user?.name,
       azione: `pagamenti.qonto.${azione}`,
-      entita: 'MovimentoQonto',
-      entitaId: movimentoId || null,
+      entita: scadenzaId ? 'Scadenza' : 'MovimentoQonto',
+      entitaId: movimentoId || scadenzaId || null,
       dettagli: { ...body, esito },
     })
     return NextResponse.json({ ok: true, esito })
