@@ -155,6 +155,7 @@ interface RigaMovimento {
   conto_nome: string | null
   cc_codice: string | null
   data: string
+  emesso_il: string | null
   importo: number | string
   stato_qonto: 'pending' | 'completed'
   tipo: string | null
@@ -172,11 +173,12 @@ interface RigaMovimento {
 }
 
 const CAMPI_MOV =
-  'id, conto_nome, cc_codice, data, importo, stato_qonto, tipo, controparte, controparte_iban, etichetta, riferimento, carta, abbinamento, modo, abbinato_da, abbinato_il, nota_abbinamento, solo_a_mano'
+  'id, conto_nome, cc_codice, data, emesso_il, importo, stato_qonto, tipo, controparte, controparte_iban, etichetta, riferimento, carta, abbinamento, modo, abbinato_da, abbinato_il, nota_abbinamento, solo_a_mano'
 
 const aMovimento = (r: RigaMovimento): MovimentoDaAbbinare => ({
   id: r.id,
   data: r.data,
+  giornoSpesa: r.emesso_il ? giornoRoma(r.emesso_il) : null,
   importo: Number(r.importo),
   ccCodice: r.cc_codice,
   tipo: r.tipo,

@@ -50,6 +50,8 @@ const scad = (x: Partial<ScadenzaCandidata> & { id: string; importo: number }): 
   ok(r.abbinamenti.length === 1 && r.abbinamenti[0].perche === 'stesso importo e stessa data', 'Carrefour 152,54 del 10/11 → fattura GS S.p.A. del 10/11')
   ok(abbina([mov({ id: 'm1', importo: 152.54, controparte: 'Carrefour', data: '2026-11-11' })], cs, []).abbinamenti.length === 0, '…ma il giorno dopo no: a mano')
   ok(abbina([mov({ id: 'm1', importo: 152.54, controparte: 'Carrefour', data: '2026-11-10', completato: false })], cs, []).abbinamenti.length === 0, '…e finché è in attesa nemmeno')
+  ok(abbina([mov({ id: 'm1', importo: 152.54, controparte: 'Carrefour', data: '2026-11-11', giornoSpesa: '2026-11-10' })], cs, []).abbinamenti.length === 1, 'carta del 10/11 contabilizzata l’11: vale il giorno della spesa')
+  ok(abbina([mov({ id: 'm1', importo: 152.54, controparte: 'Carrefour', data: '2026-11-12', giornoSpesa: '2026-11-11' })], cs, []).abbinamenti.length === 0, '…spesa il giorno dopo la fattura: a mano')
   const due = [...cs, scad({ id: 's2', importo: 152.54, fornitore: 'Altro Srl', piva: 'X', dataRif: '2026-11-10' })]
   ok(abbina([mov({ id: 'm1', importo: 152.54, controparte: 'Carrefour', data: '2026-11-10' })], due, []).abbinamenti.length === 0, 'due fatture stesso importo e stessa data: a mano')
 }

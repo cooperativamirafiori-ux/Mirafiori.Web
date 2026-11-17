@@ -23,7 +23,10 @@
 
 export interface MovimentoDaAbbinare {
   id: string
-  data: string                 // YYYY-MM-DD
+  data: string                 // YYYY-MM-DD, giorno contabile (settled_at)
+  /** Giorno in cui la spesa è stata fatta (emitted_at, ora di Roma): per le carte
+   *  Qonto contabilizza spesso il giorno dopo, la fattura porta il giorno della spesa. */
+  giornoSpesa?: string | null
   importo: number              // positivo
   ccCodice: string | null      // sottoconto; null = conto principale
   tipo: string | null          // card, transfer, direct_debit…
@@ -136,8 +139,10 @@ export function indice(controparti: Controparte[]) {
 }
 export type Indice = ReturnType<typeof indice>
 
-/** Movimento e fattura dello stesso giorno (regola del 12/11/2026). */
-export const stessaData = (m: Pick<MovimentoDaAbbinare, 'data'>, c: Pick<ScadenzaCandidata, 'dataRif'>) => m.data === c.dataRif
+/** Movimento e fattura dello stesso giorno (regola del 12/11/2026). Vale il
+ *  giorno contabile o quello della spesa: la carta del 6/11 Qonto la scrive il 7. */
+export const stessaData = (m: Pick<MovimentoDaAbbinare, 'data' | 'giornoSpesa'>, c: Pick<ScadenzaCandidata, 'dataRif'>) =>
+  m.data === c.dataRif || (!!m.giornoSpesa && m.giornoSpesa === c.dataRif)
 
 /** Come il movimento riconosce il fornitore di quella scadenza (null = non lo riconosce). */
 export function riconosce(m: MovimentoDaAbbinare, c: ScadenzaCandidata, idx: Indice): Riconoscimento {
