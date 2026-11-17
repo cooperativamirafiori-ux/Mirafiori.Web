@@ -112,6 +112,9 @@ export async function leggiMovimentiQonto(opz: { dal?: Date } = {}): Promise<Esi
             riferimento: t.reference ?? null,
             nota: t.note ?? null,
             carta: t.card_last_digits ?? null,
+            // Scontrino (o qualsiasi allegato) caricato su Qonto: il movimento non
+            // chiede fattura. Si rilegge a ogni giro: lo scontrino arriva anche dopo.
+            con_allegato: (t.attachment_ids?.length ?? 0) > 0,
             visto_il: adesso,
           })
         }
@@ -170,10 +173,11 @@ interface RigaMovimento {
   abbinato_il: string | null
   nota_abbinamento: string | null
   solo_a_mano: boolean
+  con_allegato: boolean
 }
 
 const CAMPI_MOV =
-  'id, conto_nome, cc_codice, data, emesso_il, importo, stato_qonto, tipo, controparte, controparte_iban, etichetta, riferimento, carta, abbinamento, modo, abbinato_da, abbinato_il, nota_abbinamento, solo_a_mano'
+  'id, conto_nome, cc_codice, data, emesso_il, importo, stato_qonto, tipo, controparte, controparte_iban, etichetta, riferimento, carta, abbinamento, modo, abbinato_da, abbinato_il, nota_abbinamento, solo_a_mano, con_allegato'
 
 const aMovimento = (r: RigaMovimento): MovimentoDaAbbinare => ({
   id: r.id,
@@ -413,7 +417,8 @@ export async function abbinaAutomatico(opz: { pagateDal?: string; prova?: boolea
   if (opz.prova) {
     esito.prova = true
     esito.ignorati = ignorati.length
-    esito.daAbbinare = righeMov.length - esito.abbinati - ignorati.length
+    const abbinatiIds = new Set(abbinamenti.map((a) => a.movimentoId))
+    esito.daAbbinare = righeMov.filter((r) => !r.con_allegato && !abbinatiIds.has(r.id) && !ignorati.includes(r.id)).length
     return esito
   }
 
@@ -425,7 +430,7 @@ export async function abbinaAutomatico(opz: { pagateDal?: string; prova?: boolea
     esito.ignorati = ign?.length ?? 0
   }
 
-  const { count } = await db.from('qonto_movimento').select('id', { count: 'exact', head: true }).eq('abbinamento', 'da_abbinare')
+  const { count } = await db.from('qonto_movimento').select('id', { count: 'exact', head: true }).eq('abbinamento', 'da_abbinare').eq('con_allegato', false)
   esito.daAbbinare = count ?? 0
   return esito
 }
@@ -560,7 +565,10 @@ export async function elencoRiconciliazione(): Promise<{
   const db = supabase()
   const da30 = new Date(Date.now() - 30 * 86_400_000).toISOString()
   const [aperti, fatti, ultima] = await Promise.all([
-    db.from('qonto_movimento').select(CAMPI_MOV).eq('abbinamento', 'da_abbinare').order('data', { ascending: false }).limit(300),
+    // Con lo scontrino su Qonto non serve fattura: non si chiede di abbinarli a mano.
+    // Restano però «da abbinare» nel database, così una fattura sicura che arriva
+    // dopo li chiude lo stesso (Dennis, 17/11/2026).
+    db.from('qonto_movimento').select(CAMPI_MOV).eq('abbinamento', 'da_abbinare').eq('con_allegato', false).order('data', { ascending: false }).limit(300),
     db.from('qonto_movimento').select(CAMPI_MOV).neq('abbinamento', 'da_abbinare').gte('abbinato_il', da30)
       // L'archivio del giro sullo storico non è una decisione da rivedere: resta fuori.
       .or('nota_abbinamento.is.null,nota_abbinamento.not.like.storico*').order('abbinato_il', { ascending: false }).limit(200),
@@ -596,7 +604,7 @@ export async function elencoRiconciliazione(): Promise<{
 }
 
 export async function contaDaAbbinare(): Promise<number | null> {
-  const { count, error } = await supabase().from('qonto_movimento').select('id', { count: 'exact', head: true }).eq('abbinamento', 'da_abbinare')
+  const { count, error } = await supabase().from('qonto_movimento').select('id', { count: 'exact', head: true }).eq('abbinamento', 'da_abbinare').eq('con_allegato', false)
   return error ? null : count ?? 0
 }
 

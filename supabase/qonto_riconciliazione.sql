@@ -73,3 +73,7 @@ alter table qonto_controparte enable row level security;
 
 -- --- 4. Centro di costo scritto in fattura -----------------------------------------
 alter table fattura_passiva add column if not exists cc_indicato text;
+
+-- 17/11/2026: scontrino (o qualsiasi allegato) caricato su Qonto → il movimento non
+-- chiede fattura e non compare in «Da abbinare»; resta da_abbinare per le fatture sicure.
+alter table qonto_movimento add column if not exists con_allegato boolean not null default false;

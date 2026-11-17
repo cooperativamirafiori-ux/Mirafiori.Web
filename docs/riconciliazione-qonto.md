@@ -29,6 +29,13 @@ Da qui in avanti **il pagato si controlla da quello che è uscito su Qonto**.
    volte: per scegliere fra due fatture dello stesso importo, e per non abbinare in automatico se il
    centro di costo della fattura e il sottoconto della carta non coincidono.
 
+8. **Scontrino su Qonto** (17/11/2026): se sul movimento c'è un allegato qualsiasi (lo scontrino
+   caricato dall'app Qonto, ma anche un PDF), il movimento **non chiede fattura** e non compare in
+   *Da abbinare*. Se però arriva una fattura che si abbina in modo sicuro, **si abbina lo stesso**:
+   altrimenti la fattura resterebbe in coda *Da pagare* con l'avviso e si rischierebbe di pagarla due
+   volte. Per questo il movimento non viene archiviato: resta «da abbinare» nel database, solo
+   nascosto (`qonto_movimento.con_allegato`, riletto a ogni giro).
+
 ## Quando l'abbinamento è «sicuro»
 
 Tutte insieme, altrimenti si va a mano:
@@ -39,7 +46,9 @@ Tutte insieme, altrimenti si va a mano:
   ragione sociale, oppure da un abbinamento fatto a mano in passato (l'app impara:
   tabella `qonto_controparte`) — **oppure stessa data**: importo al centesimo e movimento dello
   stesso giorno della fattura bastano anche se il nome non torna (Dennis, 12/11/2026: la carta
-  scrive «Carrefour», la fattura «GS S.p.A.»);
+  scrive «Carrefour», la fattura «GS S.p.A.»). Conta il **giorno della spesa** (`emesso_il`), non
+  quello in cui Qonto la contabilizza, e dal 17/11/2026 è ammesso **un giorno di distanza**, solo se
+  nessuna candidata ha la data esatta o il fornitore riconosciuto;
 - **date vicine**: il movimento fra 45 giorni prima e 180 giorni dopo la data della fattura;
 - **un solo candidato da tutte e due le parti**: quel movimento ha una sola fattura possibile e
   quella fattura ha un solo movimento possibile. Fra più fatture dello stesso importo decide il
