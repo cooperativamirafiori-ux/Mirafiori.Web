@@ -66,6 +66,11 @@ Tutte insieme, altrimenti si va a mano:
   più fatture aperte dello stesso fornitore, e una sola combinazione torna.
 
 Si abbinano solo movimenti **contabilizzati**: quelli in attesa possono cambiare o sparire.
+Eccezione (17/11/2026): i **bonifici partiti dall'app** si collegano subito, anche in attesa, perché
+si sa già quale fattura pagano. Devono tornare tutti: bonifico, stesso importo, IBAN del fornitore,
+conto Qonto di partenza e la causale scritta dall'app («Fatt. N del gg/mm/aaaa»), con una sola
+coppia possibile. Se un bonifico collegato sparisce da Qonto prima di essere contabilizzato, il
+collegamento si toglie e la fattura riporta una segnalazione da verificare.
 
 Le fatture già segnate pagate (a mano, o da una richiesta di bonifico approvata) dal 1/11 in poi
 si **collegano** al loro movimento senza cambiare stato, così non restano fra i movimenti da

@@ -7,7 +7,7 @@
  * Esce con codice 1 se un controllo fallisce. Regole: docs/riconciliazione-qonto.md.
  */
 
-import { abbina, candidatiManuali, ccDaTesti, giaSuQonto, type MovimentoDaAbbinare, type ScadenzaCandidata } from '../lib/qonto/abbina'
+import { abbina, abbinaBonificiDellApp, causaleBonifico, candidatiManuali, ccDaTesti, giaSuQonto, type MovimentoDaAbbinare, type ScadenzaCandidata } from '../lib/qonto/abbina'
 import { scadenzeDa } from '../lib/pagamenti/sdi/regole'
 import type { FatturaSdi } from '../lib/pagamenti/sdi/fattura'
 
@@ -162,6 +162,19 @@ ok(ccDaTesti(['cc18', 'cc5']) === null, 'due CC diversi: nessuno')
   const normale = [scad({ id: 's2', importo: 29.9, fornitore: 'Leroy Merlin', dataRif: '2026-11-05' }), ...cs]
   const r = abbina([mov({ id: 'm2', importo: 29.9, controparte: 'Leroy Merlin', data: '2026-11-05' })], normale, [])
   ok(r.abbinamenti.length === 1 && r.abbinamenti[0].scadenzaIds[0] === 's2', 'la fattura Amazon non è candidata per gli altri movimenti')
+}
+
+// --- 11c. Bonifici partiti dall'app (17/11/2026): si collegano anche in attesa
+{
+  const b = [{ scadenzaId: 'h1', importo: 158.6, iban: 'IT60X0542811101000000123456', contoIban: 'FR7616958000011111111111111', causale: 'Fatt. 3/5547 del 11/11/2026' }]
+  const m = mov({ id: 'q1', importo: 158.6, tipo: 'transfer', completato: false, controparteIban: 'IT60 X054 2811 1010 0000 0123 456', contoIban: 'FR7616958000011111111111111', riferimento: 'Fatt. 3/5547 del 11/11/2026' })
+  const r = abbinaBonificiDellApp([m], b)
+  ok(r.length === 1 && r[0].scadenzaId === 'h1', 'bonifico dell’app in attesa: collegato subito')
+  ok(abbinaBonificiDellApp([{ ...m, riferimento: 'Fatt. 3/5598 del 11/11/2026' }], b).length === 0, '…ma non con un’altra causale')
+  ok(abbinaBonificiDellApp([{ ...m, importo: 158.5 }], b).length === 0, '…né con un altro importo')
+  ok(abbinaBonificiDellApp([{ ...m, contoIban: 'FR7600000000000000000000000' }], b).length === 0, '…né partito da un altro conto')
+  ok(abbinaBonificiDellApp([m, { ...m, id: 'q2' }], b).length === 0, 'due movimenti uguali: a mano')
+  ok(causaleBonifico({ numero_fornitore: '3/5547', data_fornitore: '2026-11-11' }) === 'Fatt. 3/5547 del 11/11/2026', 'causale come la scrive l’app')
 }
 
 // --- 12. Regole d'import dal 1/11/2026

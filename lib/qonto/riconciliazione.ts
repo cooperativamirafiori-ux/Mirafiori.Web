@@ -17,12 +17,15 @@ import { PARTENZA_QONTO } from '@/lib/pagamenti/sdi/regole'
 import { eMovimentoAmazon, fattureAmazonAperte, fattureAmazonChiuse, sistemaFattureAmazon, type FatturaAmazon } from './amazon'
 import {
   abbina,
+  abbinaBonificiDellApp,
+  causaleBonifico,
   candidatiManuali,
   chiaveIban,
   chiaveNome,
   giaSuQonto,
   normIbanQ,
   normNome,
+  type Abbinamento,
   type Controparte,
   type MovimentoDaAbbinare,
   type ScadenzaCandidata,
@@ -152,6 +155,25 @@ export async function leggiMovimentiQonto(opz: { dal?: Date } = {}): Promise<Esi
       const { error } = await db.from('qonto_movimento').delete().in('id', sparite)
       if (!error) esito.tolti = sparite.length
     }
+    // Bonifici dell'app collegati mentre erano «in attesa» e poi spariti
+    // (annullati su Qonto): si scollegano, e la fattura lo dice.
+    const { data: collegati } = await db
+      .from('qonto_movimento')
+      .select('id')
+      .eq('stato_qonto', 'pending')
+      .eq('abbinamento', 'abbinato')
+      .eq('modo', 'auto')
+      .gte('emesso_il', dal.toISOString())
+      .limit(500)
+    const spariti = (collegati ?? []).map((r) => r.id as string).filter((id) => !visti.has(id))
+    if (spariti.length) {
+      await db.from('scadenza').update({
+        qonto_movimento_id: null,
+        segnalazione: 'il bonifico inviato dall’app è sparito da Qonto prima di essere contabilizzato: verificare se è stato pagato',
+      }).in('qonto_movimento_id', spariti)
+      const { error } = await db.from('qonto_movimento').delete().in('id', spariti)
+      if (!error) esito.tolti += spariti.length
+    }
   }
   return esito
 }
@@ -163,6 +185,7 @@ export async function leggiMovimentiQonto(opz: { dal?: Date } = {}): Promise<Esi
 interface RigaMovimento {
   id: string
   conto_nome: string | null
+  conto_iban: string | null
   cc_codice: string | null
   data: string
   emesso_il: string | null
@@ -185,7 +208,7 @@ interface RigaMovimento {
 }
 
 const CAMPI_MOV =
-  'id, conto_nome, cc_codice, data, emesso_il, importo, stato_qonto, tipo, controparte, controparte_iban, etichetta, riferimento, carta, abbinamento, modo, abbinato_da, abbinato_il, nota_abbinamento, solo_a_mano, con_allegato, amazon'
+  'id, conto_nome, conto_iban, cc_codice, data, emesso_il, importo, stato_qonto, tipo, controparte, controparte_iban, etichetta, riferimento, carta, abbinamento, modo, abbinato_da, abbinato_il, nota_abbinamento, solo_a_mano, con_allegato, amazon'
 
 const aMovimento = (r: RigaMovimento): MovimentoDaAbbinare => ({
   id: r.id,
@@ -200,6 +223,8 @@ const aMovimento = (r: RigaMovimento): MovimentoDaAbbinare => ({
   completato: r.stato_qonto === 'completed',
   soloAMano: r.solo_a_mano,
   amazon: r.amazon,
+  contoIban: r.conto_iban,
+  riferimento: r.riferimento,
 })
 
 interface RigaScad {
@@ -279,6 +304,33 @@ async function scadenzeCandidate(db: Db, pagateDal = PARTENZA_QONTO): Promise<{ 
     }
   })
   return { righe, candidate }
+}
+
+/**
+ * Le scadenze pagate (o in pagamento) con un bonifico che l'app ha mandato a
+ * Qonto e che non hanno ancora il loro movimento. Richieste rifiutate o
+ * annullate escluse.
+ */
+async function bonificiDellApp(db: Db): Promise<{ righe: RigaScad[]; bonifici: import('./abbina').BonificoDellApp[] }> {
+  const { data, error } = await db.from('scadenza').select(`${CAMPI_SCAD}, qonto_conto_iban`)
+    .not('qonto_richiesta_id', 'is', null)
+    .in('qonto_stato', ['pending', 'approved'])
+    .in('stato', ['pagata', 'da_pagare', 'da_approvare'])
+    .is('qonto_movimento_id', null)
+    .gt('importo', 0)
+    .limit(2000)
+  if (error) throw new Error(`Lettura bonifici dell'app: ${error.message}`)
+  const righe = ((data ?? []) as unknown as Array<RigaScad & { qonto_conto_iban: string | null }>).filter((r) => r.fattura_passiva)
+  return {
+    righe,
+    bonifici: righe.map((r) => ({
+      scadenzaId: r.id,
+      importo: Number(r.importo),
+      iban: r.iban,
+      contoIban: r.qonto_conto_iban,
+      causale: causaleBonifico(r.fattura_passiva!),
+    })),
+  }
 }
 
 async function controparti(db: Db): Promise<Controparte[]> {
@@ -385,10 +437,27 @@ export async function abbinaAutomatico(opz: { pagateDal?: string; prova?: boolea
   const { data, error } = await db.from('qonto_movimento').select(CAMPI_MOV).eq('abbinamento', 'da_abbinare').limit(5000)
   if (error) throw new Error(`Lettura movimenti: ${error.message}`)
   const righeMov = (data ?? []) as RigaMovimento[]
-  const [{ righe, candidate }, cp] = await Promise.all([scadenzeCandidate(db, opz.pagateDal), controparti(db)])
+  const [{ righe, candidate }, cp, app] = await Promise.all([
+    scadenzeCandidate(db, opz.pagateDal),
+    controparti(db),
+    bonificiDellApp(db),
+  ])
 
-  const { abbinamenti, ignorati } = abbina(righeMov.map(aMovimento), candidate, cp)
-  const perId = new Map(righe.map((r) => [r.id, r]))
+  // Prima i bonifici partiti dall'app: si collegano anche «in attesa» (17/11/2026).
+  const coppieApp = abbinaBonificiDellApp(righeMov.map(aMovimento), app.bonifici)
+  const presiApp = new Set(coppieApp.map((c) => c.movimentoId))
+  const usateApp = new Set(coppieApp.map((c) => c.scadenzaId))
+  const restanti = righeMov.filter((r) => !presiApp.has(r.id))
+  const { abbinamenti: altri, ignorati } = abbina(
+    restanti.map(aMovimento),
+    candidate.filter((c) => !usateApp.has(c.id)),
+    cp,
+  )
+  const abbinamenti: Abbinamento[] = [
+    ...coppieApp.map((c) => ({ movimentoId: c.movimentoId, scadenzaIds: [c.scadenzaId], come: 'singolo' as const, perche: 'bonifico inviato dall’app (richiesta Qonto)' })),
+    ...altri,
+  ]
+  const perId = new Map([...righe, ...app.righe].map((r) => [r.id, r]))
   const movPerId = new Map(righeMov.map((r) => [r.id, r]))
   const adesso = new Date().toISOString()
   const esito: EsitoAbbinamento = { abbinati: 0, scadenzeChiuse: 0, ignorati: 0, daAbbinare: 0, dettaglio: [] }

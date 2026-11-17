@@ -26,6 +26,7 @@ import { getContiQonto } from '@/lib/qonto/data'
 import { qontoOAuth } from '@/lib/qonto/oauth'
 import { ibanValido, normIban } from '@/lib/pagamenti/verifica'
 import { giaPagateSuQonto } from './riconciliazione'
+import { causaleBonifico } from './abbina'
 
 interface Riga {
   id: string
@@ -49,9 +50,8 @@ export interface EsitoInvio {
   ignorate: Array<{ id: string; motivo: string }>
 }
 
-const dataIt = (iso: string | null) => (iso ? iso.split('-').reverse().join('/') : '')
-const causale = (f: NonNullable<Riga['fattura_passiva']>) =>
-  `Fatt. ${f.numero_fornitore ?? ''}${f.data_fornitore ? ` del ${dataIt(f.data_fornitore)}` : ''}`.trim().slice(0, 140)
+// La causale è la chiave con cui il movimento torna alla sua fattura (riconciliazione.ts).
+const causale = (f: NonNullable<Riga['fattura_passiva']>) => causaleBonifico(f)
 
 export async function inviaAQonto(ids: string[], utente: string): Promise<EsitoInvio> {
   const esito: EsitoInvio = { inviate: 0, richieste: [], ignorate: [] }

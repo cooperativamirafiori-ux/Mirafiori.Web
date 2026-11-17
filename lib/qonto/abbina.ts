@@ -39,6 +39,10 @@ export interface MovimentoDaAbbinare {
   soloAMano?: boolean
   /** Spesa Amazon con carta: non si abbina mai in automatico (Dennis, 17/11/2026). */
   amazon?: boolean
+  /** IBAN del conto Qonto da cui è uscito (bonifici partiti dall'app). */
+  contoIban?: string | null
+  /** Causale del bonifico. */
+  riferimento?: string | null
 }
 
 export interface ScadenzaCandidata {
@@ -326,4 +330,50 @@ export function ccDaTesti(testi: Array<string | null | undefined>): string | nul
     }
   }
   return trovati.size === 1 ? [...trovati][0] : null
+}
+
+// ------------------------------------------------------------------
+// Bonifici partiti dall'app (Dennis, 17/11/2026)
+// ------------------------------------------------------------------
+
+const dataItBonifico = (iso: string | null) => (iso ? iso.split('-').reverse().join('/') : '')
+
+/** La causale che l'app scrive sui bonifici che manda a Qonto. */
+export const causaleBonifico = (f: { numero_fornitore: string | null; data_fornitore: string | null }) =>
+  `Fatt. ${f.numero_fornitore ?? ''}${f.data_fornitore ? ` del ${dataItBonifico(f.data_fornitore)}` : ''}`.trim().slice(0, 140)
+
+export interface BonificoDellApp {
+  scadenzaId: string
+  importo: number
+  /** IBAN del fornitore a cui è andato. */
+  iban: string | null
+  /** IBAN del conto Qonto da cui è partito. */
+  contoIban: string | null
+  causale: string
+}
+
+const normCausale = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim().toLowerCase()
+
+/**
+ * Il bonifico l'ha mandato l'app: si sa già quale fattura paga. Si collega
+ * subito, anche se su Qonto è ancora «in attesa», quando tornano TUTTI:
+ * bonifico, stesso importo al centesimo, stesso IBAN del fornitore, stesso
+ * conto di partenza e la causale che l'app aveva scritto. E solo se la coppia
+ * è unica da tutte e due le parti.
+ */
+export function abbinaBonificiDellApp(movimenti: MovimentoDaAbbinare[], bonifici: BonificoDellApp[]): Array<{ movimentoId: string; scadenzaId: string }> {
+  const coppie: Array<{ movimentoId: string; scadenzaId: string }> = []
+  const torna = (m: MovimentoDaAbbinare, b: BonificoDellApp) =>
+    m.tipo === 'transfer' &&
+    stessoImporto(m.importo, b.importo) &&
+    !!normIbanQ(m.controparteIban) && normIbanQ(m.controparteIban) === normIbanQ(b.iban) &&
+    (!m.contoIban || !b.contoIban || normIbanQ(m.contoIban) === normIbanQ(b.contoIban)) &&
+    !!normCausale(b.causale) && normCausale(m.riferimento) === normCausale(b.causale)
+  for (const m of movimenti) {
+    const l = bonifici.filter((b) => torna(m, b))
+    if (l.length !== 1) continue
+    if (movimenti.filter((x) => torna(x, l[0])).length !== 1) continue
+    coppie.push({ movimentoId: m.id, scadenzaId: l[0].scadenzaId })
+  }
+  return coppie
 }
