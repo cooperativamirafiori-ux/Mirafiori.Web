@@ -10,7 +10,9 @@
  *   - fornitore riconosciuto: IBAN della controparte, oppure una controparte
  *     già abbinata a mano a quel fornitore, oppure il nome — OPPURE stessa
  *     data di movimento e fattura (12/11/2026: «Carrefour» paga «GS S.p.A.»,
- *     il nome non torna ma importo al centesimo + stesso giorno bastano);
+ *     il nome non torna ma importo al centesimo + stesso giorno bastano;
+ *     dal 17/11/2026 basta anche un giorno di distanza, se nessuna candidata
+ *     ha la data esatta);
  *   - date vicine (da 45 giorni prima a 180 dopo la data della fattura);
  *   - un solo candidato da tutte e due le parti.
  * Fra più fatture dello stesso importo decide il centro di costo scritto in
@@ -144,6 +146,12 @@ export type Indice = ReturnType<typeof indice>
 export const stessaData = (m: Pick<MovimentoDaAbbinare, 'data' | 'giornoSpesa'>, c: Pick<ScadenzaCandidata, 'dataRif'>) =>
   m.data === c.dataRif || (!!m.giornoSpesa && m.giornoSpesa === c.dataRif)
 
+/** Data vicina: il giorno della spesa (o il contabile, se manca) a non più di
+ *  un giorno dalla fattura (Dennis, 17/11/2026). Uno, non due: con le spese
+ *  piccole e frequenti (Eurospin tutti i giorni) due giorni creano doppioni. */
+export const dataVicina = (m: Pick<MovimentoDaAbbinare, 'data' | 'giornoSpesa'>, c: Pick<ScadenzaCandidata, 'dataRif'>) =>
+  stessaData(m, c) || Math.abs(giorni(c.dataRif, m.giornoSpesa || m.data)) <= 1
+
 /** Come il movimento riconosce il fornitore di quella scadenza (null = non lo riconosce). */
 export function riconosce(m: MovimentoDaAbbinare, c: ScadenzaCandidata, idx: Indice): Riconoscimento {
   const ibanM = normIbanQ(m.controparteIban)
@@ -163,7 +171,13 @@ export const daIgnorare = (m: MovimentoDaAbbinare, idx: Indice) => chiaviMovimen
  * non è mai un candidato sicuro.
  */
 function candidatiSicuri(m: MovimentoDaAbbinare, cs: ScadenzaCandidata[], idx: Indice): ScadenzaCandidata[] {
-  let l = cs.filter((c) => stessoImporto(m.importo, c.importo) && inFinestra(m, c) && (riconosce(m, c, idx) !== null || stessaData(m, c)))
+  let l = cs.filter((c) => stessoImporto(m.importo, c.importo) && inFinestra(m, c) && (riconosce(m, c, idx) !== null || dataVicina(m, c)))
+  // Se qualche candidata ha il fornitore riconosciuto o la stessa data esatta,
+  // quelle a un giorno di distanza escono: vince la prova più forte.
+  if (l.length > 1) {
+    const forti = l.filter((c) => riconosce(m, c, idx) !== null || stessaData(m, c))
+    if (forti.length >= 1) l = forti
+  }
   if (m.ccCodice) {
     l = l.filter((c) => !c.ccIndicato || c.ccIndicato === m.ccCodice)
     const conCc = l.filter((c) => c.ccIndicato === m.ccCodice)
@@ -230,7 +244,7 @@ export function abbina(movimenti: MovimentoDaAbbinare[], candidate: ScadenzaCand
       scadenzaIds: [c.id],
       come: 'singolo',
       perche: (r === null
-        ? 'stesso importo e stessa data'
+        ? (stessaData(m, c) ? 'stesso importo e stessa data' : 'stesso importo, data a un giorno di distanza')
         : `stesso importo, fornitore riconosciuto ${r === 'iban' ? 'dall’IBAN' : r === 'imparato' ? 'da un abbinamento precedente' : 'dal nome'}`)
         + (m.ccCodice && c.ccIndicato === m.ccCodice ? `, centro di costo ${m.ccCodice} in fattura` : ''),
     })

@@ -36,7 +36,7 @@ const scad = (x: Partial<ScadenzaCandidata> & { id: string; importo: number }): 
 
 // --- 2. Nome non riconosciuto (AMZN) → niente; poi impara
 {
-  const ms = [mov({ id: 'm1', importo: 50, controparte: 'AMZN Mktp IT', ccCodice: 'cc18' })]
+  const ms = [mov({ id: 'm1', importo: 50, controparte: 'AMZN Mktp IT', ccCodice: 'cc18', data: '2026-11-08' })]
   const cs = [scad({ id: 's1', importo: 50, fornitore: 'Amazon Business EU S.a.r.l', piva: 'AMZ' })]
   ok(abbina(ms, cs, []).abbinamenti.length === 0, 'AMZN Mktp IT non si riconosce dal nome: va a mano')
   ok(abbina(ms, cs, [{ chiave: 'nome:amzn mktp it', piva: 'AMZ', azione: 'fornitore' }]).abbinamenti.length === 1, '…ma dopo un abbinamento a mano sì')
@@ -48,10 +48,21 @@ const scad = (x: Partial<ScadenzaCandidata> & { id: string; importo: number }): 
   const cs = [scad({ id: 's1', importo: 152.54, fornitore: 'GS S.p.A.', piva: 'GS', dataRif: '2026-11-10' })]
   const r = abbina([mov({ id: 'm1', importo: 152.54, controparte: 'Carrefour', ccCodice: 'cc7', data: '2026-11-10' })], cs, [])
   ok(r.abbinamenti.length === 1 && r.abbinamenti[0].perche === 'stesso importo e stessa data', 'Carrefour 152,54 del 10/11 → fattura GS S.p.A. del 10/11')
-  ok(abbina([mov({ id: 'm1', importo: 152.54, controparte: 'Carrefour', data: '2026-11-11' })], cs, []).abbinamenti.length === 0, '…ma il giorno dopo no: a mano')
+  ok(abbina([mov({ id: 'm1', importo: 152.54, controparte: 'Carrefour', data: '2026-11-11' })], cs, []).abbinamenti.length === 1, 'il giorno dopo: sì (tolleranza 1 giorno)')
+  ok(abbina([mov({ id: 'm1', importo: 152.54, controparte: 'Carrefour', data: '2026-11-12', giornoSpesa: '2026-11-12' })], cs, []).abbinamenti.length === 0, '…due giorni dopo no: a mano')
   ok(abbina([mov({ id: 'm1', importo: 152.54, controparte: 'Carrefour', data: '2026-11-10', completato: false })], cs, []).abbinamenti.length === 0, '…e finché è in attesa nemmeno')
   ok(abbina([mov({ id: 'm1', importo: 152.54, controparte: 'Carrefour', data: '2026-11-11', giornoSpesa: '2026-11-10' })], cs, []).abbinamenti.length === 1, 'carta del 10/11 contabilizzata l’11: vale il giorno della spesa')
-  ok(abbina([mov({ id: 'm1', importo: 152.54, controparte: 'Carrefour', data: '2026-11-12', giornoSpesa: '2026-11-11' })], cs, []).abbinamenti.length === 0, '…spesa il giorno dopo la fattura: a mano')
+  ok(abbina([mov({ id: 'm1', importo: 152.54, controparte: 'Carrefour', data: '2026-11-12', giornoSpesa: '2026-11-11' })], cs, []).abbinamenti.length === 1, 'spesa il giorno dopo la fattura: sì')
+  {
+    const eur = [
+      scad({ id: 'e9', fornitore: 'Spesa Intelligente S p A', importo: 7.33, dataRif: '2026-11-09' }),
+      scad({ id: 'e10', fornitore: 'Spesa Intelligente S p A', importo: 7.33, dataRif: '2026-11-10' }),
+    ]
+    const r = abbina([mov({ id: 'm1', importo: 7.33, controparte: 'Eurospin', data: '2026-11-11', giornoSpesa: '2026-11-10' })], eur, [])
+    ok(r.abbinamenti.length === 1 && r.abbinamenti[0].scadenzaIds[0] === 'e10', 'Eurospin 7,33 del 10/11: vince la fattura del 10, non quella del 9')
+    const r2 = abbina([mov({ id: 'm1', importo: 7.33, controparte: 'Eurospin', data: '2026-11-13', giornoSpesa: '2026-11-11' })], [eur[1], scad({ id: 'e12', fornitore: 'Spesa Intelligente S p A', importo: 7.33, dataRif: '2026-11-12' })], [])
+    ok(r2.abbinamenti.length === 0, 'spesa dell’11 fra fatture del 10 e del 12: a mano')
+  }
   const due = [...cs, scad({ id: 's2', importo: 152.54, fornitore: 'Altro Srl', piva: 'X', dataRif: '2026-11-10' })]
   ok(abbina([mov({ id: 'm1', importo: 152.54, controparte: 'Carrefour', data: '2026-11-10' })], due, []).abbinamenti.length === 0, 'due fatture stesso importo e stessa data: a mano')
 }
