@@ -30,9 +30,49 @@ import { IbanRiga } from './IbanRiga'
 import { ServizioRiga, type Centro } from './ServizioRiga'
 import { AbbinaQonto } from './AbbinaQonto'
 import { AmazonQonto } from './AmazonQonto'
+import { BottoneEsporta } from './BottoneEsporta'
+import type { Colonna } from '@/lib/core/esporta-xlsx'
 import type { EsitoVerifica, RicevutaImport, RigaScadenza, TotaliCoda } from '@/types/pagamenti'
 
 type Coda = 'da_verificare' | 'da_pagare' | 'da_approvare' | 'automatiche'
+
+const NOMI_CODA: Record<Coda, string> = {
+  da_verificare: 'Da verificare',
+  da_pagare: 'Da pagare',
+  da_approvare: 'Da approvare',
+  automatiche: 'Escono da sole',
+}
+
+/** Colonne dell'export Excel delle code (stesse per tutte e quattro). */
+const COLONNE_CODA: Colonna<RigaScadenza>[] = [
+  { titolo: 'Fornitore / oggetto', valore: (r) => r.titolo, larghezza: 36 },
+  { titolo: 'P.IVA', valore: (r) => r.piva, larghezza: 14 },
+  { titolo: 'N. fattura', valore: (r) => r.numeroFornitore, larghezza: 16 },
+  { titolo: 'Data fattura', valore: (r) => r.dataFornitore, tipo: 'data' },
+  { titolo: 'Protocollo', valore: (r) => r.protocollo },
+  { titolo: 'Documento', valore: (r) => (r.tipoDocumento === 'nota_credito' ? 'nota di credito' : 'fattura') },
+  { titolo: 'Scadenza', valore: (r) => r.dataScadenza, tipo: 'data' },
+  { titolo: 'Importo', valore: (r) => r.importo, tipo: 'euro' },
+  { titolo: 'Giorni di ritardo', valore: (r) => r.giorniRitardo, tipo: 'numero' },
+  { titolo: 'Giorni in coda', valore: (r) => r.giorniAttesa, tipo: 'numero' },
+  { titolo: 'Modalità', valore: (r) => r.modalita, larghezza: 18 },
+  { titolo: 'Famiglia', valore: (r) => r.famiglia },
+  { titolo: 'Centro di costo', valore: (r) => r.cc },
+  { titolo: 'Stato', valore: (r) => r.stato.replace(/_/g, ' ') },
+  { titolo: 'Stimata', valore: (r) => r.stimata },
+  { titolo: 'Motivo verifica', valore: (r) => r.motivoVerifica?.replace(/_/g, ' ') ?? null },
+  { titolo: 'Blocco', valore: (r) => r.blocco?.replace(/_/g, ' ') ?? null },
+  { titolo: 'IBAN', valore: (r) => r.iban, larghezza: 30 },
+  { titolo: 'Approvata da', valore: (r) => r.approvataDa, larghezza: 24 },
+  { titolo: 'Approvata il', valore: (r) => r.approvataIl, tipo: 'data' },
+  { titolo: 'Bonifico Qonto', valore: (r) => r.qontoStato },
+  { titolo: 'Origine', valore: (r) => (r.origine === 'manuale' ? 'a mano' : 'SDI') },
+  { titolo: 'Inserita da', valore: (r) => r.inseritaDa, larghezza: 24 },
+  { titolo: 'Segnalazione', valore: (r) => r.segnalazione, larghezza: 30 },
+  { titolo: 'Note', valore: (r) => r.note, larghezza: 40 },
+  { titolo: 'PDF', valore: (r) => r.pdfUrl, larghezza: 30 },
+  { titolo: 'XML SDI', valore: (r) => r.fileSdiUrl, larghezza: 30 },
+]
 
 interface Dati {
   daVerificare: RigaScadenza[]
@@ -497,6 +537,15 @@ export function FlussiFatture({
         )}
       </div>
 
+      {!vistaSpeciale && dati && righe.length > 0 && (
+        <div className="flex justify-end">
+          <BottoneEsporta
+            nomeFile={`flussi-fatture-${coda.replace(/_/g, '-')}${ricercaAttiva ? '-ricerca' : ''}`}
+            fogli={() => [{ nome: NOMI_CODA[coda], colonne: COLONNE_CODA, righe }]}
+          />
+        </div>
+      )}
+
       {qontoAperta && <AbbinaQonto onCambiato={carica} />}
       {amazonAperta && <AmazonQonto onCambiato={carica} />}
 
@@ -892,12 +941,7 @@ function AltroveRicerca({
   filtrate: Record<Coda, RigaScadenza[]>
   onScegli: (c: Coda) => void
 }) {
-  const nomi: Record<Coda, string> = {
-    da_verificare: 'Da verificare',
-    da_pagare: 'Da pagare',
-    da_approvare: 'Da approvare',
-    automatiche: 'Escono da sole',
-  }
+  const nomi = NOMI_CODA
   const altrove = (Object.keys(nomi) as Coda[]).filter((c) => filtrate[c].length > 0)
   return (
     <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600">

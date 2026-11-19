@@ -20,7 +20,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Banner } from '@/components/ui/Banner'
 import { Vuoto } from '@/components/ui/Vuoto'
-import { MovimentoDaAbbinare, Sistemato, dataIt, euro, type Movimento } from './AbbinaQonto'
+import { MovimentoDaAbbinare, Sistemato, COLONNE_MOVIMENTI, dataIt, euro, type Movimento } from './AbbinaQonto'
+import { BottoneEsporta } from './BottoneEsporta'
+import type { Colonna } from '@/lib/core/esporta-xlsx'
 
 interface FatturaAmazon {
   id: string
@@ -31,6 +33,15 @@ interface FatturaAmazon {
   cc: string | null
   ccIndicato: string | null
 }
+
+const COLONNE_FATTURE: Colonna<FatturaAmazon>[] = [
+  { titolo: 'Fornitore', valore: (f) => f.fornitore, larghezza: 30 },
+  { titolo: 'N. fattura', valore: (f) => f.numero, larghezza: 18 },
+  { titolo: 'Data fattura', valore: (f) => f.dataFattura, tipo: 'data' },
+  { titolo: 'Importo', valore: (f) => f.importo, tipo: 'euro' },
+  { titolo: 'Centro di costo', valore: (f) => f.cc },
+  { titolo: 'CC indicato', valore: (f) => f.ccIndicato },
+]
 
 interface Dati {
   movimenti: Movimento[]
@@ -96,6 +107,19 @@ export function AmazonQonto({ onCambiato }: { onCambiato: () => Promise<void> | 
           centro di costo della carta: qui si abbinano le fatture quando c’è tempo, o si chiudono.
           Le fatture Amazon da pagare con bonifico restano in <b>Da pagare</b>.
         </p>
+        {dati && (
+          <div className="mt-2 flex justify-end">
+            <BottoneEsporta
+              nomeFile="flussi-fatture-amazon"
+              fogli={() => [
+                { nome: 'Spese con carta', colonne: COLONNE_MOVIMENTI, righe: dati.movimenti },
+                { nome: 'Fatture da sistemare', colonne: COLONNE_FATTURE, righe: dati.fatture },
+                { nome: 'Spese sistemate', colonne: COLONNE_MOVIMENTI, righe: dati.recenti },
+                { nome: 'Fatture chiuse a mano', colonne: COLONNE_FATTURE, righe: dati.chiuse },
+              ]}
+            />
+          </div>
+        )}
       </div>
 
       <Banner tono="errore">{errore}</Banner>

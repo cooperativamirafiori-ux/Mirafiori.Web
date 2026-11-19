@@ -17,6 +17,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Pill } from '@/components/ui/Pill'
 import { Banner } from '@/components/ui/Banner'
 import { Vuoto } from '@/components/ui/Vuoto'
+import type { Colonna } from '@/lib/core/esporta-xlsx'
+import { BottoneEsporta } from './BottoneEsporta'
 
 export interface ScadenzaInBreve {
   id: string
@@ -67,6 +69,30 @@ const STATI: Record<string, string> = {
   da_verificare: 'da verificare',
   pagata: 'già pagata',
 }
+
+/** Colonne dell'export Excel dei movimenti Qonto (usate anche dalla scheda Amazon). */
+export const COLONNE_MOVIMENTI: Colonna<Movimento>[] = [
+  { titolo: 'Data', valore: (m) => m.data, tipo: 'data' },
+  { titolo: 'Controparte', valore: (m) => m.controparte, larghezza: 30 },
+  { titolo: 'Importo', valore: (m) => m.importo, tipo: 'euro' },
+  { titolo: 'Tipo', valore: (m) => tipoLeggibile(m), larghezza: 18 },
+  { titolo: 'Conto', valore: (m) => m.conto, larghezza: 26 },
+  { titolo: 'Centro di costo', valore: (m) => m.cc },
+  { titolo: 'Riferimento', valore: (m) => m.riferimento, larghezza: 40 },
+  { titolo: 'In attesa su Qonto', valore: (m) => m.inAttesa },
+  { titolo: 'Stato', valore: (m) => m.abbinamento.replace(/_/g, ' ') },
+  { titolo: 'Abbinato da', valore: (m) => m.abbinatoDa ?? (m.modo === 'auto' ? 'automatico' : null), larghezza: 24 },
+  { titolo: 'Abbinato il', valore: (m) => m.abbinatoIl, tipo: 'data' },
+  { titolo: 'Nota', valore: (m) => m.nota, larghezza: 30 },
+  {
+    titolo: 'Fatture (proposte o abbinate)',
+    valore: (m) =>
+      m.scadenze
+        .map((x) => `${x.fornitore}${x.numero ? ` n. ${x.numero}` : ''} · ${x.importo.toFixed(2).replace('.', ',')} €`)
+        .join(' | ') || null,
+    larghezza: 60,
+  },
+]
 
 function tipoLeggibile(m: Movimento): string {
   if (m.tipo === 'card') return m.carta ? `Carta ••${m.carta}` : 'Carta'
@@ -164,6 +190,17 @@ export function AbbinaQonto({ onCambiato }: { onCambiato: () => Promise<void> | 
             {inCorso ? 'Un momento…' : 'Controlla Qonto adesso'}
           </button>
           <span className="text-xs text-gray-500">Ultima lettura: {quando(dati?.ultimaLettura ?? null)}</span>
+          {dati && (dati.daAbbinare.length > 0 || dati.recenti.length > 0) && (
+            <span className="ml-auto">
+              <BottoneEsporta
+                nomeFile={`flussi-fatture-qonto-da-abbinare${cerca.trim() ? '-ricerca' : ''}`}
+                fogli={() => [
+                  { nome: 'Da abbinare', colonne: COLONNE_MOVIMENTI, righe: filtrati },
+                  { nome: 'Sistemati ultimi 30 giorni', colonne: COLONNE_MOVIMENTI, righe: dati.recenti },
+                ]}
+              />
+            </span>
+          )}
         </div>
       </div>
 
