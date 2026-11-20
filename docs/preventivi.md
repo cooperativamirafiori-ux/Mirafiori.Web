@@ -134,7 +134,7 @@ bash scripts/preventivi-env-vercel.sh
 ```
 Le porta su Vercel (compresa `SP_LIST_ENTI_PREVENTIVI`). Facoltative: `PREVENTIVI_MAIL_TO`
 (default `FATTURE_MAIL_TO`, poi Andrea), `PREVENTIVI_FIRMA` (nome sotto la firma, default
-*Stefania MELISSARI*), `SP_PREVENTIVI_FOLDER` (default `AMMINISTRAZIONE/CLIENTI/Preventivi`).
+*Stefania MELISSARI*), `PREVENTIVI_TITOLO_FIRMA` (titolo sopra la firma, default *Il Presidente*), `SP_PREVENTIVI_FOLDER` (default `AMMINISTRAZIONE/CLIENTI/Preventivi`).
 
 Il cron `/api/cron/preventivi` gira alle 8 dei giorni feriali (`vercel.json`).
 

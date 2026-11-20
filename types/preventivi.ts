@@ -144,17 +144,17 @@ export const TIPI_PROGETTO = [
   'Intervento a domicilio',
 ] as const
 
-/** Ripartizione della spesa fra Comune e ASL (MATRICE). */
+/** Ripartizione della spesa fra Comune/Consorzio e ASL (MATRICE; «Comune/Consorzio» da Andrea, 20/11/2026). */
 export const RIPARTIZIONI = [
-  '100% Comune',
+  '100% Comune/Consorzio',
   '100% ASL',
-  '30% Comune - 70% ASL',
-  '40% Comune - 60% ASL',
-  '50% Comune - 50% ASL',
-  'Primi due mesi 100% ASL poi 40% Comune - 60% ASL',
-  'Primi due mesi 100% ASL poi 50% Comune - 50% ASL',
-  'Primo mese 100% ASL poi 40% Comune - 60% ASL',
-  'Primo mese 100% ASL poi 50% Comune - 50% ASL',
+  '30% Comune/Consorzio - 70% ASL',
+  '40% Comune/Consorzio - 60% ASL',
+  '50% Comune/Consorzio - 50% ASL',
+  'Primi due mesi 100% ASL poi 40% Comune/Consorzio - 60% ASL',
+  'Primi due mesi 100% ASL poi 50% Comune/Consorzio - 50% ASL',
+  'Primo mese 100% ASL poi 40% Comune/Consorzio - 60% ASL',
+  'Primo mese 100% ASL poi 50% Comune/Consorzio - 50% ASL',
   'Privato',
 ] as const
 

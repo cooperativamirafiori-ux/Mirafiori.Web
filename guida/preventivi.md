@@ -89,7 +89,7 @@ Oppure vai qui: [Preventivi](/preventivi).
    - «Costo dell'intervento a favore di» (obbligatorio): il nome del ragazzo o della persona.
      Compare nel documento; nei nomi dei file l'app mette solo le iniziali.
    - «Oggetto» e «Tipo di progetto / intervento».
-   - «Ripartizione Comune / ASL»: la dice l'ente. Se non la sai, chiedila prima di emettere:
+   - «Ripartizione Comune/Consorzio / ASL»: la dice l'ente. Se non la sai, chiedila prima di emettere:
      è il motivo più frequente per cui un preventivo torna indietro.
    - «Inizio» e «Durata in mesi» (i tasti «3 mesi», «6 mesi», «12 mesi»). La fine la calcola
      l'app. Se non sai ancora quando inizia, spunta «Non si sa ancora quando inizia»: nel PDF

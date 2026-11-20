@@ -36,6 +36,8 @@ import { FIRMA_PRESIDENTE_PNG } from './firma-presidente'
 
 /** Nome sotto la firma. */
 const FIRMA = () => process.env.PREVENTIVI_FIRMA || 'Stefania MELISSARI'
+/** Titolo sopra la firma: si cambia con la variabile Vercel, senza toccare il codice. */
+const TITOLO_FIRMA = () => process.env.PREVENTIVI_TITOLO_FIRMA || 'Il Presidente'
 const RADICE = () => (process.env.SP_PREVENTIVI_FOLDER || 'AMMINISTRAZIONE/CLIENTI/Preventivi').replace(/^\/+|\/+$/g, '')
 const CARTELLA_ACCETTATI = 'Preventivi accettati'
 const CT_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -115,7 +117,7 @@ function intestazione(wb: ExcelJS.Workbook, ws: ExcelJS.Worksheet, p: Preventivo
   }
   ws.getRow(1).height = 22
   ws.mergeCells('D1:F1')
-  ws.getCell('D1').value = 'Allegato al N° di Protocollo:'
+  ws.getCell('D1').value = 'N° di Protocollo:'
   ws.getCell('D1').alignment = { horizontal: 'right' }
   ws.getCell('D1').font = { size: 9, color: { argb: GRIGIO } }
   ws.mergeCells('D2:F2')
@@ -138,7 +140,7 @@ function paragrafo(ws: ExcelJS.Worksheet, r: number, testo: string, font: Partia
 }
 
 /**
- * Luogo e data a sinistra, "Il Presidente" con la firma e il nome a destra.
+ * Luogo e data a sinistra, il titolo (PREVENTIVI_TITOLO_FIRMA) con la firma e il nome a destra.
  * La firma è legata alle celle E–F della sua riga (ancoraggio a due celle):
  * così resta al suo posto con qualunque convertitore, senza offset frazionari
  * che Excel e LibreOffice calcolano in modo diverso. Larghezza E+F ≈ 199 px,
@@ -147,7 +149,7 @@ function paragrafo(ws: ExcelJS.Worksheet, r: number, testo: string, font: Partia
 function firma(wb: ExcelJS.Workbook, ws: ExcelJS.Worksheet, r: number, p: Preventivo): number {
   ws.getCell(`A${r}`).value = `Torino, ${dataIt(p.emessoIl ?? '') || dataIt(new Date().toISOString())}`
   ws.mergeCells(`E${r}:F${r}`)
-  ws.getCell(`E${r}`).value = 'Il Presidente'
+  ws.getCell(`E${r}`).value = TITOLO_FIRMA()
   ws.getCell(`E${r}`).alignment = { horizontal: 'center' }
   r++
   ws.getRow(r).height = 6

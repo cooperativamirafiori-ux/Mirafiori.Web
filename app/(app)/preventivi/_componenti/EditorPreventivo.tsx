@@ -484,7 +484,7 @@ export function EditorPreventivo({ id, prezziAggiornati }: { id: string | null; 
         </label>
         {!privato && (
           <Campo
-            etichetta="Ripartizione Comune / ASL"
+            etichetta="Ripartizione Comune/Consorzio / ASL"
             tipo="choice"
             valore={ripartizione}
             onChange={conSporco(setRipartizione)}
