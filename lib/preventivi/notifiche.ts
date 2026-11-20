@@ -11,7 +11,7 @@
  */
 
 import { BOX, BTN, RIGA, TABELLA, sendEmail } from '@/lib/core/mailer'
-import { MODELLI, type Preventivo } from '@/types/preventivi'
+import { type Preventivo } from '@/types/preventivi'
 import { dataIt, euro } from './calcoli'
 import { nomeFile } from './documento'
 
@@ -31,12 +31,13 @@ export async function notificaAccettato(p: Preventivo, pdf: Buffer | null, chi: 
     <p><strong>Preventivo accettato</strong>: da qui in poi è un intervento da fatturare.</p>
     ${TABELLA(
       RIGA('Protocollo', `${p.numero}${p.revisione > 1 ? ` (rev. ${p.revisione})` : ''}`) +
-        RIGA('Servizio', p.ccNome || p.ccCodice) +
-        RIGA('Ente', p.destinatario.ente) +
+        RIGA('Centro di costo', p.ccNome || p.ccCodice) +
+        RIGA('Ente', p.enti.join(' + ')) +
         RIGA('A favore di', p.beneficiario) +
-        RIGA('Tipo', p.tipoProgetto || MODELLI[p.modello]) +
+        RIGA('Servizio', [p.servizio, p.sottotipo].filter(Boolean).join(' · ')) +
+        RIGA('Tipo', p.tipoProgetto) +
         RIGA('Ripartizione', p.ripartizione) +
-        RIGA('Periodo', `${dataIt(p.dal)} – ${dataIt(p.al)}`) +
+        RIGA('Periodo', p.dal ? `${dataIt(p.dal)} – ${dataIt(p.al)}` : `inizio da definire, ${String(p.durataMesi).replace('.', ',')} mesi`) +
         RIGA('Totale mensile', euro(p.totaleMensile)) +
         RIGA('Accettato il', dataIt(p.esitoIl)) +
         RIGA('Segnato da', chi) +
@@ -59,7 +60,7 @@ export async function notificaSollecito(to: string, elenco: Preventivo[]): Promi
   const righe = elenco
     .map(
       (p) =>
-        `<li style="margin-bottom:8px"><strong>${p.numero}</strong> · ${p.destinatario.ente || '—'} · ${p.beneficiario || '—'}<br>
+        `<li style="margin-bottom:8px"><strong>${p.numero}</strong> · ${p.enti.join(' + ') || '—'} · ${p.beneficiario || '—'}<br>
          <span style="color:#666">inviato il ${dataIt(p.emessoIl)}</span><br>
          <a href="${linkPreventivo(p.spItemId)}">Segna l’esito</a></li>`,
     )

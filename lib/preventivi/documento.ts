@@ -20,14 +20,27 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import ExcelJS from 'exceljs'
 import { graphDelete, graphGetBinary, graphGetOrNull, graphPost, graphPutBinary } from '@/lib/core/graph'
-import { MODELLI, REGIMI_IVA, UNITA, numeroPerFile, type Preventivo } from '@/types/preventivi'
-import { dataIt, importoRiga, iniziali, numero, quantitaMensile, totali } from './calcoli'
+import {
+  MAGGIORAZIONE_PRIVATI,
+  REGIMI_IVA,
+  SETTIMANE_MESE,
+  SUFFISSO_INDIRETTO,
+  UNITA,
+  ePrivato,
+  numeroPerFile,
+  type Persona,
+  type Preventivo,
+} from '@/types/preventivi'
+import { arrotonda, dataIt, euro, importoRiga, iniziali, numero, quantitaMensile, rettaComplessiva, totali } from './calcoli'
+import { FIRMA_PRESIDENTE_PNG } from './firma-presidente'
 
-const FIRMA = () => process.env.PREVENTIVI_FIRMA || 'MELISSARI Stefania'
+/** Nome sotto la firma. */
+const FIRMA = () => process.env.PREVENTIVI_FIRMA || 'Stefania MELISSARI'
 const RADICE = () => (process.env.SP_PREVENTIVI_FOLDER || 'AMMINISTRAZIONE/CLIENTI/Preventivi').replace(/^\/+|\/+$/g, '')
 const CARTELLA_ACCETTATI = 'Preventivi accettati'
 const CT_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 const BLU = 'FF00728F'
+const GRIGIO = 'FF555555'
 
 function driveId(): string {
   const id = process.env.SP_PREVENTIVI_DRIVE_ID
@@ -47,11 +60,24 @@ export function nomeFile(p: Preventivo, est: 'pdf' | 'xlsx'): string {
   return `${pulisci(`${num}${rev}${ini ? ` ${ini}` : ''}`)}.${est}`
 }
 
+const mesiTesto = (m: number) => `${numero(m)} ${m === 1 ? 'mese' : 'mesi'}`
+
+/** Il periodo come si scrive nel documento: con le date, o "da definire" con la durata. */
+export function periodoTesto(p: Pick<Preventivo, 'dal' | 'al' | 'durataMesi'>): string {
+  return p.dal && p.al
+    ? `dal ${dataIt(p.dal)} al ${dataIt(p.al)} (${mesiTesto(p.durataMesi)})`
+    : `data di inizio DA DEFINIRE · durata ${mesiTesto(p.durataMesi)} dall’avvio`
+}
+
+/** "Assistente sociale Laura Bianchi"; il ruolo non si ripete se è già nel nome ("Famiglia Rossi"). */
+const persona = (x: Persona) =>
+  x.ruolo && !x.nome.toLowerCase().startsWith(x.ruolo.toLowerCase()) ? `${x.ruolo} ${x.nome}`.trim() : x.nome
+
 // ============================================================
-// Il foglio
+// Il foglio: impaginazione comune
 // ============================================================
 
-export async function generaXlsx(p: Preventivo): Promise<Buffer> {
+function nuovoFoglio() {
   const wb = new ExcelJS.Workbook()
   wb.creator = 'App Mirafiori — Preventivi'
   const ws = wb.addWorksheet('Preventivo', {
@@ -74,10 +100,12 @@ export async function generaXlsx(p: Preventivo): Promise<Buffer> {
     { key: 'iva', width: 13 },
     { key: 'importo', width: 14 },
   ]
-  const t = totali(p.righe, p.dal, p.al)
-  const bozza = p.stato === 'bozza' || !p.numero
+  return { wb, ws }
+}
 
-  // Logo + protocollo
+/** Logo in alto a sinistra e protocollo (o "BOZZA") in alto a destra. */
+function intestazione(wb: ExcelJS.Workbook, ws: ExcelJS.Worksheet, p: Preventivo) {
+  const bozza = p.stato === 'bozza' || !p.numero
   try {
     const logo = wb.addImage({ buffer: readFileSync(join(process.cwd(), 'public', 'logo-mirafiori.png')) as any, extension: 'png' })
     ws.addImage(logo, { tl: { col: 0, row: 0 }, ext: { width: 170, height: 86 } })
@@ -89,33 +117,99 @@ export async function generaXlsx(p: Preventivo): Promise<Buffer> {
   ws.mergeCells('D1:F1')
   ws.getCell('D1').value = 'Allegato al N° di Protocollo:'
   ws.getCell('D1').alignment = { horizontal: 'right' }
-  ws.getCell('D1').font = { size: 9, color: { argb: 'FF555555' } }
+  ws.getCell('D1').font = { size: 9, color: { argb: GRIGIO } }
   ws.mergeCells('D2:F2')
   ws.getCell('D2').value = bozza ? 'BOZZA — non valida' : `${p.numero}${p.revisione > 1 ? ` (rev. ${p.revisione})` : ''}`
   ws.getCell('D2').alignment = { horizontal: 'right' }
   ws.getCell('D2').font = { bold: true, size: 13, color: { argb: bozza ? 'FFC0392B' : BLU } }
   ws.getRow(5).height = 8
+}
+
+/** Un paragrafo su tutta la larghezza, con l'altezza stimata dalla lunghezza. */
+function paragrafo(ws: ExcelJS.Worksheet, r: number, testo: string, font: Partial<ExcelJS.Font> = {}, perRiga = 95): number {
+  ws.mergeCells(`A${r}:F${r}`)
+  const c = ws.getCell(`A${r}`)
+  c.value = testo
+  c.alignment = { wrapText: true, vertical: 'top' }
+  c.font = font
+  const righe = testo.split('\n').reduce((n, x) => n + Math.max(1, Math.ceil(x.length / perRiga)), 0)
+  ws.getRow(r).height = 15 * righe + 2
+  return r + 1
+}
+
+/**
+ * Luogo e data a sinistra, "Il Presidente" con la firma e il nome a destra.
+ * La firma è legata alle celle E–F della sua riga (ancoraggio a due celle):
+ * così resta al suo posto con qualunque convertitore, senza offset frazionari
+ * che Excel e LibreOffice calcolano in modo diverso. Larghezza E+F ≈ 199 px,
+ * riga di 80 pt ≈ 107 px: il rapporto della firma (≈ 1,8) resta giusto.
+ */
+function firma(wb: ExcelJS.Workbook, ws: ExcelJS.Worksheet, r: number, p: Preventivo): number {
+  ws.getCell(`A${r}`).value = `Torino, ${dataIt(p.emessoIl ?? '') || dataIt(new Date().toISOString())}`
+  ws.mergeCells(`E${r}:F${r}`)
+  ws.getCell(`E${r}`).value = 'Il Presidente'
+  ws.getCell(`E${r}`).alignment = { horizontal: 'center' }
+  r++
+  ws.getRow(r).height = 6
+  r++
+  ws.getRow(r).height = 80
+  const img = wb.addImage({ buffer: FIRMA_PRESIDENTE_PNG as any, extension: 'png' })
+  ws.addImage(img, { tl: { col: 4, row: r - 1 }, br: { col: 6, row: r } } as any)
+  r++
+  ws.mergeCells(`E${r}:F${r}`)
+  ws.getCell(`E${r}`).value = FIRMA()
+  ws.getCell(`E${r}`).alignment = { horizontal: 'center' }
+  ws.getCell(`E${r}`).font = { bold: true }
+  return r
+}
+
+/** Il totale sul periodo: nota piccola in basso a sinistra (Dennis, 20/11/2026). */
+function notaPeriodo(ws: ExcelJS.Worksheet, r: number, p: Preventivo, periodo: number, mesi: number): number {
+  if (!(mesi > 0)) return r
+  ws.mergeCells(`A${r}:C${r}`)
+  const c = ws.getCell(`A${r}`)
+  c.value = `Totale sul periodo (${mesiTesto(mesi)}, IVA compresa): ${euro(periodo)}${p.dal ? '' : ' — dalla data di avvio'}`
+  c.font = { size: 8, italic: true, color: { argb: GRIGIO } }
+  c.alignment = { horizontal: 'left', wrapText: true, vertical: 'top' }
+  ws.getRow(r).height = 24
+  return r + 1
+}
+
+export async function generaXlsx(p: Preventivo): Promise<Buffer> {
+  return ePrivato(p.servizio) ? generaLettera(p) : generaTabella(p)
+}
+
+// ============================================================
+// Enti: la tabella delle voci (schema del Preventivo_MASTER)
+// ============================================================
+
+async function generaTabella(p: Preventivo): Promise<Buffer> {
+  const { wb, ws } = nuovoFoglio()
+  const t = totali(p.righe, p.durataMesi, p.maggiorazione)
+  intestazione(wb, ws, p)
 
   let r = 6
   const riga = (etichetta: string, valore: string, grassetto = false) => {
     if (!valore) return
     ws.getCell(`A${r}`).value = etichetta
-    ws.getCell(`A${r}`).font = { color: { argb: 'FF555555' } }
+    ws.getCell(`A${r}`).font = { color: { argb: GRIGIO } }
     ws.mergeCells(`B${r}:F${r}`)
     ws.getCell(`B${r}`).value = valore
     ws.getCell(`B${r}`).font = { bold: grassetto }
     ws.getCell(`B${r}`).alignment = { wrapText: true, vertical: 'top' }
+    const righe = valore.split('\n').reduce((n, x) => n + Math.max(1, Math.ceil(x.length / 70)), 0)
+    if (righe > 1) ws.getRow(r).height = 15 * righe
     r++
   }
-  const dest = p.destinatario
-  riga('Spett.le', dest.ente, true)
-  if (dest.nome) riga('Alla c.a. di', [dest.ruolo, dest.nome].filter(Boolean).join(' '))
+  riga('Spett.le', p.enti.join('\n'), true)
+  if (p.persone.length) riga('Alla c.a. di', p.persone.map((x) => [persona(x), x.ente && !p.enti.includes(x.ente) ? `(${x.ente})` : ''].filter(Boolean).join(' ')).join('\n'))
   r++
-  riga('Oggetto', p.oggetto || `Preventivo — ${MODELLI[p.modello]}`, true)
+  riga('Oggetto', p.oggetto || `Preventivo — ${p.servizio}`, true)
   riga('Costo dell’intervento a favore di', p.beneficiario, true)
-  riga(p.modello === 'comunita' || p.modello === 'artemisia' ? 'Tipo di intervento' : 'Tipo progetto', p.tipoProgetto)
+  riga('Servizio', [p.servizio, p.sottotipo].filter(Boolean).join(' · '))
+  riga('Tipo progetto', p.tipoProgetto)
   riga('Ripartizione', p.ripartizione)
-  riga('Periodo', p.dal && p.al ? `dal ${dataIt(p.dal)} al ${dataIt(p.al)}${t.mesi ? ` (${numero(t.mesi)} mesi)` : ''}` : '')
+  riga('Periodo', periodoTesto(p))
   r++
 
   // Intestazione voci
@@ -128,6 +222,7 @@ export async function generaXlsx(p: Preventivo): Promise<Buffer> {
   })
   r++
 
+  const complessiva = rettaComplessiva(p.righe)
   for (const g of t.perGruppo) {
     ws.mergeCells(`A${r}:F${r}`)
     ws.getCell(`A${r}`).value = g.gruppo
@@ -148,7 +243,7 @@ export async function generaXlsx(p: Preventivo): Promise<Buffer> {
         quantitaMensile(x),
         UNITA[x.unita].plurale,
         x.prezzo,
-        x.iva === 'fic' ? 'F.I.C.' : REGIMI_IVA[x.iva].etichetta,
+        x.iva === 'fic' ? 'Esclusa' : REGIMI_IVA[x.iva].etichetta,
         importoRiga(x),
       ]
       row.getCell(1).alignment = { wrapText: true, vertical: 'top' }
@@ -159,6 +254,16 @@ export async function generaXlsx(p: Preventivo): Promise<Buffer> {
       row.getCell(5).font = { size: 9 }
       if (dettagli.length) row.height = 15 * (1 + Math.ceil(dettagli.join(' · ').length / 60))
       row.eachCell({ includeEmpty: true }, (c) => (c.border = { bottom: { style: 'hair', color: { argb: 'FFCCCCCC' } } }))
+      r++
+    }
+    if (g.gruppo === 'Retta' && complessiva !== null) {
+      ws.mergeCells(`A${r}:C${r}`)
+      ws.getCell(`A${r}`).value = 'Retta giornaliera complessiva (quote insieme)'
+      ws.getCell(`A${r}`).font = { italic: true }
+      ws.getCell(`D${r}`).value = complessiva
+      ws.getCell(`D${r}`).numFmt = '€ #,##0.00'
+      ws.getCell(`D${r}`).font = { bold: true }
+      ws.getCell(`D${r}`).alignment = { horizontal: 'right' }
       r++
     }
   }
@@ -176,34 +281,107 @@ export async function generaXlsx(p: Preventivo): Promise<Buffer> {
     if (forte) ws.getCell(`F${r}`).border = { top: { style: 'thin' } }
     r++
   }
+  if (t.maggiorazione) totale(`Maggiorazione ${MAGGIORAZIONE_PRIVATI}%`, t.maggiorazione)
   totale('Totale spese', t.spese)
   if (t.imponibile.iva5) totale('IVA 5%', arrotondaIva(t.imponibile.iva5, 5))
   if (t.imponibile.iva22) totale('IVA 22%', arrotondaIva(t.imponibile.iva22, 22))
-  if (t.fic) totale('+ Spese F.I.C. (escluse ex art. 15 DPR 633/72)', t.fic)
+  if (t.fic) totale('+ Spese escluse da IVA (F.I.C., art. 15 DPR 633/72)', t.fic)
   totale('Costo totale mensile dell’intervento (IVA compresa)', t.mensileIvato, true)
   totale('Totale a pagare (senza IVA)', t.mensileSenzaIva)
-  if (t.mesi) totale(`Totale sul periodo (${numero(t.mesi)} mesi, IVA compresa)`, t.periodo, true)
+  r = notaPeriodo(ws, r, p, t.periodo, t.mesi)
 
   if (p.note) {
     r++
-    ws.mergeCells(`A${r}:F${r}`)
-    ws.getCell(`A${r}`).value = p.note
-    ws.getCell(`A${r}`).alignment = { wrapText: true, vertical: 'top' }
-    ws.getRow(r).height = 15 * Math.max(1, Math.ceil(p.note.length / 95) + (p.note.match(/\n/g)?.length ?? 0))
-    r++
+    r = paragrafo(ws, r, p.note)
   }
 
   r += 2
-  ws.getCell(`A${r}`).value = `Torino, ${dataIt(p.emessoIl ?? '') || dataIt(new Date().toISOString())}`
-  ws.mergeCells(`D${r}:F${r}`)
-  ws.getCell(`D${r}`).value = 'Il Presidente'
-  ws.getCell(`D${r}`).alignment = { horizontal: 'center' }
-  r++
-  ws.mergeCells(`D${r}:F${r}`)
-  ws.getCell(`D${r}`).value = FIRMA()
-  ws.getCell(`D${r}`).alignment = { horizontal: 'center' }
-  ws.getCell(`D${r}`).font = { bold: true }
+  r = firma(wb, ws, r, p)
+  ws.pageSetup.printArea = `A1:F${r}`
+  return Buffer.from(await wb.xlsx.writeBuffer())
+}
 
+// ============================================================
+// Privati: la lettera (modello "Preventivo Individuale Privati_MASTER")
+// ============================================================
+
+async function generaLettera(p: Preventivo): Promise<Buffer> {
+  const { wb, ws } = nuovoFoglio()
+  const t = totali(p.righe, p.durataMesi, p.maggiorazione)
+  intestazione(wb, ws, p)
+  const fattore = p.maggiorazione ? 1 + MAGGIORAZIONE_PRIVATI / 100 : 1
+
+  const orarie = p.righe.filter((x) => x.unita === 'ora' && x.iva !== 'fic')
+  const diretta = orarie.find((x) => !x.codice.endsWith(SUFFISSO_INDIRETTO))
+  const indiretta = orarie.find((x) => x.codice.endsWith(SUFFISSO_INDIRETTO))
+  const budget = p.righe.find((x) => x.gruppo === 'Budget' || /budget/i.test(x.voce))
+  const altre = p.righe.filter((x) => x !== diretta && x !== indiretta && x !== budget)
+  const settimanali = (x?: { perSettimana: number | null; quantita: number }) =>
+    !x ? 0 : x.perSettimana != null ? x.perSettimana : arrotonda(x.quantita / SETTIMANE_MESE)
+  const aliquota = diretta ? REGIMI_IVA[diretta.iva].aliquota : 5
+  const orario = diretta ? arrotonda(diretta.prezzo * fattore) : 0
+  const tipo = /oss/i.test(p.servizio) ? 'socio-assistenziale (OSS)' : 'educativo'
+
+  let r = 7
+  if (p.persone.length) r = paragrafo(ws, r, `Alla c.a. ${p.persone.map(persona).join(', ')}`, { bold: true })
+  r++
+  r = paragrafo(ws, r, `OGGETTO: Preventivo intervento ${tipo} a favore di ${p.beneficiario || '…'}`, { bold: true })
+  r++
+  if (diretta) {
+    r = paragrafo(
+      ws,
+      r,
+      `In relazione all’oggetto si comunica che il costo orario del servizio è di ${euro(orario)} + ${aliquota}% IVA (${euro(
+        arrotonda(orario * (1 + aliquota / 100)),
+      )} totale).`,
+    )
+    const ore = settimanali(diretta)
+    const oreInd = settimanali(indiretta)
+    r = paragrafo(
+      ws,
+      r,
+      indiretta
+        ? `Come da accordi si propone un intervento di ${numero(ore)} h settimanali e si ricorda che oltre all’intervento diretto è previsto un monte ore di lavoro indiretto, quantificabile in ${numero(oreInd)} h settimanali, per un totale di ${numero(ore + oreInd)} h settimanali.`
+        : `Come da accordi si propone un intervento di ${numero(ore)} h settimanali.`,
+    )
+  }
+  if (budget) {
+    r = paragrafo(
+      ws,
+      r,
+      budget.prezzo > 0
+        ? `Oltre al costo orario è previsto un budget mensile di ${euro(importoRiga(budget))} per le spese di socializzazione da sostenere durante l’intervento.`
+        : 'Oltre al costo orario è previsto un budget mensile per le spese di socializzazione da sostenere durante l’intervento e da concordare con la famiglia.',
+    )
+  }
+  for (const x of altre) {
+    r = paragrafo(ws, r, `${x.voce}: ${numero(quantitaMensile(x))} ${UNITA[x.unita].plurale} al mese × ${euro(arrotonda(x.prezzo * (x.iva === 'fic' ? 1 : fattore)))}.`)
+  }
+  r = paragrafo(ws, r, `Periodo: ${periodoTesto(p)}. Costo mensile stimato: ${euro(t.mensileIvato)} IVA compresa.`)
+  r = paragrafo(
+    ws,
+    r,
+    'Si ricorda inoltre che in caso di intervento programmato, se lo stesso non viene disdetto entro le 24 h precedenti, verrà comunque addebitata 1 h di intervento.',
+  )
+  r = paragrafo(ws, r, 'La fatturazione avverrà mensilmente e solo per le ore effettivamente svolte.', { bold: true })
+  if (p.note) r = paragrafo(ws, r, p.note)
+  r++
+  const referenti: Persona[] = [
+    { nome: p.creatoDaNome || p.creatoDa, ruolo: '', ente: '', email: p.creatoDa },
+    ...(p.referente2 ? [p.referente2] : []),
+  ].filter((x) => x.nome || x.email)
+  if (referenti.length) {
+    r = paragrafo(ws, r, 'Per ogni ulteriore chiarimento e per l’avvio del progetto potrete fare riferimento a:')
+    for (const x of referenti) {
+      r = paragrafo(ws, r, `-  ${[x.nome, x.ruolo].filter(Boolean).join(' – ')}${x.email && x.email !== x.nome ? `   ${x.email}` : ''}`)
+    }
+  }
+  r++
+  r = paragrafo(ws, r, 'In caso di accettazione si richiede la restituzione della presente firmata.')
+  r = paragrafo(ws, r, 'Un cordiale saluto,')
+  r = notaPeriodo(ws, r + 1, p, t.periodo, t.mesi)
+  r += 1
+  r = firma(wb, ws, r, p)
   ws.pageSetup.printArea = `A1:F${r}`
   return Buffer.from(await wb.xlsx.writeBuffer())
 }

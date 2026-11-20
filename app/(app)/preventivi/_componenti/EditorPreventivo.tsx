@@ -11,27 +11,27 @@
  *
  * I conti sono quelli di lib/preventivi/calcoli.ts, gli stessi del server:
  * il totale che si vede mentre si scrive è quello che esce sul documento.
+ *
+ * Dal 20/11/2026 (matrice di Andrea) si sceglie il SERVIZIO e l'ENTE: le voci
+ * e i prezzi vengono da lì. Per Torino l'ente è una delle due coppie Comune +
+ * ASL. L'inizio può restare "da definire": conta la durata in mesi.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Banner } from '@/components/ui/Banner'
 import { Campo, inputCls, labelCls } from '@/components/ui/Campo'
-import { Modale } from '@/components/ui/Modale'
 import { Pill } from '@/components/ui/Pill'
 import {
-  AMBITI,
-  CARTELLA_DEFAULT,
   CARTELLE,
-  ENTI_SUGGERITI,
-  GIORNI_RETTA_DEFAULT,
-  MODELLI,
+  DURATA_DEFAULT,
   RIPARTIZIONI,
-  RUOLI_CONTATTO,
   STATI_PREVENTIVO,
   TIPI_PROGETTO,
-  type Ambito,
-  type Modello,
+  cartellaPerServizio,
+  ePrivato,
+  type Ente,
+  type Persona,
   type Preventivo,
   type RigaPreventivo,
   type Tariffa,
@@ -40,33 +40,36 @@ import {
   aggiungiGiorni,
   allineaPrezzi,
   dataIt,
+  eCoppia,
+  entiDestinatari,
   euro,
-  finePeriodo,
   oggiIso,
-  rigaDaTariffa,
+  serviziDisponibili,
+  sottotipiDisponibili,
   totali,
-  vociDisponibili,
+  vociPerPreventivo,
 } from '@/lib/preventivi/calcoli'
 import { ETICHETTE_AZIONI, azioniDa, mancantiPerEmettere, type Azione } from '@/lib/preventivi/flusso'
 import { Voci } from './Voci'
 import { Totali } from './Totali'
+import { Persone, SceltaEnte } from './Destinatari'
+import { allineaIndiretto, riadatta } from './riadatta'
+import { ModaleEsito } from './ModaleEsito'
+import { Periodo } from './Periodo'
+import { SezionePrivati } from './SezionePrivati'
 
 interface Centro {
   codice: string
   nome: string
   area: string
 }
-interface Contatto {
-  nome: string
-  ruolo: string
-  ente: string
-  email: string
-}
 interface Opzioni {
   tariffe: Tariffa[]
+  enti: Ente[]
   centri: Centro[]
-  contatti: Contatto[]
+  contatti: Persona[]
   accesso: { tutti: boolean; centri: string[] }
+  io: { email: string; nome: string }
 }
 
 function primoDelProssimoMese(): string {
@@ -86,6 +89,11 @@ async function chiama<T = any>(url: string, metodo: string, corpo?: unknown): Pr
   return j as T
 }
 
+const numeroDa = (v: string) => {
+  const n = Number(v.replace(',', '.'))
+  return Number.isFinite(n) ? n : 0
+}
+
 export function EditorPreventivo({ id, prezziAggiornati }: { id: string | null; prezziAggiornati: number }) {
   const router = useRouter()
   const [opzioni, setOpzioni] = useState<Opzioni | null>(null)
@@ -94,46 +102,47 @@ export function EditorPreventivo({ id, prezziAggiornati }: { id: string | null; 
   const [messaggio, setMessaggio] = useState(
     prezziAggiornati ? `Copia creata: ${prezziAggiornati === 1 ? '1 prezzo è stato portato' : `${prezziAggiornati} prezzi sono stati portati`} al tariffario in vigore.` : '',
   )
+  const [avviso, setAvviso] = useState('')
   const [inCorso, setInCorso] = useState(false)
   const [esito, setEsito] = useState<'accetta' | 'rifiuta' | null>(null)
   const [sporco, setSporco] = useState(false)
 
   // campi del modulo
-  const [modello, setModello] = useState<Modello>('individuale')
   const [ccCodice, setCcCodice] = useState('')
-  const [cartella, setCartella] = useState<string>(CARTELLA_DEFAULT.individuale)
-  const [ambito, setAmbito] = useState<Ambito>('Tutti')
+  const [cartella, setCartella] = useState<string>('Altro')
+  const [servizio, setServizio] = useState('')
+  const [sottotipo, setSottotipo] = useState('')
   const [ente, setEnte] = useState('')
-  const [nome, setNome] = useState('')
-  const [ruolo, setRuolo] = useState('')
-  const [email, setEmail] = useState('')
+  const [persone, setPersone] = useState<Persona[]>([])
   const [beneficiario, setBeneficiario] = useState('')
   const [oggetto, setOggetto] = useState('')
   const [tipoProgetto, setTipoProgetto] = useState('')
   const [ripartizione, setRipartizione] = useState('')
   const [dal, setDal] = useState(primoDelProssimoMese())
-  const [al, setAl] = useState(finePeriodo(primoDelProssimoMese(), 6))
+  const [durata, setDurata] = useState(String(DURATA_DEFAULT))
   const [righe, setRighe] = useState<RigaPreventivo[]>([])
   const [note, setNote] = useState('')
+  const [maggiorazione, setMaggiorazione] = useState(false)
+  const [referente2, setReferente2] = useState<Persona>({ nome: '', ruolo: '', ente: '', email: '' })
 
   const riempi = useCallback((x: Preventivo) => {
     setP(x)
-    setModello(x.modello)
     setCcCodice(x.ccCodice)
     setCartella(x.cartella)
-    setAmbito(x.ambito)
-    setEnte(x.destinatario.ente)
-    setNome(x.destinatario.nome)
-    setRuolo(x.destinatario.ruolo)
-    setEmail(x.destinatario.email)
+    setServizio(x.servizio)
+    setSottotipo(x.sottotipo)
+    setEnte(x.ente)
+    setPersone(x.persone)
     setBeneficiario(x.beneficiario)
     setOggetto(x.oggetto)
     setTipoProgetto(x.tipoProgetto)
     setRipartizione(x.ripartizione)
     setDal(x.dal)
-    setAl(x.al)
+    setDurata(String(x.durataMesi).replace('.', ','))
     setRighe(x.righe)
     setNote(x.note)
+    setMaggiorazione(x.maggiorazione)
+    setReferente2(x.referente2 ?? { nome: '', ruolo: '', ente: '', email: '' })
     setSporco(false)
   }, [])
 
@@ -161,24 +170,58 @@ export function EditorPreventivo({ id, prezziAggiornati }: { id: string | null; 
   const libero = opzioni?.accesso.tutti ?? false
   const dataPrezzi = dal || oggiIso()
   const tariffe = opzioni?.tariffe ?? []
-  const disponibili = useMemo(() => vociDisponibili(tariffe, dataPrezzi, modello, ambito), [tariffe, dataPrezzi, modello, ambito])
-  const t = useMemo(() => totali(righe, dal, al), [righe, dal, al])
-  const allineate = useMemo(() => allineaPrezzi(righe, tariffe, dataPrezzi, ambito), [righe, tariffe, dataPrezzi, ambito])
+  const elencoEnti = opzioni?.enti ?? []
+  const privato = ePrivato(servizio)
+  const durataMesi = numeroDa(durata)
+  const nomiEnti = useMemo(() => entiDestinatari(ente, servizio, elencoEnti), [ente, servizio, elencoEnti])
+  const coppia = eCoppia(ente)
+  const servizi = useMemo(() => serviziDisponibili(tariffe, dataPrezzi), [tariffe, dataPrezzi])
+  const sottotipi = useMemo(
+    () => (servizio ? sottotipiDisponibili(tariffe, dataPrezzi, servizio, nomiEnti, coppia) : []),
+    [tariffe, dataPrezzi, servizio, nomiEnti, coppia],
+  )
+  const disponibili = useMemo(
+    () => (servizio ? vociPerPreventivo(tariffe, dataPrezzi, servizio, sottotipo, nomiEnti, coppia) : []),
+    [tariffe, dataPrezzi, servizio, sottotipo, nomiEnti, coppia],
+  )
+  const t = useMemo(() => totali(righe, durataMesi, privato && maggiorazione), [righe, durataMesi, privato, maggiorazione])
+  const allineate = useMemo(() => allineaPrezzi(righe, tariffe, dataPrezzi), [righe, tariffe, dataPrezzi])
+
+  /** Cambia servizio, ente o sottotipo e riporta le voci alle tariffe giuste. */
+  function scegli(nuovo: { servizio?: string; ente?: string; sottotipo?: string }) {
+    const s = nuovo.servizio ?? servizio
+    const e = ePrivato(s) ? '' : (nuovo.ente ?? ente)
+    const nomi = entiDestinatari(e, s, elencoEnti)
+    const sottotipiOk = sottotipiDisponibili(tariffe, dataPrezzi, s, nomi, eCoppia(e))
+    const st = sottotipiOk.includes(nuovo.sottotipo ?? sottotipo) ? (nuovo.sottotipo ?? sottotipo) : sottotipiOk.length === 1 ? sottotipiOk[0] : ''
+    const voci = vociPerPreventivo(tariffe, dataPrezzi, s, st, nomi, eCoppia(e))
+    const r = riadatta(nuovo.servizio !== undefined && nuovo.servizio !== servizio ? [] : righe, voci)
+    if (nuovo.servizio !== undefined && nuovo.servizio !== servizio) setCartella(cartellaPerServizio(s, st))
+    setServizio(s)
+    setEnte(e)
+    setSottotipo(st)
+    setRighe(r.righe)
+    setAvviso(r.tolte.length ? `Tolte perché non valgono per questa scelta: ${r.tolte.join(', ')}.` : '')
+    setSporco(true)
+  }
 
   const dati = () => ({
-    modello,
     ccCodice,
     cartella,
-    ambito,
-    destinatario: { ente, nome, ruolo, email },
+    servizio,
+    sottotipo,
+    ente,
+    persone: persone.filter((x) => x.nome.trim() || x.email.trim()),
     beneficiario,
     oggetto,
     tipoProgetto,
-    ripartizione,
+    ripartizione: privato ? '' : ripartizione,
     dal,
-    al,
+    durataMesi,
     righe,
     note,
+    maggiorazione: privato && maggiorazione,
+    referente2: privato && (referente2.nome.trim() || referente2.email.trim()) ? referente2 : null,
   })
 
   /** Salva e ritorna l'id (nuovo o di sempre). */
@@ -280,10 +323,9 @@ export function EditorPreventivo({ id, prezziAggiornati }: { id: string | null; 
 
   if (!opzioni) return errore ? <Banner tono="errore">{errore}</Banner> : <p className="text-sm text-gray-500">Carico…</p>
 
-  const enti = [...new Set([...ENTI_SUGGERITI, ...opzioni.contatti.map((c) => c.ente).filter(Boolean)])]
   const sceltaCentri = opzioni.centri.map((c) => ({ valore: c.codice, etichetta: `${c.nome} · ${c.codice}` }))
-  const pa = ambito !== 'Privati' && modello !== 'libero'
   const azioni = id ? azioniDa(stato) : []
+  const primoReferente = p ? p.creatoDaNome || p.creatoDa : opzioni.io.nome || opzioni.io.email
 
   return (
     <div className="space-y-5">
@@ -310,6 +352,7 @@ export function EditorPreventivo({ id, prezziAggiornati }: { id: string | null; 
 
       <Banner tono="ok">{messaggio}</Banner>
       <Banner tono="errore">{errore}</Banner>
+      <Banner tono="avviso">{avviso}</Banner>
       {aperto && allineate.cambiate.length > 0 && (
         <Banner tono="avviso">
           Il tariffario per questo periodo è cambiato per{' '}
@@ -333,101 +376,77 @@ export function EditorPreventivo({ id, prezziAggiornati }: { id: string | null; 
       <section className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
         <h3 className="font-bold text-gray-800">Che preventivo è</h3>
         <Campo
-          etichetta="Servizio (centro di costo)"
+          etichetta="Centro di costo"
           tipo="choice"
           valore={ccCodice}
           onChange={conSporco(setCcCodice)}
           scelte={sceltaCentri}
           obbligatorio
           disabilitato={!aperto}
-          aiuto={opzioni.accesso.tutti ? undefined : 'Vedi solo i servizi che coordini.'}
+          aiuto={opzioni.accesso.tutti ? undefined : 'Vedi solo i centri di costo che coordini.'}
         />
         <Campo
-          etichetta="Modello"
+          etichetta="Servizio"
           tipo="choice"
-          valore={modello}
-          onChange={conSporco((v: string) => {
-            setModello(v as Modello)
-            setCartella(CARTELLA_DEFAULT[v as Modello])
-          })}
-          scelte={Object.entries(MODELLI).map(([valore, etichetta]) => ({ valore, etichetta }))}
+          valore={servizio}
+          onChange={(v: string) => scegli({ servizio: v })}
+          scelte={servizi}
+          obbligatorio
+          disabilitato={!aperto}
+          aiuto="Decide quali voci e quali prezzi si usano (tariffario di Andrea)."
+        />
+        {servizio && !privato && (
+          <SceltaEnte
+            ente={ente}
+            enti={elencoEnti}
+            onChange={(v) => scegli({ ente: v })}
+            onNuovoEnte={(e) => setOpzioni((o) => (o ? { ...o, enti: [...o.enti, e] } : o))}
+            disabilitato={!aperto}
+          />
+        )}
+        {sottotipi.length > 0 && (
+          <Campo
+            etichetta="Tipo (sottotipo)"
+            tipo="choice"
+            valore={sottotipo}
+            onChange={(v: string) => scegli({ sottotipo: v })}
+            scelte={sottotipi}
+            obbligatorio
+            disabilitato={!aperto}
+          />
+        )}
+        <Campo
+          etichetta="Cartella in cui archiviarlo"
+          tipo="choice"
+          valore={cartella}
+          onChange={conSporco(setCartella)}
+          scelte={CARTELLE}
           senzaVuoto
           disabilitato={!aperto}
-          aiuto="Decide quali voci del tariffario si possono usare."
         />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Campo
-            etichetta="Tariffe di"
-            tipo="choice"
-            valore={ambito}
-            onChange={conSporco((v: string) => setAmbito(v as Ambito))}
-            scelte={AMBITI}
-            senzaVuoto
-            disabilitato={!aperto}
-          />
-          <Campo
-            etichetta="Cartella in cui archiviarlo"
-            tipo="choice"
-            valore={cartella}
-            onChange={conSporco(setCartella)}
-            scelte={CARTELLE}
-            senzaVuoto
-            disabilitato={!aperto}
-          />
-        </div>
       </section>
 
       {/* 2. A chi va */}
       <section className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
         <h3 className="font-bold text-gray-800">A chi lo mandi</h3>
-        <label className="block">
-          <span className={labelCls}>
-            Ente<span className="text-red-500 ml-0.5">*</span>
-          </span>
-          <input
-            className={`${inputCls} ${!aperto ? 'bg-gray-50 text-gray-500' : ''}`}
-            list="preventivi-enti"
-            value={ente}
-            disabled={!aperto}
-            placeholder="Comune di Torino, ASL TO3, famiglia…"
-            onChange={(e) => conSporco(setEnte)(e.target.value)}
-          />
-          <datalist id="preventivi-enti">
-            {enti.map((e) => (
-              <option key={e} value={e} />
-            ))}
-          </datalist>
-        </label>
-        <label className="block">
-          <span className={labelCls}>Persona (assistente sociale, NPI, referente…)</span>
-          <input
-            className={`${inputCls} ${!aperto ? 'bg-gray-50 text-gray-500' : ''}`}
-            list="preventivi-contatti"
-            value={nome}
-            disabled={!aperto}
-            placeholder="Scrivi il nome: se è in rubrica si compila il resto"
-            onChange={(e) => {
-              const v = e.target.value
-              conSporco(setNome)(v)
-              const c = opzioni.contatti.find((x) => x.nome.toLowerCase() === v.trim().toLowerCase())
-              if (c) {
-                setRuolo(c.ruolo)
-                setEmail(c.email)
-                if (c.ente) setEnte(c.ente)
-              }
-            }}
-          />
-          <datalist id="preventivi-contatti">
-            {opzioni.contatti.map((c) => (
-              <option key={`${c.nome}-${c.ente}`} value={c.nome} label={[c.ruolo, c.ente].filter(Boolean).join(' · ')} />
-            ))}
-          </datalist>
-          <span className="block text-xs text-gray-500 mt-1">Chi riceve un preventivo finisce da solo in rubrica.</span>
-        </label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Campo etichetta="Ruolo" tipo="choice" valore={ruolo} onChange={conSporco(setRuolo)} scelte={RUOLI_CONTATTO} disabilitato={!aperto} />
-          <Campo etichetta="Email" tipo="email" inputMode="email" valore={email} onChange={conSporco(setEmail)} disabilitato={!aperto} />
-        </div>
+        {!privato && nomiEnti.length > 0 && (
+          <div>
+            <span className={labelCls}>{nomiEnti.length > 1 ? 'Va a entrambi' : 'Ente'}</span>
+            <ul className="text-sm font-semibold text-gray-800 space-y-0.5">
+              {nomiEnti.map((n) => (
+                <li key={n}>{n}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <Persone
+          persone={persone}
+          onChange={conSporco(setPersone)}
+          contatti={opzioni.contatti}
+          disabilitato={!aperto}
+          privato={privato}
+          entePredefinito={nomiEnti.length === 1 ? nomiEnti[0] : ''}
+        />
       </section>
 
       {/* 3. Per chi e per cosa */}
@@ -463,7 +482,7 @@ export function EditorPreventivo({ id, prezziAggiornati }: { id: string | null; 
             ))}
           </datalist>
         </label>
-        {pa && (
+        {!privato && (
           <Campo
             etichetta="Ripartizione Comune / ASL"
             tipo="choice"
@@ -474,40 +493,44 @@ export function EditorPreventivo({ id, prezziAggiornati }: { id: string | null; 
             aiuto="La dice l’ente: se non la conosci chiedila prima di emettere, è il motivo più frequente per cui un preventivo torna indietro."
           />
         )}
-        <div className="grid grid-cols-2 gap-3">
-          <Campo etichetta="Dal" tipo="date" valore={dal} onChange={conSporco(setDal)} obbligatorio disabilitato={!aperto} />
-          <Campo etichetta="Al" tipo="date" valore={al} onChange={conSporco(setAl)} obbligatorio disabilitato={!aperto} />
-        </div>
-        {aperto && dal && (
-          <div className="flex flex-wrap gap-2">
-            {[1, 3, 6, 12].map((m) => (
-              <button
-                key={m}
-                onClick={() => conSporco(setAl)(finePeriodo(dal, m))}
-                className="px-3 py-1.5 rounded-full border border-gray-300 bg-white text-sm text-gray-700"
-              >
-                {m === 1 ? '1 mese' : `${m} mesi`}
-              </button>
-            ))}
-          </div>
-        )}
+        <Periodo
+          dal={dal}
+          onDal={conSporco(setDal)}
+          durata={durata}
+          onDurata={conSporco(setDurata)}
+          disabilitato={!aperto}
+          inizioProposto={primoDelProssimoMese}
+        />
       </section>
 
-      {/* 4. Voci */}
+      {/* 4. Solo privati */}
+      {privato && (
+        <SezionePrivati
+          righe={righe}
+          onRighe={conSporco(setRighe)}
+          maggiorazione={maggiorazione}
+          onMaggiorazione={conSporco(setMaggiorazione)}
+          referente2={referente2}
+          onReferente2={conSporco(setReferente2)}
+          primoReferente={primoReferente}
+          disabilitato={!aperto}
+        />
+      )}
+
+      {/* 5. Voci */}
       <Voci
         righe={righe}
-        onChange={conSporco(setRighe)}
+        onChange={conSporco((r: RigaPreventivo[]) => setRighe(allineaIndiretto(r)))}
         disponibili={disponibili}
         tariffe={tariffe}
         dataPrezzi={dataPrezzi}
-        ambito={ambito}
         libero={libero}
-        giorniRetta={GIORNI_RETTA_DEFAULT[modello]}
         disabilitato={!aperto}
-        nuovaRiga={rigaDaTariffa}
+        senzaServizio={!servizio}
+        senzaEnte={!privato && !ente}
       />
 
-      <Totali t={t} />
+      <Totali t={t} inizioDaDefinire={!dal} />
 
       <section className="bg-white rounded-2xl border border-gray-100 p-4">
         <Campo
@@ -579,57 +602,5 @@ export function EditorPreventivo({ id, prezziAggiornati }: { id: string | null; 
         />
       )}
     </div>
-  )
-}
-
-function ModaleEsito({
-  tipo,
-  onChiudi,
-  onConferma,
-  inCorso,
-  minimo,
-}: {
-  tipo: 'accetta' | 'rifiuta'
-  onChiudi: () => void
-  onConferma: (data: string, nota: string) => void
-  inCorso: boolean
-  minimo: string
-}) {
-  const [data, setData] = useState(oggiIso())
-  const [nota, setNota] = useState('')
-  const accetta = tipo === 'accetta'
-  return (
-    <Modale
-      titolo={accetta ? 'Preventivo accettato' : 'Preventivo rifiutato'}
-      sottotitolo={accetta ? 'Andrea riceve il PDF definitivo e sa cosa fatturare.' : 'Resta nell’elenco dei rifiutati.'}
-      onChiudi={onChiudi}
-      azioni={
-        <button
-          onClick={() => onConferma(data, nota)}
-          disabled={inCorso || !data || data < minimo || data > oggiIso()}
-          className={`w-full px-4 py-3 rounded-xl font-semibold text-white disabled:opacity-50 ${accetta ? 'bg-emerald-600' : 'bg-red-600'}`}
-        >
-          {inCorso ? 'Un momento…' : 'Conferma'}
-        </button>
-      }
-    >
-      <div className="space-y-3">
-        <Campo etichetta={accetta ? 'Accettato il' : 'Rifiutato il'} tipo="date" valore={data} onChange={setData} obbligatorio />
-        <Campo
-          etichetta="Nota"
-          tipo="textarea"
-          righe={3}
-          valore={nota}
-          onChange={setNota}
-          aiuto={accetta ? 'Es. «conferma via mail dell’assistente sociale», numero di autorizzazione…' : 'Perché, se lo sai.'}
-        />
-        {accetta && (
-          <p className="text-sm text-gray-600">
-            Se l’ente ha cambiato qualcosa (ore, prestazioni) non confermare: chiudi, usa «Riapri per correggere», correggi e
-            riemetti. Andrea deve ricevere quello che è stato davvero riconosciuto.
-          </p>
-        )}
-      </div>
-    </Modale>
   )
 }

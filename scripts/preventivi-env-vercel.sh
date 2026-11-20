@@ -7,7 +7,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 if command -v vercel >/dev/null 2>&1; then VERCEL=(vercel); else VERCEL=(npx --yes vercel@latest); fi
-for NOME in SP_LIST_PREVENTIVI SP_LIST_TARIFFARIO_PREVENTIVI SP_LIST_CONTATTI_PREVENTIVI SP_PREVENTIVI_DRIVE_ID; do
+for NOME in SP_LIST_PREVENTIVI SP_LIST_TARIFFARIO_PREVENTIVI SP_LIST_CONTATTI_PREVENTIVI SP_LIST_ENTI_PREVENTIVI SP_PREVENTIVI_DRIVE_ID; do
   VALORE=$(grep -E "^${NOME}=" .env.local | head -1 | cut -d= -f2- | tr -d '"'"'")
   [[ -z "$VALORE" ]] && { echo "✗ $NOME manca in .env.local: prima lancia node scripts/provision-preventivi.mjs"; exit 1; }
   for AMB in production preview development; do

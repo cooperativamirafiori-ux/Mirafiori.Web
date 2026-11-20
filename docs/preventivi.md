@@ -85,6 +85,34 @@ quelle attuali della tabella di Andrea (Giulia 123,49 = 60,69 Comune + 62,81 ASL
 Giulia diurno 74,40; Artemisia da 50,09 a 169,18 per numero di ospiti), il resto sono **valori di
 partenza da confermare con Andrea** (nota su ogni voce).
 
+## Matrice di Andrea (20/11/2026)
+
+Dopo le prove di Andrea (mail del 18 e 19/11) il tariffario è diventato la sua
+`Matrice_App_Preventivi.xlsx`: una riga per **Servizio + Sottotipo + Voce + Ente pagante**, con
+prezzo, unità e IVA. Spariscono modelli, ambiti e prezzi liberi fra minimo e massimo (Dennis, 20/11).
+
+| Tema | Deciso | Da chi |
+|---|---|---|
+| Prezzi | fissi; vuoto = "da definire", lo scrive chi fa il preventivo | Dennis |
+| Torino | si sceglie solo fra due **coppie**: Comune di Torino + ASL Città di Torino 1, oppure + ASL 2. Il preventivo va a entrambi, con le due quote e il totale | Dennis |
+| Altri enti | tariffe uguali per tutti ("Tutti gli altri enti"); niente distinzione pagante/destinatari | Dennis |
+| Giulia con altri enti | retta omnicomprensiva 170 € (la "standard" a quote è solo per le coppie) | Dennis |
+| CRP con altri enti | retta dell'inserimento da fuori regione, 240 € | Dennis |
+| Artemisia, educativa individuale | 23 € Comune/ASL Torino, 28 € gli altri, come gli accompagnamenti | Dennis |
+| Enti | lista **Enti Preventivi** con schermata `/preventivi/enti`: vedere, aggiungere, correggere (chi fa preventivi); nascondere (permesso Preventivi/Amministrazione). Rinominare un ente aggiorna le sue righe del tariffario | Dennis |
+| Data di inizio | facoltativa ("DA DEFINIRE"); conta la **durata in mesi**, la fine si calcola | Andrea, Dennis |
+| Rette | 31 giorni al mese di default | Andrea |
+| Totale sul periodo | nel PDF come nota piccola in basso a sinistra | Dennis |
+| Privati | PDF a **lettera** dal modello *Preventivo Individuale Privati_MASTER.docx*; lavoro indiretto 0,5 h/settimana facoltativo (spunta); maggiorazione 5% facoltativa (spunta, sull'imponibile); referenti = chi fa il preventivo + un secondo facoltativo | Andrea, Dennis |
+| Firma | immagine della firma di Stefania Melissari nel PDF (`lib/preventivi/firma-presidente.ts`, base64) | Andrea |
+
+La matrice caricata è `scripts/dati/matrice-preventivi.json`, già sistemata con le decisioni sopra
+(IVA «5%»/«Esclusa», nome dell'ASL 2 unificato, quote CRP come la Giulia, niente riga «Ore
+indirette»). Regola di scelta della tariffa (`vociPerPreventivo` in `lib/preventivi/calcoli.ts`):
+per ogni voce prima la riga dell'ente (per la coppia: dell'uno o dell'altro), poi "Tutti", poi
+"Tutti gli altri enti" (mai per la coppia). Le coppie si riconoscono dalla **chiave** degli enti
+(`comune-torino`, `asl-to1`, `asl-to2`), non dal nome.
+
 ## Installazione
 
 Dalla cartella `web/`, un comando alla volta:
@@ -92,14 +120,21 @@ Dalla cartella `web/`, un comando alla volta:
 ```bash
 node scripts/provision-preventivi.mjs
 ```
-Crea le tre liste, semina il tariffario, trova il drive del sito *docs* e scrive le variabili in
-`.env.local`.
+Crea le quattro liste (o aggiunge le colonne che mancano), trova il drive del sito *docs* e scrive
+le variabili in `.env.local`.
+
+```bash
+node scripts/preventivi-carica-matrice.mjs --sostituisci
+```
+Cancella il tariffario di prima, carica la matrice e riempie la lista Enti (senza
+`--sostituisci` dice solo cosa farebbe).
 
 ```bash
 bash scripts/preventivi-env-vercel.sh
 ```
-Le porta su Vercel. Facoltative: `PREVENTIVI_MAIL_TO` (default `FATTURE_MAIL_TO`, poi Andrea),
-`PREVENTIVI_FIRMA`, `SP_PREVENTIVI_FOLDER` (default `AMMINISTRAZIONE/CLIENTI/Preventivi`).
+Le porta su Vercel (compresa `SP_LIST_ENTI_PREVENTIVI`). Facoltative: `PREVENTIVI_MAIL_TO`
+(default `FATTURE_MAIL_TO`, poi Andrea), `PREVENTIVI_FIRMA` (nome sotto la firma, default
+*Stefania MELISSARI*), `SP_PREVENTIVI_FOLDER` (default `AMMINISTRAZIONE/CLIENTI/Preventivi`).
 
 Il cron `/api/cron/preventivi` gira alle 8 dei giorni feriali (`vercel.json`).
 
@@ -111,8 +146,8 @@ iniziali. Nessun dato sanitario nei campi.
 
 ## Aperto
 
-- I **prezzi standard** del CDA: quando ci sono, le voci diventano fisse (Tariffario → Modifica →
-  "Prezzo fisso").
+- Le voci **"da definire"** della matrice (psicoterapia, mediatore, psichiatra, camera doppia
+  SCAT.TO…): quando Andrea ha il prezzo, Tariffario → «Nuovo prezzo».
 - La **legenda dei codici presenze** (P, C, D, H, R, RP…) e la regola delle assenze: servono al
   secondo servizio, i dati per la fatturazione — rimandati da Dennis.
 - Cosa vuol dire **"GP"** in IET/IEPD (Dennis chiede ad Andrea).

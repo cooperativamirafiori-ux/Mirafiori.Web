@@ -4,13 +4,16 @@
  * Piano: docs/preventivi.md (riunione con Andrea del 19/10/2026) dentro il
  * disegno più ampio di docs/fatturazione-attiva-piano.md.
  *
- * Tre liste SharePoint (scripts/provision-preventivi.mjs):
- *   - Tariffario Preventivi: le voci con prezzo e periodo di validità;
+ * Quattro liste SharePoint (scripts/provision-preventivi.mjs):
+ *   - Tariffario Preventivi: la matrice di Andrea, una riga per
+ *     Servizio + Sottotipo + Voce + Ente pagante, con periodo di validità;
+ *   - Enti Preventivi: gli enti, col nome usato in fattura;
  *   - Preventivi: un item per preventivo, le righe in JSON;
  *   - Contatti Preventivi: assistenti sociali, NPI, referenti a cui si manda.
  *
- * Le liste di scelta qui sotto vengono dal file Preventivo_MASTER.xlsx di
- * Andrea (foglio MATRICE) e dalla sua Nuova Tabella Generale (foglio Dati).
+ * Dal 20/11/2026 il tariffario è la Matrice_App_Preventivi.xlsx di Andrea
+ * (caricata con scripts/preventivi-carica-matrice.mjs): niente più modelli,
+ * ambiti e prezzi liberi fra un minimo e un massimo.
  */
 
 /**
@@ -21,40 +24,82 @@
  */
 export const AREA_PREVENTIVI = 'Preventivi'
 
-/** Il modulo da compilare: corrisponde ai tre fogli del file master, più uno libero. */
-export const MODELLI = {
-  individuale: 'Progetto individuale',
-  comunita: 'Comunità',
-  artemisia: 'Casa Artemisia',
-  libero: 'Altro (privati, scuole, coperture)',
-} as const
-export type Modello = keyof typeof MODELLI
-export const ELENCO_MODELLI = Object.keys(MODELLI) as Modello[]
-
 export const UNITA = {
   ora: { etichetta: 'ora', plurale: 'ore' },
   giorno: { etichetta: 'giorno', plurale: 'giorni' },
   km: { etichetta: 'km', plurale: 'km' },
   mese: { etichetta: 'mese', plurale: 'mesi' },
+  incontro: { etichetta: 'incontro', plurale: 'incontri' },
   forfait: { etichetta: 'forfait', plurale: 'forfait' },
 } as const
 export type Unita = keyof typeof UNITA
 
 /**
- * Regime IVA della voce. `fic` = spese F.I.C. (budget, quota ospitalità):
- * escluse dalla base imponibile ex art. 15 DPR 633/72, come nel file master.
+ * Regime IVA della voce. `fic` = spese F.I.C. (rimborso km, pedaggi, budget,
+ * quota ospitalità): escluse dalla base imponibile ex art. 15 DPR 633/72.
+ * Nella matrice di Andrea: «5%» o «Esclusa».
  */
 export const REGIMI_IVA = {
   iva5: { etichetta: 'IVA 5%', aliquota: 5 },
   iva22: { etichetta: 'IVA 22%', aliquota: 22 },
   esente: { etichetta: 'Esente', aliquota: 0 },
-  fic: { etichetta: 'Spese F.I.C. (escl. art. 15)', aliquota: 0 },
+  fic: { etichetta: 'Esclusa (F.I.C., art. 15)', aliquota: 0 },
 } as const
 export type RegimeIva = keyof typeof REGIMI_IVA
 
-/** Ambito tariffario: le voci "Tutti" valgono ovunque, le altre solo nel loro ambito. */
-export const AMBITI = ['Tutti', 'Comune di Torino e ASL Torino', 'Fuori Torino', 'Privati'] as const
-export type Ambito = (typeof AMBITI)[number]
+// ============================================================
+// Enti (matrice di Andrea, 20/11/2026)
+// ============================================================
+
+/** Valori speciali della colonna "Ente pagante" del tariffario. */
+export const ENTE_TUTTI = 'Tutti'
+/** Tariffa per ogni ente non elencato espressamente per quella voce. */
+export const ENTE_ALTRI = 'Tutti gli altri enti'
+
+/**
+ * Chiavi stabili di alcuni enti nella lista "Enti Preventivi": il nome si può
+ * correggere dalla schermata Enti, la chiave no. Servono a formare le coppie
+ * di Torino e a riconoscere i privati.
+ */
+export const CHIAVI_ENTE = {
+  comuneTorino: 'comune-torino',
+  aslTo1: 'asl-to1',
+  aslTo2: 'asl-to2',
+  privato: 'privato',
+} as const
+
+/**
+ * Le due coppie di Torino (decisione di Dennis, 20/11/2026): Comune di Torino
+ * e una delle due ASL Città di Torino vanno sempre insieme. Il preventivo va a
+ * entrambi e porta le due quote (Comune e ASL) con il totale.
+ */
+export const COPPIE_TORINO = {
+  'coppia:asl-to1': { etichetta: 'Comune di Torino + ASL Città di Torino 1', chiavi: ['comune-torino', 'asl-to1'] },
+  'coppia:asl-to2': { etichetta: 'Comune di Torino + ASL Città di Torino 2', chiavi: ['comune-torino', 'asl-to2'] },
+} as const
+export type SceltaCoppia = keyof typeof COPPIE_TORINO
+export const ePrivato = (servizio: string) => /^privat/i.test(servizio.trim())
+
+export interface Ente {
+  spItemId: string
+  /** Intestazione usata nelle fatture: è anche il nome che lega l'ente al tariffario. */
+  nome: string
+  chiave: string
+  /** Promemoria libero: per quali servizi è stato fatturato. */
+  servizi: string
+  attivo: boolean
+  note: string
+}
+
+/**
+ * Maggiorazione facoltativa dei preventivi ai privati (spunta, 20/11/2026):
+ * +5% sul costo, prima dell'IVA. Le spese F.I.C. restano fuori.
+ */
+export const MAGGIORAZIONE_PRIVATI = 5
+
+/** Lavoro indiretto dei privati: 0,5 h a settimana al costo orario, se serve. */
+export const ORE_INDIRETTE_SETTIMANA = 0.5
+export const SUFFISSO_INDIRETTO = '#IND'
 
 /** Sezioni del documento, nell'ordine in cui compaiono. */
 export const GRUPPI = [
@@ -113,31 +158,6 @@ export const RIPARTIZIONI = [
   'Privato',
 ] as const
 
-/** Enti a cui si fanno preventivi (foglio Dati della tabella di Andrea). */
-export const ENTI_SUGGERITI = [
-  'Comune di Torino',
-  'ASL Città di Torino',
-  'ASL TO1',
-  'ASL TO2',
-  'ASL TO3',
-  'ASL TO4',
-  'ASL TO5',
-  'AUSL Valle d’Aosta',
-  'C.I. di S. Beinasco-Bruino-Orbassano-Piossasco-Rivalta-Volvera',
-  'CIS Ciriè',
-  'CISA 12',
-  'CISS Chivasso',
-  'CISSA Pianezza',
-  'C.I.S.S. Pinerolo',
-  'Con.I.S.A. val di Susa e Val Sangone',
-  'Consorzio OVEST SOLIDALE',
-  'CSSA Chieri',
-  'NET - Unione dei Comuni Nord Est Torino',
-  'Unione Comuni Moncalieri, Trofarello, La Loggia',
-  'Regione Valle d’Aosta',
-  'Coop. CITTATTIVA',
-] as const
-
 export const RUOLI_CONTATTO = ['Assistente sociale', 'NPI', 'Referente', 'Famiglia', 'Scuola', 'Altro'] as const
 
 /**
@@ -158,40 +178,54 @@ export const CARTELLE = [
   'Altro',
 ] as const
 
-export const CARTELLA_DEFAULT: Record<Modello, string> = {
-  individuale: 'Ambientale',
-  comunita: 'GIULIA',
-  artemisia: 'Artemisia',
-  libero: 'Altro',
+/** Cartella proposta per un servizio della matrice (si può cambiare). */
+export function cartellaPerServizio(servizio: string, sottotipo = ''): string {
+  const s = servizio.toLowerCase()
+  if (/pippi/i.test(sottotipo)) return 'Pippi'
+  if (s.startsWith('privat')) return 'Privati'
+  if (s.includes('artemisia')) return 'Artemisia'
+  if (s.includes('giulia') && s.includes('diurno')) return 'GIULIA_Inserimenti diurni'
+  if (s.includes('giulia')) return 'GIULIA'
+  if (s.startsWith('crp')) return 'CRP'
+  if (s.startsWith('scuol')) return 'Scuole'
+  if (s.includes('ospedal')) return 'Ospedale'
+  if (s.includes('progetto individuale')) return 'Ambientale'
+  return 'Altro'
 }
 
-/** Giorni al mese proposti per le rette (il master usa 31 per Casa Artemisia). */
-export const GIORNI_RETTA_DEFAULT: Record<Modello, number> = {
-  individuale: 30,
-  comunita: 30,
-  artemisia: 31,
-  libero: 30,
-}
+/**
+ * Giorni al mese proposti per le rette: 31 per tutti (Andrea, 18/11/2026),
+ * così nel preventivo compare sempre la cifra più alta possibile.
+ */
+export const GIORNI_RETTA = 31
+
+/** Durata proposta per un preventivo nuovo, in mesi. */
+export const DURATA_DEFAULT = 6
 
 // ============================================================
 // Tariffario
 // ============================================================
 
+/**
+ * Una riga della matrice di Andrea: Servizio + Sottotipo + Voce + Ente pagante
+ * → prezzo. Il prezzo vuoto (`null`) vuol dire "da definire": lo scrive chi fa
+ * il preventivo.
+ */
 export interface Tariffa {
   spItemId: string
-  /** Chiave stabile della voce: lega fra loro i periodi di validità dello stesso prezzo. */
+  /** Chiave stabile della riga: lega fra loro i periodi di validità dello stesso prezzo. */
   codice: string
+  servizio: string
+  /** Vuoto = vale per tutti i sottotipi del servizio. */
+  sottotipo: string
   voce: string
+  /** Nome dell'ente (come nella lista Enti), oppure ENTE_TUTTI / ENTE_ALTRI. */
+  ente: string
+  /** Sezione del documento (GRUPPI). */
   gruppo: string
   unita: Unita
-  prezzo: number
-  /** Prezzo bloccato: il servizio non lo cambia. Se false si sceglie fra min e max. */
-  bloccato: boolean
-  min: number | null
-  max: number | null
+  prezzo: number | null
   iva: RegimeIva
-  modelli: Modello[]
-  ambito: Ambito
   dal: string // YYYY-MM-DD
   al: string | null
   ordine: number
@@ -228,28 +262,39 @@ export const STATI_PREVENTIVO = {
 } as const
 export type StatoPreventivo = keyof typeof STATI_PREVENTIVO
 
-export interface DestinatarioPreventivo {
-  ente: string
+/** Una persona a cui va il preventivo (assistente sociale, NPI, famiglia…) o un referente. */
+export interface Persona {
   nome: string
   ruolo: string
+  ente: string
   email: string
 }
 
 /** Quello che compila il servizio: il resto (numero, stato, date) lo mette l'app. */
 export interface DatiPreventivo {
-  modello: Modello
   ccCodice: string
   cartella: string
-  ambito: Ambito
-  destinatario: DestinatarioPreventivo
+  servizio: string
+  sottotipo: string
+  /**
+   * L'ente scelto: una chiave di COPPIE_TORINO, il nome di un ente della lista
+   * Enti, oppure vuoto (privati: l'ente non c'è).
+   */
+  ente: string
+  persone: Persona[]
   beneficiario: string
   oggetto: string
   tipoProgetto: string
   ripartizione: string
+  /** Data di inizio; vuota = "da definire". */
   dal: string
-  al: string
+  durataMesi: number
   righe: RigaPreventivo[]
   note: string
+  /** Solo privati: +MAGGIORAZIONE_PRIVATI% sul costo. */
+  maggiorazione: boolean
+  /** Solo privati: secondo referente facoltativo (il primo è chi fa il preventivo). */
+  referente2: Persona | null
 }
 
 export interface Preventivo extends DatiPreventivo {
@@ -260,6 +305,10 @@ export interface Preventivo extends DatiPreventivo {
   progressivo: number | null
   revisione: number
   ccNome: string
+  /** Fine del periodo, calcolata da inizio e durata; vuota se l'inizio è da definire. */
+  al: string
+  /** I nomi degli enti a cui va, come si sono risolti al salvataggio (la coppia di Torino sono due). */
+  enti: string[]
   stato: StatoPreventivo
   totaleMensile: number
   creatoDa: string
@@ -277,6 +326,8 @@ export interface Preventivo extends DatiPreventivo {
 export interface TotaliPreventivo {
   /** Somme per sezione del documento, nell'ordine di GRUPPI. */
   perGruppo: { gruppo: string; importo: number }[]
+  /** Maggiorazione dei privati, già compresa negli imponibili qui sotto. */
+  maggiorazione: number
   imponibile: Record<'iva5' | 'iva22', number>
   iva: number
   esente: number

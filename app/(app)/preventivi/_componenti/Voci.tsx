@@ -3,12 +3,12 @@
 /**
  * Le voci del preventivo.
  *
- * Si sceglie la voce dal tariffario (mai scritta a mano) e si scrivono le
- * quantità. Il prezzo:
- *   - bloccato → si vede e basta;
- *   - libero   → si sceglie fra il minimo e il massimo del tariffario;
- *   - chi ha "Amministrazione" può uscire dai limiti (il server lo consente
- *     solo a lui).
+ * Si sceglie la voce dal tariffario (mai scritta a mano), fra quelle del
+ * servizio e dell'ente scelti, e si scrivono le quantità. Il prezzo:
+ *   - c'è nel tariffario → è fisso, si vede e basta;
+ *   - "da definire" (vuoto nel tariffario) → lo scrive chi fa il preventivo;
+ *   - chi ha il permesso Preventivi o "Amministrazione" può cambiarlo comunque
+ *     (il server lo consente solo a lui).
  * Ore e giorni si possono scrivere a settimana: il mese è × 4,35.
  */
 
@@ -16,8 +16,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Modale } from '@/components/ui/Modale'
 import { inputCls, labelCls } from '@/components/ui/Campo'
 import { Pill } from '@/components/ui/Pill'
-import { REGIMI_IVA, SETTIMANE_MESE, UNITA, type RigaPreventivo, type Tariffa } from '@/types/preventivi'
-import { euro, importoRiga, numero, problemaPrezzo, quantitaMensile, tariffaPerCodice } from '@/lib/preventivi/calcoli'
+import { REGIMI_IVA, SETTIMANE_MESE, SUFFISSO_INDIRETTO, UNITA, type RigaPreventivo, type Tariffa } from '@/types/preventivi'
+import { euro, importoRiga, numero, problemaPrezzo, quantitaMensile, rigaDaTariffa, tariffaPerCodice } from '@/lib/preventivi/calcoli'
 
 const n = (v: string): number | null => (v.trim() === '' ? null : Number(v.replace(',', '.')))
 const s = (v: number | null | undefined) => (v === null || v === undefined ? '' : String(v))
@@ -67,49 +67,65 @@ export function Voci({
   disponibili,
   tariffe,
   dataPrezzi,
-  ambito,
   libero,
-  giorniRetta,
   disabilitato,
-  nuovaRiga,
+  senzaServizio,
+  senzaEnte,
 }: {
   righe: RigaPreventivo[]
   onChange: (righe: RigaPreventivo[]) => void
   disponibili: Tariffa[]
   tariffe: Tariffa[]
   dataPrezzi: string
-  ambito: string
   libero: boolean
-  giorniRetta: number
   disabilitato: boolean
-  nuovaRiga: (t: Tariffa, giorni: number) => RigaPreventivo
+  senzaServizio: boolean
+  senzaEnte: boolean
 }) {
   const [scegli, setScegli] = useState(false)
   const cambia = (i: number, patch: Partial<RigaPreventivo>) => onChange(righe.map((r, j) => (j === i ? { ...r, ...patch } : r)))
   const togli = (i: number) => onChange(righe.filter((_, j) => j !== i))
+  const ammesse = useMemo(() => new Set(disponibili.map((t) => t.codice)), [disponibili])
   const perGruppo = useMemo(() => {
     const m = new Map<string, Tariffa[]>()
     for (const t of disponibili) m.set(t.gruppo, [...(m.get(t.gruppo) ?? []), t])
     return [...m.entries()]
   }, [disponibili])
+  const prezzoDi = (t: Tariffa) => (t.prezzo === null ? 'prezzo da scrivere' : euro(t.prezzo))
 
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-bold text-gray-800">Voci</h3>
-        {!disabilitato && (
+        {!disabilitato && !senzaServizio && !senzaEnte && (
           <button onClick={() => setScegli(true)} className="px-3 py-2 rounded-xl border border-brand-cyan-dark text-brand-cyan-dark font-semibold bg-white">
             + Aggiungi voce
           </button>
         )}
       </div>
-      {!righe.length && <p className="text-sm text-gray-500">Nessuna voce: aggiungine almeno una dal tariffario.</p>}
+      {senzaServizio ? (
+        <p className="text-sm text-gray-500">Scegli prima il servizio: le voci e i prezzi vengono da lì.</p>
+      ) : senzaEnte ? (
+        <p className="text-sm text-gray-500">Scegli l’ente: i prezzi cambiano fra Torino e gli altri enti.</p>
+      ) : (
+        !righe.length && <p className="text-sm text-gray-500">Nessuna voce: aggiungine almeno una dal tariffario.</p>
+      )}
 
       <ul className="space-y-3">
         {righe.map((r, i) => {
-          const t = tariffaPerCodice(tariffe, r.codice, dataPrezzi, ambito)
-          const problema = t ? problemaPrezzo(t, r.prezzo, libero) : 'Voce non più nel tariffario per questo periodo'
-          const prezzoFisso = !t || (t.bloccato && !libero)
+          const t = tariffaPerCodice(tariffe, r.codice, dataPrezzi)
+          const indiretto = r.codice.endsWith(SUFFISSO_INDIRETTO)
+          const problema = !t
+            ? 'Voce non più nel tariffario per questo periodo'
+            : !ammesse.has(t.codice)
+              ? 'Non vale per questo servizio o ente: toglila'
+              : indiretto
+                ? null
+                : t.prezzo === null && !(r.prezzo > 0) && r.iva !== 'fic'
+                  ? 'Scrivi il prezzo'
+                  : problemaPrezzo(t, r.prezzo, libero)
+          const daScrivere = t?.prezzo === null
+          const prezzoFisso = !t || indiretto || (!daScrivere && !libero)
           const aSettimana = r.perSettimana !== null && r.perSettimana !== undefined
           const u = UNITA[r.unita]
           return (
@@ -133,7 +149,7 @@ export function Voci({
                   <div>
                     <span className={labelCls}>Prezzo per {u.etichetta}</span>
                     <p className="py-2 font-semibold text-gray-800">
-                      {euro(r.prezzo)} <span className="text-xs font-normal text-gray-500">fisso</span>
+                      {euro(r.prezzo)} <span className="text-xs font-normal text-gray-500">{indiretto ? 'come il costo orario' : 'fisso'}</span>
                     </p>
                   </div>
                 ) : (
@@ -142,7 +158,13 @@ export function Voci({
                     valore={r.prezzo}
                     onChange={(v) => cambia(i, { prezzo: v ?? 0 })}
                     disabilitato={disabilitato}
-                    aiuto={t && (t.min != null || t.max != null) ? `fra ${euro(t.min ?? 0)} e ${euro(t.max ?? t.prezzo)}` : undefined}
+                    aiuto={
+                      daScrivere
+                        ? 'Il tariffario non ha ancora un prezzo: scrivilo tu'
+                        : t && t.prezzo !== null
+                          ? `nel tariffario: ${euro(t.prezzo)}`
+                          : undefined
+                    }
                   />
                 )}
 
@@ -220,8 +242,10 @@ export function Voci({
       </ul>
 
       {scegli && (
-        <Modale titolo="Aggiungi una voce" sottotitolo="Dal tariffario in vigore per questo periodo" onChiudi={() => setScegli(false)}>
-          {!perGruppo.length && <p className="text-sm text-gray-500">Nessuna voce disponibile per questo modello.</p>}
+        <Modale titolo="Aggiungi una voce" sottotitolo="Le voci di questo servizio, con i prezzi di questo ente" onChiudi={() => setScegli(false)}>
+          {!perGruppo.length && (
+            <p className="text-sm text-gray-500">Nessuna voce per questo servizio e questo ente: chiedi ad Andrea di aggiungerla al tariffario.</p>
+          )}
           <div className="space-y-4">
             {perGruppo.map(([gruppo, voci]) => (
               <div key={gruppo}>
@@ -231,17 +255,20 @@ export function Voci({
                     <li key={t.spItemId}>
                       <button
                         onClick={() => {
-                          onChange([...righe, nuovaRiga(t, giorniRetta)])
+                          onChange([...righe, rigaDaTariffa(t)])
                           setScegli(false)
                         }}
                         className="w-full text-left rounded-xl border border-gray-200 bg-white px-3 py-2 hover:border-brand-cyan"
                       >
-                        <span className="block font-semibold text-gray-800">{t.voce}</span>
-                        <span className="block text-xs text-gray-500">
-                          {t.bloccato ? `${euro(t.prezzo)} fisso` : t.min != null || t.max != null ? `${euro(t.min ?? 0)} – ${euro(t.max ?? t.prezzo)}` : euro(t.prezzo)}{' '}
-                          per {UNITA[t.unita].etichetta}
-                          {t.ambito !== 'Tutti' ? ` · ${t.ambito}` : ''}
+                        <span className="block font-semibold text-gray-800">
+                          {t.voce}
+                          {t.sottotipo ? <span className="font-normal text-gray-500"> · {t.sottotipo}</span> : null}
                         </span>
+                        <span className="block text-xs text-gray-500">
+                          {prezzoDi(t)} per {UNITA[t.unita].etichetta} · {REGIMI_IVA[t.iva].etichetta}
+                          {righe.some((r) => r.codice === t.codice) ? ' · già inserita' : ''}
+                        </span>
+                        {t.note && <span className="block text-xs text-gray-500">{t.note}</span>}
                       </button>
                     </li>
                   ))}

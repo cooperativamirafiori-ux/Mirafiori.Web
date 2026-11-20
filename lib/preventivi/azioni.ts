@@ -7,13 +7,14 @@
  */
 
 import { getCentriDiCosto } from '@/lib/centri-costo/data'
-import { CARTELLA_DEFAULT, type DatiPreventivo, type Preventivo, type Tariffa } from '@/types/preventivi'
+import { type DatiPreventivo, type Preventivo, type Tariffa } from '@/types/preventivi'
 import { type AccessoPreventivi, vedeCentro } from './accesso'
-import { aggiungiGiorni, allineaPrezzi, finePeriodo, mesiPeriodo, oggiIso } from './calcoli'
+import { aggiungiGiorni, allineaPrezzi, entiDestinatari, oggiIso } from './calcoli'
 import {
   aggiornaCampi,
   campiStato,
   creaPreventivo,
+  getEnti,
   getPreventivo,
   getTariffe,
   inCoda,
@@ -51,22 +52,27 @@ function controllaCentro(d: DatiPreventivo, a: AccessoPreventivi) {
 /** Data a cui valgono i prezzi: l'inizio del periodo se c'è, altrimenti oggi. */
 const dataPrezzi = (d: Pick<DatiPreventivo, 'dal'>) => d.dal || oggiIso()
 
+/** Gli enti a cui va (la coppia di Torino sono due) e il controllo delle voci. */
+async function controllaTariffe(d: DatiPreventivo, a: AccessoPreventivi): Promise<string[]> {
+  const [tariffe, elencoEnti] = await Promise.all([getTariffe(), getEnti()])
+  const enti = entiDestinatari(d.ente, d.servizio, elencoEnti)
+  const problemi = problemiTariffe(d, enti, tariffe, dataPrezzi(d), a.tutti)
+  if (problemi.length) throw new ErrorePreventivo(problemi.join(' · '))
+  return enti
+}
+
 export async function crea(d: DatiPreventivo, a: AccessoPreventivi, autore: { email: string; nome: string }) {
   controllaCentro(d, a)
-  const tariffe = await getTariffe()
-  const problemi = problemiTariffe(d.righe, tariffe, dataPrezzi(d), d.ambito, a.tutti)
-  if (problemi.length) throw new ErrorePreventivo(problemi.join(' · '))
-  return creaPreventivo(d, await nomeCentro(d.ccCodice), autore)
+  const enti = await controllaTariffe(d, a)
+  return creaPreventivo(d, await nomeCentro(d.ccCodice), enti, autore)
 }
 
 export async function salva(id: string, d: DatiPreventivo, a: AccessoPreventivi) {
   const p = await preventivoPer(id, a)
   if (p.stato !== 'bozza') throw new ErrorePreventivo('Si modifica solo una bozza: riaprilo prima')
   controllaCentro(d, a)
-  const tariffe = await getTariffe()
-  const problemi = problemiTariffe(d.righe, tariffe, dataPrezzi(d), d.ambito, a.tutti)
-  if (problemi.length) throw new ErrorePreventivo(problemi.join(' · '))
-  return salvaDati(id, d, await nomeCentro(d.ccCodice))
+  const enti = await controllaTariffe(d, a)
+  return salvaDati(id, d, await nomeCentro(d.ccCodice), enti)
 }
 
 /**
@@ -78,15 +84,14 @@ export async function emetti(id: string, a: AccessoPreventivi): Promise<Preventi
   if (p.stato !== 'bozza') throw new ErrorePreventivo('È già stato emesso')
   const mancano = mancantiPerEmettere(p)
   if (mancano.length) throw new ErrorePreventivo(`Per emettere manca: ${mancano.join(', ')}`)
-  const problemi = problemiTariffe(p.righe, await getTariffe(), dataPrezzi(p), p.ambito, a.tutti)
-  if (problemi.length) throw new ErrorePreventivo(problemi.join(' · '))
+  await controllaTariffe(p, a)
 
   await inCoda(async () => {
     const anno = p.anno ?? Number(oggiIso().slice(0, 4))
     const assegnato = p.numero && p.progressivo ? { numero: p.numero, progressivo: p.progressivo } : await prossimoNumero(anno)
     await aggiornaCampi(id, campiStato.emesso(assegnato.numero, anno, assegnato.progressivo, (p.revisione || 0) + 1))
   })
-  await ricordaContatto(p.destinatario)
+  for (const persona of p.persone) await ricordaContatto(persona)
   return (await getPreventivo(id))!
 }
 
@@ -134,9 +139,10 @@ export async function annulla(id: string, a: AccessoPreventivi) {
 }
 
 /**
- * Copia in una bozza nuova. Il rinnovo sposta il periodo subito dopo il
- * precedente con la stessa durata e porta i prezzi al tariffario in vigore
- * (dopo un adeguamento ISTAT il rinnovo esce già aggiornato).
+ * Copia in una bozza nuova. Il rinnovo parte il giorno dopo la fine del
+ * precedente, con la stessa durata (se l'inizio era da definire resta da
+ * definire), e porta i prezzi al tariffario in vigore (dopo un adeguamento
+ * ISTAT il rinnovo esce già aggiornato).
  */
 export async function copia(
   id: string,
@@ -145,31 +151,29 @@ export async function copia(
   modo: 'rinnova' | 'duplica',
 ): Promise<{ preventivo: Preventivo; cambiate: { voce: string; prima: number; dopo: number }[]; senzaTariffa: string[] }> {
   const p = await preventivoPer(id, a)
-  let dal = p.dal
-  let al = p.al
-  if (modo === 'rinnova') {
-    const mesi = Math.max(1, Math.round(mesiPeriodo(p.dal, p.al)) || 6)
-    dal = p.al ? aggiungiGiorni(p.al, 1) : oggiIso()
-    al = finePeriodo(dal, mesi)
-  }
-  const tariffe: Tariffa[] = await getTariffe()
-  const allineate = allineaPrezzi(p.righe, tariffe, dal || oggiIso(), p.ambito)
+  const dal = modo === 'rinnova' && p.al ? aggiungiGiorni(p.al, 1) : modo === 'rinnova' ? '' : p.dal
+  const [tariffe, elencoEnti]: [Tariffa[], Awaited<ReturnType<typeof getEnti>>] = await Promise.all([getTariffe(), getEnti()])
+  const allineate = allineaPrezzi(p.righe, tariffe, dal || oggiIso())
   const d: DatiPreventivo = {
-    modello: p.modello,
     ccCodice: p.ccCodice,
-    cartella: p.cartella || CARTELLA_DEFAULT[p.modello],
-    ambito: p.ambito,
-    destinatario: p.destinatario,
+    cartella: p.cartella,
+    servizio: p.servizio,
+    sottotipo: p.sottotipo,
+    ente: p.ente,
+    persone: p.persone,
     beneficiario: p.beneficiario,
     oggetto: modo === 'rinnova' && p.oggetto && !/rinnovo/i.test(p.oggetto) ? `Rinnovo — ${p.oggetto}` : p.oggetto,
     tipoProgetto: p.tipoProgetto,
     ripartizione: p.ripartizione,
     dal,
-    al,
+    durataMesi: p.durataMesi,
     righe: allineate.righe.filter((r) => !allineate.senzaTariffa.includes(r.voce)),
     note: p.note,
+    maggiorazione: p.maggiorazione,
+    referente2: p.referente2,
   }
   controllaCentro(d, a)
-  const nuovo = await creaPreventivo(d, p.ccNome, autore, modo === 'rinnova' ? p.spItemId : undefined)
+  const enti = entiDestinatari(d.ente, d.servizio, elencoEnti)
+  const nuovo = await creaPreventivo(d, p.ccNome, enti.length ? enti : p.enti, autore, modo === 'rinnova' ? p.spItemId : undefined)
   return { preventivo: nuovo, cambiate: allineate.cambiate, senzaTariffa: allineate.senzaTariffa }
 }

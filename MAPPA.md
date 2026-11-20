@@ -1,9 +1,9 @@
 # MAPPA — indice generato di Mirafiori Web
 
-> Generato da `npm run mappa` il 2026-11-11. **Non modificare a mano**: le decisioni e le
+> Generato da `npm run mappa` il 2026-11-20. **Non modificare a mano**: le decisioni e le
 > convenzioni stanno in `CLAUDE.md`, qui c'è solo la fotografia dei file.
 
-**703 file · 117.715 righe totali.**
+**721 file · 120.438 righe totali.**
 
 ## ⚠️ File oltre 500 righe — da spezzare
 
@@ -12,21 +12,20 @@
 | `app/(app)/risorse-umane/GestioneRU.tsx` | Risorse Umane | 1084 | 38 |
 | `app/(app)/timbrature/TimbratureOperatore.tsx` | Timbrature · Foglio ore | 1080 | 48 |
 | `app/(app)/acquisti/gestione/GestioneAcquisti.tsx` | Acquisti | 1013 | 38 |
+| `app/(app)/controllo-gestione/flussi-fatture/FlussiFatture.tsx` | Controllo di gestione · Flussi fatture | 977 | 38 |
 | `app/(app)/risorse-umane/timbrature/responsabili/Responsabili.tsx` | Timbrature · Foglio ore | 938 | 34 |
-| `app/(app)/controllo-gestione/flussi-fatture/FlussiFatture.tsx` | Controllo di gestione · Flussi fatture | 913 | 34 |
+| `lib/qonto/riconciliazione.ts` | Controllo di gestione · Qonto | 896 | 38 |
 | `app/(app)/risorse-umane/timbrature/CruscottoTimbrature.tsx` | Timbrature · Foglio ore | 755 | 33 |
-| `lib/qonto/riconciliazione.ts` | Controllo di gestione · Qonto | 749 | 31 |
 | `lib/risorse-umane/data.ts` | Risorse Umane | 643 | 25 |
 | `lib/timbrature/anagrafica.ts` | Timbrature · Foglio ore | 638 | 23 |
 | `app/(app)/prestazioni/nuova/NuovaPrestazioneForm.tsx` | Prestazioni occasionali | 636 | 22 |
-| `app/(app)/preventivi/_componenti/EditorPreventivo.tsx` | Preventivi | 636 | 23 |
+| `app/(app)/preventivi/_componenti/EditorPreventivo.tsx` | Preventivi | 607 | 22 |
 | `app/api/acquisti/[id]/route.ts` | Acquisti | 578 | 23 |
 | `app/(app)/amministrazione/software/GestioneSoftware.tsx` | Amministrazione · Software | 568 | 22 |
 | `lib/inventario/data.ts` | Inventario beni | 549 | 20 |
 | `lib/timbrature/righe.ts` | Timbrature · Foglio ore | 544 | 19 |
+| `lib/cura-ambienti/data.ts` | Cura Ambienti | 539 | 20 |
 | `lib/pagamenti/import.ts` | Controllo di gestione · Flussi fatture | 536 | 20 |
-| `lib/cura-ambienti/data.ts` | Cura Ambienti | 534 | 20 |
-| `app/(app)/preventivi/_componenti/Tariffario.tsx` | Preventivi | 513 | 22 |
 | `app/(app)/inventario/InventarioBeni.tsx` | Inventario beni | 502 | 18 |
 
 ## Aree funzionali
@@ -188,16 +187,24 @@ _14 file · 1869 righe_
 
 ### Preventivi
 
-_37 file · 5316 righe_
+_49 file · 6632 righe_
 
-- `app/(app)/preventivi/_componenti/EditorPreventivo.tsx` (636 righe) ⚠️
-- `app/(app)/preventivi/_componenti/ElencoPreventivi.tsx` (170 righe)
-- `app/(app)/preventivi/_componenti/Tariffario.tsx` (513 righe) ⚠️
-- `app/(app)/preventivi/_componenti/Totali.tsx` (34 righe)
-- `app/(app)/preventivi/_componenti/Voci.tsx` (257 righe)
+- `app/(app)/preventivi/_componenti/Destinatari.tsx` (226 righe)
+- `app/(app)/preventivi/_componenti/EditorPreventivo.tsx` (607 righe) ⚠️
+- `app/(app)/preventivi/_componenti/ElencoEnti.tsx` (125 righe)
+- `app/(app)/preventivi/_componenti/ElencoPreventivi.tsx` (176 righe)
+- `app/(app)/preventivi/_componenti/ModaleEsito.tsx` (61 righe)
+- `app/(app)/preventivi/_componenti/Periodo.tsx` (92 righe)
+- `app/(app)/preventivi/_componenti/riadatta.ts` (53 righe)
+- `app/(app)/preventivi/_componenti/SezionePrivati.tsx` (98 righe)
+- `app/(app)/preventivi/_componenti/Tariffario.tsx` (190 righe)
+- `app/(app)/preventivi/_componenti/TariffarioPannelli.tsx` (402 righe)
+- `app/(app)/preventivi/_componenti/Totali.tsx` (39 righe)
+- `app/(app)/preventivi/_componenti/Voci.tsx` (284 righe)
 - `app/(app)/preventivi/[id]/page.tsx` (38 righe)
 - `app/(app)/preventivi/catering/_componenti/CalcolatoreCatering.tsx` (353 righe)
 - `app/(app)/preventivi/catering/page.tsx` (33 righe)
+- `app/(app)/preventivi/enti/page.tsx` (29 righe)
 - `app/(app)/preventivi/page.tsx` (71 righe)
 - `app/(app)/preventivi/servizi/page.tsx` (40 righe)
 - `app/(app)/preventivi/tariffario/page.tsx` (27 righe)
@@ -206,56 +213,60 @@ _37 file · 5316 righe_
 - `app/api/preventivi/[id]/pdf/route.ts` (33 righe)
 - `app/api/preventivi/[id]/route.ts` (67 righe)
 - `app/api/preventivi/catering/parametri/route.ts` (44 righe)
-- `app/api/preventivi/opzioni/route.ts` (32 righe)
+- `app/api/preventivi/enti/[id]/route.ts` (40 righe)
+- `app/api/preventivi/enti/route.ts` (48 righe)
+- `app/api/preventivi/opzioni/route.ts` (35 righe)
 - `app/api/preventivi/route.ts` (55 righe)
-- `app/api/preventivi/tariffario/[id]/route.ts` (76 righe)
+- `app/api/preventivi/tariffario/[id]/route.ts` (74 righe)
 - `app/api/preventivi/tariffario/istat/route.ts` (45 righe)
 - `app/api/preventivi/tariffario/route.ts` (50 righe)
 - `docs/preventivi-catering.md` (48 righe)
-- `docs/preventivi.md` (121 righe)
+- `docs/preventivi.md` (156 righe)
 - `lib/preventivi/accesso.ts` (38 righe) — esporta: accessoPreventivi, puoEntrare, vedeCentro
-- `lib/preventivi/azioni.ts` (176 righe) — esporta: ErrorePreventivo, preventivoPer, crea, salva, emetti, riapri, accetta, rifiuta, annulla, copia
-- `lib/preventivi/calcoli.ts` (281 righe) — esporta: arrotonda, isoValida, oggiIso, aggiungiGiorni, finePeriodo, mesiPeriodo, dataIt, quantitaMensile, importoRiga, totali, tariffaValidaIl, vociDisponibili, tariffaPerCodice, problemaPrezzo, allineaPrezzi, rigaDaTariffa, anteprimaIstat, euro, numero, iniziali
+- `lib/preventivi/azioni.ts` (180 righe) — esporta: ErrorePreventivo, preventivoPer, crea, salva, emetti, riapri, accetta, rifiuta, annulla, copia
+- `lib/preventivi/calcoli.ts` (406 righe) — esporta: arrotonda, isoValida, oggiIso, aggiungiGiorni, finePeriodo, mesiPeriodo, dataIt, quantitaMensile, importoRiga, totali, fineDaDurata, rettaComplessiva, tariffaValidaIl, eCoppia, entiDestinatari, vociPerPreventivo, serviziDisponibili, sottotipiDisponibili, retteAutomatiche, tariffaPerCodice, problemaPrezzo, allineaPrezzi, rigaDaTariffa, rigaIndiretta, anteprimaIstat, euro, numero, iniziali
 - `lib/preventivi/catering-calcoli.ts` (154 righe) — esporta: PARAMETRI_CATERING_PREDEFINITI, ETICHETTE_PARAMETRI, calcolaCatering, leggiParametriCatering, numeroDa
 - `lib/preventivi/catering.ts` (81 righe) — esporta: CHIAVI_CATERING, leggiParametriCateringSP, salvaParametriCateringSP
-- `lib/preventivi/data.ts` (376 righe) — esporta: preventiviConfigurati, getTariffe, creaTariffa, aggiornaTariffa, getPreventivi, getPreventivo, creaPreventivo, salvaDati, aggiornaCampi, eliminaPreventivo, campiStato, inCoda, prossimoNumero, getContatti, ricordaContatto
-- `lib/preventivi/documento.ts` (262 righe) — esporta: nomeFile, generaXlsx, pdfPreventivo, archiviaAccettato
-- `lib/preventivi/flusso.ts` (171 righe) — esporta: leggiDati, mancantiPerEmettere, problemiTariffe, modificabile, azioniDa, ETICHETTE_AZIONI, GIORNI_SOLLECITO
+- `lib/preventivi/data.ts` (438 righe) — esporta: preventiviConfigurati, getTariffe, creaTariffa, aggiornaTariffa, entiConfigurati, getEnti, creaEnte, aggiornaEnte, getPreventivi, getPreventivo, creaPreventivo, salvaDati, aggiornaCampi, eliminaPreventivo, campiStato, inCoda, prossimoNumero, getContatti, ricordaContatto
+- `lib/preventivi/documento.ts` (440 righe) — esporta: nomeFile, periodoTesto, generaXlsx, pdfPreventivo, archiviaAccettato
+- `lib/preventivi/enti.ts` (54 righe) — esporta: leggiEnte, nuovoEnte, modificaEnte
+- `lib/preventivi/firma-presidente.ts` (17 righe) — esporta: FIRMA_PRESIDENTE_PNG, FIRMA_PRESIDENTE_RAPPORTO
+- `lib/preventivi/flusso.ts` (205 righe) — esporta: leggiDati, mancantiPerEmettere, problemiTariffe, modificabile, azioniDa, ETICHETTE_AZIONI, GIORNI_SOLLECITO
 - `lib/preventivi/guard.ts` (40 righe) — esporta: guardPreventivi, rispostaErrore, leggiCorpo
-- `lib/preventivi/notifiche.ts` (83 righe) — esporta: linkPreventivo, destinatariFatturazione, notificaAccettato, notificaSollecito
-- `lib/preventivi/tariffario.ts` (170 righe) — esporta: leggiTariffa, nuovaVoce, nuovoPrezzo, chiudiVoce, istatAnteprima, istatApplica
+- `lib/preventivi/notifiche.ts` (84 righe) — esporta: linkPreventivo, destinatariFatturazione, notificaAccettato, notificaSollecito
+- `lib/preventivi/tariffario.ts` (168 righe) — esporta: codiceVoce, leggiTariffa, nuovaVoce, nuovoPrezzo, chiudiVoce, istatAnteprima, istatApplica
 - `scripts/preventivi-env-vercel.sh` (19 righe)
-- `scripts/provision-preventivi.mjs` (291 righe)
-- `types/preventivi.ts` (300 righe)
+- `scripts/provision-preventivi.mjs` (187 righe)
+- `types/preventivi.ts` (351 righe)
 
 ### Servizi interni
 
-_16 file · 1716 righe_
+_16 file · 1786 righe_
 
-- `app/(app)/controllo-gestione/addebiti-interni/_componenti/AddebitiInterni.tsx` (399 righe)
+- `app/(app)/controllo-gestione/addebiti-interni/_componenti/AddebitiInterni.tsx` (431 righe)
 - `app/(app)/controllo-gestione/addebiti-interni/page.tsx` (32 righe)
 - `app/(app)/controllo-gestione/costi-generali/_componenti/Percentuali.tsx` (179 righe)
 - `app/(app)/controllo-gestione/costi-generali/page.tsx` (27 righe)
-- `app/api/servizi-interni/addebiti/[id]/route.ts` (95 righe)
-- `app/api/servizi-interni/addebiti/[id]/visto/route.ts` (60 righe)
-- `app/api/servizi-interni/addebiti/route.ts` (77 righe)
+- `app/api/servizi-interni/addebiti/[id]/route.ts` (96 righe)
+- `app/api/servizi-interni/addebiti/[id]/visto/route.ts` (61 righe)
+- `app/api/servizi-interni/addebiti/route.ts` (81 righe)
 - `app/api/servizi-interni/ripartizione/route.ts` (71 righe)
-- `docs/servizi-interni-piano.md` (189 righe)
-- `lib/servizi-interni/accesso.ts` (50 righe) — esporta: ADDEBITO_RAPIDO, ccAddebitoRapido, accessoServiziInterni, puoUsareServiziInterni, puoScrivereDa, puoVistare, puoRipartire
+- `docs/servizi-interni-piano.md` (206 righe)
+- `lib/servizi-interni/accesso.ts` (52 righe) — esporta: ADDEBITO_RAPIDO, ccAddebitoRapido, accessoServiziInterni, puoUsareServiziInterni, puoScrivereDa, puoVistare, puoRipartire
 - `lib/servizi-interni/automatici.ts` (84 righe) — esporta: meseChiuso, riscriviAddebitoAutomatico, togliAddebitiAperti
 - `lib/servizi-interni/data.ts` (203 righe) — esporta: getForfait, getCentriScelta, getAddebiti, getAddebito, creaAddebito, aggiornaAddebito, eliminaAddebito, vistaAddebito, getRipartizioni, salvaRipartizione
-- `lib/servizi-interni/flusso.ts` (87 righe) — esporta: GIORNO_CHIUSURA, bloccato, primoMeseAperto, meseDiAddebito, totaleAddebito, forfaitDelMese, validaAddebito, validaQuote
+- `lib/servizi-interni/flusso.ts` (91 righe) — esporta: GIORNO_CHIUSURA, bloccato, primoMeseAperto, meseDiAddebito, totaleAddebito, forfaitDelMese, validaAddebito, validaQuote
 - `lib/servizi-interni/guard.ts` (18 righe) — esporta: guardServiziInterni
-- `lib/servizi-interni/notifiche.ts` (67 righe) — esporta: notificaAddebito, notificaNonTorna
-- `types/servizi-interni.ts` (78 righe)
+- `lib/servizi-interni/notifiche.ts` (71 righe) — esporta: notificaAddebito, notificaNonTorna
+- `types/servizi-interni.ts` (83 righe)
 
 ### Cura Ambienti
 
-_15 file · 2232 righe_
+_15 file · 2334 righe_
 
 - `app/(app)/controllo-gestione/cura-ambienti/_componenti/formato.ts` (24 righe)
-- `app/(app)/controllo-gestione/cura-ambienti/_componenti/LavoriCuraAmbienti.tsx` (350 righe)
-- `app/(app)/controllo-gestione/cura-ambienti/_componenti/SchedaLavoro.tsx` (388 righe)
+- `app/(app)/controllo-gestione/cura-ambienti/_componenti/LavoriCuraAmbienti.tsx` (354 righe)
+- `app/(app)/controllo-gestione/cura-ambienti/_componenti/SchedaLavoro.tsx` (422 righe)
 - `app/(app)/controllo-gestione/cura-ambienti/page.tsx` (29 righe)
 - `app/api/cura-ambienti/lavori/[id]/route.ts` (75 righe)
 - `app/api/cura-ambienti/lavori/route.ts` (58 righe)
@@ -263,11 +274,11 @@ _15 file · 2232 righe_
 - `app/api/cura-ambienti/ricorrenze/[id]/route.ts` (45 righe)
 - `docs/cura-ambienti-piano.md` (132 righe)
 - `lib/cura-ambienti/accesso.ts` (22 righe) — esporta: puoUsareCuraAmbienti
-- `lib/cura-ambienti/data.ts` (534 righe) ⚠️ — esporta: getTariffe, getTariffeStrutture, getStruttureScelta, getOreTimbrate, getLavori, getLavoro, getRicorrenze, getMese, creaLavoro, aggiornaLavoro, cambiaStato, preparaMese, cambiaStatoRicorrenza, getConsuntiviAnno
-- `lib/cura-ambienti/flusso.ts` (236 righe) — esporta: meseAddebitoLavoro, lavoroFermo, importo, righeAddebito, tariffeDi, volteNelMese, volte, importiLavoro, orePreventivo, oreConsuntivo, passaggiDa, puoPassare, modificabile, consuntivoCompleto, meseValido, normalizzaMese, mesePrecedente, leggiDati
+- `lib/cura-ambienti/data.ts` (539 righe) ⚠️ — esporta: getTariffe, getTariffeStrutture, getStruttureScelta, getOreTimbrate, getLavori, getLavoro, getRicorrenze, getMese, creaLavoro, aggiornaLavoro, cambiaStato, preparaMese, cambiaStatoRicorrenza, getConsuntiviAnno
+- `lib/cura-ambienti/flusso.ts` (290 righe) — esporta: meseAddebitoLavoro, lavoroFermo, importo, righeAddebito, tariffeDi, volteNelMese, giornoDi, volteOgniDueSettimane, volte, importiLavoro, orePreventivo, oreConsuntivo, passaggiDa, puoPassare, modificabile, consuntivoCompleto, meseValido, normalizzaMese, mesePrecedente, leggiDati
 - `lib/cura-ambienti/guard.ts` (16 righe) — esporta: guardCuraAmbienti
 - `lib/cura-ambienti/ribaltamento.ts` (100 righe) — esporta: ribaltaLavoro, segnaLavoriAddebitati, lavoriDaRiallineare
-- `types/cura-ambienti.ts` (184 righe)
+- `types/cura-ambienti.ts` (189 righe)
 
 ### Utenze · Costi per struttura
 
@@ -556,7 +567,7 @@ _5 file · 676 righe_
 
 ### Controllo di gestione · Cruscotto
 
-_11 file · 2165 righe_
+_11 file · 2181 righe_
 
 - `app/(app)/controllo-gestione/cruscotto/_componenti/Centri.tsx` (216 righe)
 - `app/(app)/controllo-gestione/cruscotto/_componenti/Cruscotto.tsx` (330 righe)
@@ -565,14 +576,14 @@ _11 file · 2165 righe_
 - `app/(app)/controllo-gestione/cruscotto/_componenti/Intestazione.tsx` (141 righe)
 - `app/(app)/controllo-gestione/cruscotto/_componenti/SchedaCentro.tsx` (167 righe)
 - `app/(app)/controllo-gestione/cruscotto/page.tsx` (46 righe)
-- `lib/gestione/cruscotto-calcoli.ts` (318 righe) — esporta: chiaveNome, costruisciCruscotto
+- `lib/gestione/cruscotto-calcoli.ts` (334 righe) — esporta: chiaveNome, costruisciCruscotto
 - `lib/gestione/cruscotto-esempio.ts` (115 righe) — esporta: inputEsempio
 - `lib/gestione/cruscotto.ts` (191 righe) — esporta: leggiCruscotto
 - `types/cruscotto.ts` (102 righe)
 
 ### Controllo di gestione · Qonto
 
-_32 file · 3759 righe_
+_33 file · 4152 righe_
 
 - `app/(app)/controllo-gestione/qonto/_componenti/CopiaIban.tsx` (34 righe)
 - `app/(app)/controllo-gestione/qonto/_componenti/InviaEstratto.tsx` (75 righe)
@@ -584,8 +595,9 @@ _32 file · 3759 righe_
 - `docs/estratti-qonto.md` (56 righe)
 - `docs/qonto-bonifici.md` (63 righe)
 - `docs/qonto.md` (65 righe)
-- `lib/qonto/abbina.ts` (298 righe) — esporta: normIbanQ, normNome, parole, chiaveIban, chiaveNome, chiaviMovimento, stessoImporto, inFinestra, indice, riconosce, daIgnorare, abbina, candidatiManuali, giaSuQonto, ccDaTesti
+- `lib/qonto/abbina.ts` (380 righe) — esporta: normIbanQ, normNome, parole, chiaveIban, chiaveNome, chiaviMovimento, stessoImporto, inFinestra, indice, stessaData, dataVicina, riconosce, daIgnorare, abbina, candidatiManuali, giaSuQonto, ccDaTesti, causaleBonifico, abbinaBonificiDellApp
 - `lib/qonto/accesso.ts` (43 righe) — esporta: accessoQonto, puoVedereQonto, contiVisibili
+- `lib/qonto/amazon.ts` (161 righe) — esporta: eFornitoreAmazon, eMovimentoAmazon, sistemaFattureAmazon, fattureAmazonAperte, contaAmazon, chiudiFatturaAmazon, riapriFatturaAmazon, fattureAmazonChiuse
 - `lib/qonto/bonifici.ts` (235 righe) — esporta: inviaAQonto, sincronizzaQonto
 - `lib/qonto/client.ts` (47 righe) — esporta: SECONDI_CACHE, qontoConfigurato, qontoGet
 - `lib/qonto/data.ts` (157 righe) — esporta: importo, getContiQonto, getMovimentiQonto, mappaIban, mappaMovimento
@@ -593,11 +605,11 @@ _32 file · 3759 righe_
 - `lib/qonto/formato.ts` (45 righe) — esporta: euro, euroConSegno, dataBreve, ora, ibanLeggibile, tipoMovimento
 - `lib/qonto/notifiche.ts` (51 righe) — esporta: destinatariEstratto, mandaEstratto
 - `lib/qonto/oauth.ts` (148 righe) — esporta: qontoOAuthConfigurato, qontoOAuth, mantieniVivo
-- `lib/qonto/riconciliazione.ts` (749 righe) ⚠️ — esporta: STORICO_DAL, leggiMovimentiQonto, abbinaAutomatico, riconciliaQonto, riconciliaStorico, elencoRiconciliazione, contaDaAbbinare, abbinaAMano, ignora, annullaAbbinamento, giaPagateSuQonto
+- `lib/qonto/riconciliazione.ts` (896 righe) ⚠️ — esporta: STORICO_DAL, leggiMovimentiQonto, abbinaAutomatico, riconciliaQonto, riconciliaStorico, elencoRiconciliazione, elencoAmazon, contaDaAbbinare, abbinaAMano, ignora, annullaAbbinamento, giaPagateSuQonto
 - `scripts/_qonto.mjs` (98 righe)
 - `scripts/coordinatori-centri-costo.mjs` (196 righe)
 - `scripts/estratto-qonto.mjs` (63 righe)
-- `scripts/provision-qonto-sottoconti.mjs` (141 righe)
+- `scripts/provision-qonto-sottoconti.mjs` (144 righe)
 - `scripts/qonto-diagnosi.mjs` (44 righe)
 - `scripts/qonto-env-vercel.mjs` (48 righe)
 - `scripts/qonto-oauth-a-supabase.mjs` (74 righe)
@@ -609,13 +621,15 @@ _32 file · 3759 righe_
 
 ### Controllo di gestione · Flussi fatture
 
-_56 file · 10993 righe_
+_58 file · 11440 righe_
 
 - `app/(app)/controllo-gestione/fatture/_componenti/Carburante.tsx` (172 righe)
 - `app/(app)/controllo-gestione/fatture/FattureCentro.tsx` (337 righe)
 - `app/(app)/controllo-gestione/fatture/page.tsx` (29 righe)
-- `app/(app)/controllo-gestione/flussi-fatture/AbbinaQonto.tsx` (428 righe)
-- `app/(app)/controllo-gestione/flussi-fatture/FlussiFatture.tsx` (913 righe) ⚠️
+- `app/(app)/controllo-gestione/flussi-fatture/AbbinaQonto.tsx` (472 righe)
+- `app/(app)/controllo-gestione/flussi-fatture/AmazonQonto.tsx` (260 righe)
+- `app/(app)/controllo-gestione/flussi-fatture/BottoneEsporta.tsx` (42 righe)
+- `app/(app)/controllo-gestione/flussi-fatture/FlussiFatture.tsx` (977 righe) ⚠️
 - `app/(app)/controllo-gestione/flussi-fatture/IbanRiga.tsx` (143 righe)
 - `app/(app)/controllo-gestione/flussi-fatture/NuovaUscita.tsx` (256 righe)
 - `app/(app)/controllo-gestione/flussi-fatture/page.tsx` (31 righe)
@@ -628,11 +642,11 @@ _56 file · 10993 righe_
 - `app/api/pagamenti/fornitori/iban/route.ts` (43 righe)
 - `app/api/pagamenti/import/route.ts` (87 righe)
 - `app/api/pagamenti/importa-sdi/route.ts` (55 righe)
-- `app/api/pagamenti/qonto-movimenti/route.ts` (83 righe)
+- `app/api/pagamenti/qonto-movimenti/route.ts` (94 righe)
 - `app/api/pagamenti/scadenze/approva/route.ts` (53 righe)
 - `app/api/pagamenti/scadenze/cerca/route.ts` (27 righe)
 - `app/api/pagamenti/scadenze/pagata/route.ts` (89 righe)
-- `app/api/pagamenti/scadenze/route.ts` (78 righe)
+- `app/api/pagamenti/scadenze/route.ts` (82 righe)
 - `app/api/pagamenti/scadenze/verifica/route.ts` (79 righe)
 - `app/api/pagamenti/uscite/[id]/route.ts` (79 righe)
 - `app/api/pagamenti/uscite/route.ts` (72 righe)
@@ -654,9 +668,9 @@ _56 file · 10993 righe_
 - `lib/pagamenti/import.ts` (536 righe) ⚠️ — esporta: sogliaApprovazione, statoIniziale, importaScadenzario
 - `lib/pagamenti/sdi/cartella.ts` (102 righe) — esporta: cartellaSdi, elencaFileSdi, scaricaFileSdi, cartellaImportate, spostaInImportate, rimettiInArrivo, salvaPdf, elencaImportate
 - `lib/pagamenti/sdi/fattura.ts` (275 righe) — esporta: xmlDaFile, leggiFatturaSdi, leggiMetadatiSdi, eRicevutaSdi
-- `lib/pagamenti/sdi/import.ts` (397 righe) — esporta: PIVA_COOPERATIVA, importaFattureSdi, rileggiUtenze
+- `lib/pagamenti/sdi/import.ts` (404 righe) — esporta: PIVA_COOPERATIVA, importaFattureSdi, rileggiUtenze
 - `lib/pagamenti/sdi/p7m.ts` (117 righe) — esporta: estraiDaP7m
-- `lib/pagamenti/sdi/regole.ts` (210 righe) — esporta: PARTENZA_QONTO, scadenzaStimata, SENZA_DOMICILIAZIONE, scadenzeDa
+- `lib/pagamenti/sdi/regole.ts` (225 righe) — esporta: PARTENZA_QONTO, scadenzaStimata, SENZA_DOMICILIAZIONE, scadenzeDa
 - `lib/pagamenti/sdi/xml.ts` (111 righe) — esporta: leggiXml, trova, tutti, cerca, testo, numero
 - `lib/pagamenti/tracciato.ts` (364 righe) — esporta: aData, aNumero, eContanti, famigliaDi, leggiScadenzario
 - `lib/pagamenti/uscite.ts` (240 righe) — esporta: validaUscita, uscitaSimile, creaUscita, modificaUscita, eliminaUscita
@@ -709,7 +723,7 @@ _3 file · 68 righe_
 
 ### Infrastruttura condivisa (core)
 
-_49 file · 8901 righe_
+_50 file · 9000 righe_
 
 - `app/api/debug-fields/route.ts` (45 righe)
 - `components/manutenzioni/AssistenteManutenzioni.tsx` (345 righe)
@@ -733,6 +747,7 @@ _49 file · 8901 righe_
 - `lib/core/audit.ts` (90 righe) — esporta: logAzione
 - `lib/core/auth.ts` (116 righe) — esporta: hasPermesso
 - `lib/core/calendar.ts` (104 righe) — esporta: parseEmails, buildEventoScadenza, creaEvento, aggiornaEvento, eliminaEvento
+- `lib/core/esporta-xlsx.ts` (99 righe) — esporta: esportaXlsx
 - `lib/core/graph-delegato.ts` (221 righe) — esporta: AccessoNegatoRU, graphPerUtente, graphApplicativo, graphRU, isRiautenticazione, isAccessoNegato
 - `lib/core/graph.ts` (212 righe) — esporta: graphGet, graphGetAll, graphGetOrNull, graphGetBinary, graphPutBinary, graphPost, graphPatch, graphDelete
 - `lib/core/mailer.ts` (78 righe) — esporta: ADMIN_EMAIL, sendEmail, BOX, RIGA, TABELLA, BTN
@@ -769,11 +784,11 @@ candidati da spezzare per area o da spostare in `lib/core/` (vedi `CLAUDE.md` §
 
 | Modulo `lib/` | Aree che lo usano | N. file | Importato da |
 |---|---|---:|---|
-| `lib/core/auth` 🔴 | (non mappato) · Accesso / login · Acquisti · Amministrazione (hub) · Amministrazione · Password · Amministrazione · Permessi · Amministrazione · Software · Ammissione soci · Assistente e guida d'uso · Controllo di gestione · Cruscotto · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Costi strutture · Cura Ambienti · Home / hub · Infrastruttura condivisa (core) · Inventario beni · Manutenzioni · Prestazioni occasionali · Preventivi · Richiesta fattura · Risorse Umane · Servizi interni · Timbrature · Foglio ore · Utenze · Costi per struttura | 99 | app/(app)/acquisti/gestione/page.tsx, app/(app)/acquisti/mie/page.tsx, app/(app)/acquisti/page.tsx, app/(app)/amministrazione/centri-costo/page.tsx, app/(app)/amministrazione/costi-fissi/page.tsx, app/(app)/amministrazione/costi-strutture/page.tsx, … |
-| `lib/core/audit` 🔴 | (non mappato) · Acquisti · Amministrazione · Password · Amministrazione · Permessi · Amministrazione · Software · Ammissione soci · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Costi strutture · Cura Ambienti · Inventario beni · Manutenzioni · Prestazioni occasionali · Preventivi · Richiesta fattura · Risorse Umane · Servizi interni · Timbrature · Foglio ore · Utenze · Costi per struttura | 97 | app/api/acquisti/[id]/route.ts, app/api/acquisti/route.ts, app/api/assistenza/[id]/route.ts, app/api/assistenza/route.ts, app/api/carburante/route.ts, app/api/centri-costo/fatture/route.ts, … |
+| `lib/core/auth` 🔴 | (non mappato) · Accesso / login · Acquisti · Amministrazione (hub) · Amministrazione · Password · Amministrazione · Permessi · Amministrazione · Software · Ammissione soci · Assistente e guida d'uso · Controllo di gestione · Cruscotto · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Costi strutture · Cura Ambienti · Home / hub · Infrastruttura condivisa (core) · Inventario beni · Manutenzioni · Prestazioni occasionali · Preventivi · Richiesta fattura · Risorse Umane · Servizi interni · Timbrature · Foglio ore · Utenze · Costi per struttura | 100 | app/(app)/acquisti/gestione/page.tsx, app/(app)/acquisti/mie/page.tsx, app/(app)/acquisti/page.tsx, app/(app)/amministrazione/centri-costo/page.tsx, app/(app)/amministrazione/costi-fissi/page.tsx, app/(app)/amministrazione/costi-strutture/page.tsx, … |
+| `lib/core/audit` 🔴 | (non mappato) · Acquisti · Amministrazione · Password · Amministrazione · Permessi · Amministrazione · Software · Ammissione soci · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Costi strutture · Cura Ambienti · Inventario beni · Manutenzioni · Prestazioni occasionali · Preventivi · Richiesta fattura · Risorse Umane · Servizi interni · Timbrature · Foglio ore · Utenze · Costi per struttura | 99 | app/api/acquisti/[id]/route.ts, app/api/acquisti/route.ts, app/api/assistenza/[id]/route.ts, app/api/assistenza/route.ts, app/api/carburante/route.ts, app/api/centri-costo/fatture/route.ts, … |
 | `lib/core/graph` 🔴 | (non mappato) · Acquisti · Amministrazione · Password · Amministrazione · Permessi · Amministrazione · Software · Controllo di gestione · Flussi fatture · Costi strutture · Infrastruttura condivisa (core) · Inventario beni · Manutenzioni · Prestazioni occasionali · Preventivi · Richiesta fattura · Risorse Umane · Utenze · Costi per struttura | 35 | app/api/debug-fields/route.ts, lib/acquisti/data.ts, lib/assistenza/allegati.ts, lib/assistenza/data.ts, lib/carburante/cartella.ts, lib/centri-costo/data.ts, … |
 | `lib/centri-costo/data` 🔴 | (non mappato) · Acquisti · Amministrazione (hub) · Amministrazione · Software · Assistente e guida d'uso · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Costi strutture · Cura Ambienti · Prestazioni occasionali · Preventivi · Richiesta fattura · Servizi interni · Utenze · Costi per struttura | 36 | app/(app)/acquisti/nuova/NuovaRichiestaAcquistoForm.tsx, app/(app)/acquisti/nuova/page.tsx, app/(app)/amministrazione/centri-costo/_componenti/ResponsabiliCentri.tsx, app/(app)/amministrazione/centri-costo/_componenti/raggruppa.ts, app/(app)/amministrazione/centri-costo/page.tsx, app/(app)/amministrazione/software/GestioneSoftware.tsx, … |
-| `lib/core/supabase` 🔴 | Assistente e guida d'uso · Controllo di gestione · Cruscotto · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Controllo di gestione · Registro · Cura Ambienti · Manutenzioni · Servizi interni · Timbrature · Foglio ore · Utenze · Costi per struttura | 32 | lib/assistente/registro.ts, lib/carburante/data.ts, lib/cura-ambienti/data.ts, lib/cura-ambienti/ribaltamento.ts, lib/gestione/cruscotto.ts, lib/gestione/registro.ts, … |
+| `lib/core/supabase` 🔴 | Assistente e guida d'uso · Controllo di gestione · Cruscotto · Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto · Controllo di gestione · Registro · Cura Ambienti · Manutenzioni · Servizi interni · Timbrature · Foglio ore · Utenze · Costi per struttura | 33 | lib/assistente/registro.ts, lib/carburante/data.ts, lib/cura-ambienti/data.ts, lib/cura-ambienti/ribaltamento.ts, lib/gestione/cruscotto.ts, lib/gestione/registro.ts, … |
 | `lib/core/upload-diretto` 🔴 | (non mappato) · Acquisti · Amministrazione · Software · Ammissione soci · Infrastruttura condivisa (core) · Inventario beni · Manutenzioni · Prestazioni occasionali · Risorse Umane · Timbrature · Foglio ore | 23 | app/(app)/acquisti/gestione/GestioneAcquisti.tsx, app/(app)/amministrazione/software/GestioneSoftware.tsx, app/(app)/assistenza/nuova/NuovaRichiestaAssistenzaForm.tsx, app/(app)/it/Storico.tsx, app/(app)/it/azioni.ts, app/(app)/nuova-richiesta/NuovaRichiestaForm.tsx, … |
 | `lib/core/mailer` 🔴 | (non mappato) · Acquisti · Ammissione soci · Controllo di gestione · Qonto · Manutenzioni · Prestazioni occasionali · Preventivi · Richiesta fattura · Servizi interni · Timbrature · Foglio ore | 10 | lib/acquisti/notifiche.ts, lib/assistenza/notifiche.ts, lib/fatture/notifiche.ts, lib/manutenzioni/notifiche.ts, lib/prestazioni/notifiche.ts, lib/preventivi/notifiche.ts, … |
 | `lib/core/sp` 🔴 | (non mappato) · Acquisti · Amministrazione · Permessi · Amministrazione · Software · Controllo di gestione · Flussi fatture · Costi strutture · Manutenzioni · Preventivi · Utenze · Costi per struttura | 29 | app/api/acquisti/[id]/route.ts, app/api/acquisti/route.ts, app/api/assistenza/[id]/allegato/route.ts, app/api/assistenza/[id]/route.ts, app/api/assistenza/route.ts, app/api/manutenzioni/[id]/pratica/route.ts, … |
@@ -798,7 +813,7 @@ candidati da spezzare per area o da spostare in `lib/core/` (vedi `CLAUDE.md` §
 | `lib/acquisti/data` | Acquisti · Inventario beni | 13 | app/(app)/acquisti/gestione/page.tsx, app/(app)/acquisti/mie/page.tsx, app/(app)/acquisti/page.tsx, app/(app)/inventario/page.tsx, app/api/acquisti/[id]/route.ts, app/api/acquisti/route.ts, … |
 | `lib/pagamenti/guard` | Controllo di gestione · Flussi fatture · Controllo di gestione · Qonto | 12 | app/api/pagamenti/fornitori/iban/route.ts, app/api/pagamenti/import/route.ts, app/api/pagamenti/importa-sdi/route.ts, app/api/pagamenti/qonto-movimenti/route.ts, app/api/pagamenti/scadenze/approva/route.ts, app/api/pagamenti/scadenze/cerca/route.ts, … |
 | `lib/manutenzioni/data` | Manutenzioni · Utenze · Costi per struttura | 10 | app/(app)/dashboard/page.tsx, app/(app)/mie-richieste/page.tsx, app/api/manutenzioni/[id]/allegato/route.ts, app/api/manutenzioni/[id]/lungo-corso/route.ts, app/api/manutenzioni/[id]/presa-in-carico/route.ts, app/api/manutenzioni/[id]/route.ts, … |
-| `lib/preventivi/accesso` | Home / hub · Preventivi | 8 | app/(app)/home/page.tsx, app/(app)/preventivi/[id]/page.tsx, app/(app)/preventivi/catering/page.tsx, app/(app)/preventivi/page.tsx, app/(app)/preventivi/servizi/page.tsx, app/(app)/preventivi/tariffario/page.tsx, … |
+| `lib/preventivi/accesso` | Home / hub · Preventivi | 9 | app/(app)/home/page.tsx, app/(app)/preventivi/[id]/page.tsx, app/(app)/preventivi/catering/page.tsx, app/(app)/preventivi/enti/page.tsx, app/(app)/preventivi/page.tsx, app/(app)/preventivi/servizi/page.tsx, … |
 | `lib/it/assegnazioni` | (non mappato) · Inventario beni | 7 | app/(app)/inventario/page.tsx, app/api/it/assegnazioni/[id]/route.ts, app/api/it/assegnazioni/[id]/verbale/conferma/route.ts, app/api/it/assegnazioni/[id]/verbale/route.ts, app/api/it/assegnazioni/route.ts, lib/it/data.ts, … |
 | `lib/it/flusso` | (non mappato) · Inventario beni | 7 | app/api/inventario/[id]/route.ts, app/api/it/assegnazioni/[id]/route.ts, app/api/it/assegnazioni/route.ts, app/api/it/dispositivi/[id]/route.ts, app/api/it/dispositivi/route.ts, app/api/it/sim/[id]/route.ts, … |
 | `lib/manutenzioni/costi` | Manutenzioni · Utenze · Costi per struttura | 7 | app/api/manutenzioni/[id]/costi/[costoId]/route.ts, app/api/manutenzioni/[id]/costi/route.ts, app/api/manutenzioni/[id]/pratica/route.ts, app/api/manutenzioni/[id]/route.ts, app/api/manutenzioni/fatture-collegabili/route.ts, lib/costi-strutture/data.ts, … |
@@ -824,11 +839,11 @@ candidati da spezzare per area o da spostare in `lib/core/` (vedi `CLAUDE.md` §
 | `lib/cura-ambienti/ribaltamento` | (non mappato) · Cura Ambienti | 2 | app/api/cron/ribaltamento/route.ts, app/api/cura-ambienti/lavori/[id]/route.ts |
 | `lib/risorse-umane/export-scheda-socio` | Ammissione soci · Risorse Umane | 2 | lib/risorse-umane/api.ts, lib/soci/flusso.ts |
 | `lib/timbrature/guard` | Timbrature · Foglio ore | 22 | app/(app)/risorse-umane/timbrature/responsabili/page.tsx, app/api/timbrature/[id]/route.ts, app/api/timbrature/assenza/route.ts, app/api/timbrature/da-profilo/route.ts, app/api/timbrature/hr/dipendente/[id]/route.ts, app/api/timbrature/hr/forza/route.ts, … |
+| `lib/preventivi/calcoli` | Preventivi | 13 | app/(app)/preventivi/_componenti/EditorPreventivo.tsx, app/(app)/preventivi/_componenti/ElencoPreventivi.tsx, app/(app)/preventivi/_componenti/ModaleEsito.tsx, app/(app)/preventivi/_componenti/Periodo.tsx, app/(app)/preventivi/_componenti/SezionePrivati.tsx, app/(app)/preventivi/_componenti/Tariffario.tsx, … |
+| `lib/preventivi/guard` | Preventivi | 11 | app/api/preventivi/[id]/azione/route.ts, app/api/preventivi/[id]/pdf/route.ts, app/api/preventivi/[id]/route.ts, app/api/preventivi/catering/parametri/route.ts, app/api/preventivi/enti/[id]/route.ts, app/api/preventivi/enti/route.ts, … |
 | `lib/manutenzioni/pratica` | Manutenzioni | 9 | app/(app)/dashboard/page.tsx, app/(app)/mie-richieste/page.tsx, app/api/manutenzioni/[id]/lungo-corso/route.ts, app/api/manutenzioni/[id]/pratica/route.ts, app/api/manutenzioni/[id]/presa-in-carico/route.ts, app/api/manutenzioni/[id]/route.ts, … |
-| `lib/preventivi/guard` | Preventivi | 9 | app/api/preventivi/[id]/azione/route.ts, app/api/preventivi/[id]/pdf/route.ts, app/api/preventivi/[id]/route.ts, app/api/preventivi/catering/parametri/route.ts, app/api/preventivi/opzioni/route.ts, app/api/preventivi/route.ts, … |
+| `lib/preventivi/data` | Preventivi | 9 | app/(app)/preventivi/page.tsx, app/(app)/preventivi/servizi/page.tsx, app/api/cron/preventivi/route.ts, app/api/preventivi/[id]/route.ts, app/api/preventivi/enti/route.ts, app/api/preventivi/opzioni/route.ts, … |
 | `lib/assistenza/data` | (non mappato) | 8 | app/(app)/assistenza/gestione/page.tsx, app/(app)/assistenza/mie/page.tsx, app/(app)/assistenza/nuova/page.tsx, app/(app)/assistenza/page.tsx, app/api/assistenza/[id]/allegato/route.ts, app/api/assistenza/[id]/route.ts, … |
-| `lib/preventivi/calcoli` | Preventivi | 8 | app/(app)/preventivi/_componenti/EditorPreventivo.tsx, app/(app)/preventivi/_componenti/ElencoPreventivi.tsx, app/(app)/preventivi/_componenti/Tariffario.tsx, app/(app)/preventivi/_componenti/Totali.tsx, app/(app)/preventivi/_componenti/Voci.tsx, app/api/cron/preventivi/route.ts, … |
-| `lib/preventivi/data` | Preventivi | 8 | app/(app)/preventivi/page.tsx, app/(app)/preventivi/servizi/page.tsx, app/api/cron/preventivi/route.ts, app/api/preventivi/[id]/route.ts, app/api/preventivi/opzioni/route.ts, app/api/preventivi/route.ts, … |
 | `lib/timbrature/date` | Timbrature · Foglio ore | 8 | lib/timbrature/anagrafica.ts, lib/timbrature/assenze.ts, lib/timbrature/da-profilo.ts, lib/timbrature/data.ts, lib/timbrature/progetti.ts, lib/timbrature/riepilogo.ts, … |
 | `lib/manutenzioni/accesso` | Manutenzioni | 7 | app/api/manutenzioni/[id]/costi/[costoId]/route.ts, app/api/manutenzioni/[id]/costi/route.ts, app/api/manutenzioni/[id]/lungo-corso/route.ts, app/api/manutenzioni/[id]/pratica/route.ts, app/api/manutenzioni/[id]/presa-in-carico/route.ts, app/api/manutenzioni/[id]/voci/[voceId]/route.ts, … |
 | `lib/risorse-umane/api` | Risorse Umane | 7 | app/api/risorse-umane/dipendenti/[id]/route.ts, app/api/risorse-umane/dipendenti/[id]/scheda-socio/route.ts, app/api/risorse-umane/dipendenti/export/route.ts, app/api/risorse-umane/dipendenti/route.ts, app/api/risorse-umane/tirocini/[id]/route.ts, app/api/risorse-umane/tirocini/export/route.ts, … |
@@ -842,6 +857,7 @@ candidati da spezzare per area o da spostare in `lib/core/` (vedi `CLAUDE.md` §
 | `lib/soci/data` | Ammissione soci | 5 | app/(app)/soci/page.tsx, app/api/soci/domanda/[id]/firmata/route.ts, app/api/soci/domanda/[id]/pdf/route.ts, app/api/soci/domanda/[id]/registra/route.ts, app/api/soci/domanda/route.ts |
 | `lib/soci/flusso` | Ammissione soci | 5 | app/(app)/soci/page.tsx, app/api/soci/domanda/[id]/firmata/route.ts, app/api/soci/domanda/[id]/pdf/route.ts, app/api/soci/domanda/[id]/registra/route.ts, app/api/soci/domanda/route.ts |
 | `lib/timbrature/righe` | Timbrature · Foglio ore | 5 | lib/timbrature/assenze.ts, lib/timbrature/da-profilo.ts, lib/timbrature/data.ts, lib/timbrature/reperibilita.ts, lib/timbrature/riepilogo.ts |
+| `lib/core/esporta-xlsx` | Controllo di gestione · Flussi fatture | 4 | app/(app)/controllo-gestione/flussi-fatture/AbbinaQonto.tsx, app/(app)/controllo-gestione/flussi-fatture/AmazonQonto.tsx, app/(app)/controllo-gestione/flussi-fatture/BottoneEsporta.tsx, app/(app)/controllo-gestione/flussi-fatture/FlussiFatture.tsx |
 | `lib/acquisti/notifiche` | Acquisti | 4 | app/api/acquisti/[id]/route.ts, app/api/acquisti/route.ts, app/api/cron/acquisti/route.ts, lib/acquisti/flusso.ts |
 | `lib/cura-ambienti/guard` | Cura Ambienti | 4 | app/api/cura-ambienti/lavori/[id]/route.ts, app/api/cura-ambienti/lavori/route.ts, app/api/cura-ambienti/prepara-mese/route.ts, app/api/cura-ambienti/ricorrenze/[id]/route.ts |
 | `lib/it/sim` | (non mappato) | 4 | app/api/it/sim/[id]/route.ts, app/api/it/sim/route.ts, lib/it/data.ts, lib/it/flusso.ts |
@@ -873,10 +889,12 @@ candidati da spezzare per area o da spostare in `lib/core/` (vedi `CLAUDE.md` §
 | `lib/it/verbali` | (non mappato) | 2 | app/api/it/assegnazioni/[id]/verbale/conferma/route.ts, app/api/it/assegnazioni/[id]/verbale/route.ts |
 | `lib/it/dispositivi` | (non mappato) | 2 | app/api/it/dispositivi/[id]/route.ts, app/api/it/dispositivi/route.ts |
 | `lib/prestazioni/registro` | Prestazioni occasionali | 2 | app/api/notula/[token]/conferma/route.ts, app/api/prestazioni/[spItemId]/centro-costo/route.ts |
+| `lib/qonto/amazon` | Controllo di gestione · Flussi fatture | 2 | app/api/pagamenti/qonto-movimenti/route.ts, app/api/pagamenti/scadenze/route.ts |
 | `lib/pagamenti/flusso` | Controllo di gestione · Flussi fatture | 2 | app/api/pagamenti/scadenze/approva/route.ts, app/api/pagamenti/scadenze/pagata/route.ts |
 | `lib/pagamenti/data` | Controllo di gestione · Flussi fatture | 2 | app/api/pagamenti/scadenze/cerca/route.ts, app/api/pagamenti/scadenze/route.ts |
 | `lib/pagamenti/uscite` | Controllo di gestione · Flussi fatture | 2 | app/api/pagamenti/uscite/[id]/route.ts, app/api/pagamenti/uscite/route.ts |
 | `lib/prestazioni/docusign` | Prestazioni occasionali | 2 | app/api/prestazioni/[spItemId]/documenti/route.ts, lib/prestazioni/firma.ts |
+| `lib/preventivi/enti` | Preventivi | 2 | app/api/preventivi/enti/[id]/route.ts, app/api/preventivi/enti/route.ts |
 | `lib/soci/documento` | Ammissione soci | 2 | app/api/soci/domanda/[id]/firmata/route.ts, app/api/soci/domanda/[id]/pdf/route.ts |
 | `lib/pagamenti/xlsx` | Controllo di gestione · Flussi fatture | 2 | lib/carburante/lettura.ts, lib/pagamenti/tracciato.ts |
 | `lib/core/ms-token` | Infrastruttura condivisa (core) | 2 | lib/core/auth.ts, lib/core/graph-delegato.ts |
@@ -956,7 +974,8 @@ in `scripts/mappa.mjs` e a `CLAUDE.md`.
 - `docs/fatturazione-attiva-piano.md` (212 righe)
 - `docs/it-dispositivi-piano.md` (316 righe)
 - `docs/manutenzioni-piano.md` (114 righe)
-- `docs/riconciliazione-qonto.md` (105 righe)
+- `docs/pulse-tracciato.md` (36 righe)
+- `docs/riconciliazione-qonto.md` (130 righe)
 - `lib/assistenza/allegati.ts` (119 righe)
 - `lib/assistenza/data.ts` (289 righe)
 - `lib/assistenza/flusso.ts` (195 righe)
@@ -970,7 +989,7 @@ in `scripts/mappa.mjs` e a `CLAUDE.md`.
 - `lib/it/verbali.ts` (130 righe)
 - `scripts/accesso-pdf-fatture.mjs` (197 righe)
 - `scripts/aggiungi-struttura.mjs` (144 righe)
-- `scripts/allinea-modello-centri-costo.mjs` (275 righe)
+- `scripts/allinea-modello-centri-costo.mjs` (276 righe)
 - `scripts/annulla-prestazione.mjs` (79 righe)
 - `scripts/anthropic-chiave.sh` (33 righe)
 - `scripts/applica-indirizzi-split.mjs` (227 righe)
@@ -997,7 +1016,8 @@ in `scripts/mappa.mjs` e a `CLAUDE.md`.
 - `scripts/it-assegnatari.mjs` (260 righe)
 - `scripts/it-sonda-utenti.mjs` (154 righe)
 - `scripts/popola-matricola-pulse.mjs` (217 righe)
-- `scripts/prova-abbina-qonto.ts` (163 righe)
+- `scripts/preventivi-carica-matrice.mjs` (166 righe)
+- `scripts/prova-abbina-qonto.ts` (215 righe)
 - `scripts/prova-anthropic.mjs` (86 righe)
 - `scripts/prova-da-profilo.mjs` (230 righe)
 - `scripts/provision-assistenza.mjs` (434 righe)

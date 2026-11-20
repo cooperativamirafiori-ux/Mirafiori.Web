@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       azione: 'preventivi.crea',
       entita: 'Preventivo',
       entitaId: preventivo.spItemId,
-      dettagli: { cc: preventivo.ccCodice, ente: preventivo.destinatario.ente, modello: preventivo.modello },
+      dettagli: { cc: preventivo.ccCodice, ente: preventivo.enti.join(' + '), servizio: preventivo.servizio },
     })
     return NextResponse.json({ preventivo })
   } catch (e) {

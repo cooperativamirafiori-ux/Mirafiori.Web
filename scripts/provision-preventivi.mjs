@@ -2,25 +2,23 @@
 /**
  * Provisioning della sezione Preventivi su SharePoint.
  *
- * Crea (se mancano) le tre liste con le loro colonne:
+ * Crea (se mancano) le quattro liste con le loro colonne:
  *   - "Preventivi"            → SP_LIST_PREVENTIVI
  *   - "Tariffario Preventivi" → SP_LIST_TARIFFARIO_PREVENTIVI
  *   - "Contatti Preventivi"   → SP_LIST_CONTATTI_PREVENTIVI
+ *   - "Enti Preventivi"       → SP_LIST_ENTI_PREVENTIVI (20/11/2026)
  * e trova il drive del sito "docs", dove sta la cartella Preventivi di Andrea
  *   → SP_PREVENTIVI_DRIVE_ID
  *
- * Al primo giro riempie il tariffario con le voci del Preventivo_MASTER.xlsx
- * di Andrea (foglio MATRICE) e della sua Nuova Tabella Generale. Sono valori
- * DI PARTENZA da confermare: il CDA deve ancora fissare i prezzi standard,
- * quindi quasi tutte le voci sono "a prezzo libero" fra un minimo e un massimo.
- * Le rette comunicate dagli enti invece sono bloccate.
+ * Le tariffe e gli enti NON li semina più questo script: dal 20/11/2026 li
+ * carica scripts/preventivi-carica-matrice.mjs dalla matrice di Andrea.
  *
  * Uso (dalla cartella web/):
  *   node scripts/provision-preventivi.mjs
- *   node scripts/provision-preventivi.mjs --senza-tariffe     (non semina)
  *
- * Idempotente: le liste esistenti ricevono solo le colonne mancanti; il
- * tariffario si semina solo se è vuoto.
+ * Idempotente: le liste esistenti ricevono solo le colonne mancanti. Le
+ * colonne di prima (Bloccato, PrezzoMin, PrezzoMax, Modelli, Ambito, Modello)
+ * restano sulle liste ma l'app non le usa più.
  * Alla fine scrive da sé le variabili in .env.local; su Vercel le porta
  * scripts/preventivi-env-vercel.sh.
  */
@@ -30,7 +28,6 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const SENZA_TARIFFE = process.argv.includes('--senza-tariffe')
 const SITO_DOCS = 'coopmirafiorionlus.sharepoint.com:/sites/docs'
 
 const testo = (name) => ({ name, text: {} })
@@ -48,6 +45,8 @@ const LISTE = [
     colonne: [
       numero('Anno'), numero('Progressivo'), numero('Revisione'),
       testo('Modello'), testo('CentroCosto'), testo('CentroCostoNome'), testo('Cartella'), testo('Ambito'),
+      testo('Servizio'), testo('Sottotipo'), testo('EnteScelta'), testoLungo('Destinatari'),
+      numero('DurataMesi'), spunta('Maggiorazione'), testoLungo('Referente2'),
       testo('EnteDestinatario'), testo('DestinatarioNome'), testo('DestinatarioRuolo'), testo('DestinatarioEmail'),
       testo('Beneficiario'), testo('Oggetto'), testo('TipoProgetto'), testo('Ripartizione'),
       giorno('PeriodoDal'), giorno('PeriodoAl'),
@@ -64,6 +63,7 @@ const LISTE = [
       testo('Codice'), testo('Gruppo'), testo('Unita'), numero('Prezzo'), spunta('Bloccato'),
       numero('PrezzoMin'), numero('PrezzoMax'), testo('RegimeIva'), testo('Modelli'), testo('Ambito'),
       giorno('ValidoDal'), giorno('ValidoAl'), numero('Ordine'), testoLungo('Note'),
+      testo('Servizio'), testo('Sottotipo'), testo('Ente'),
     ],
   },
   {
@@ -71,81 +71,11 @@ const LISTE = [
     nome: 'Contatti Preventivi',
     colonne: [testo('Ruolo'), testo('Ente'), testo('Email'), testo('Telefono')],
   },
-]
-
-// ------------------------------------------------------------
-// Tariffario di partenza
-// ------------------------------------------------------------
-const DAL = '2026-01-01'
-const NOTA = 'Valore di partenza dal Preventivo_MASTER di Andrea (19/10/2026): da confermare.'
-const IND = ['individuale']
-const COM = ['comunita']
-const ART = ['artemisia']
-const LIB = ['libero']
-const v = (codice, voce, gruppo, unita, prezzo, opz = {}) => ({
-  codice, voce, gruppo, unita, prezzo,
-  bloccato: opz.bloccato ?? false,
-  min: opz.min ?? null,
-  max: opz.max ?? null,
-  iva: opz.iva ?? 'iva5',
-  modelli: opz.modelli ?? [],
-  ambito: opz.ambito ?? 'Tutti',
-  note: opz.note ?? NOTA,
-})
-
-const TARIFFE = [
-  // Rette (comunicate dagli enti: bloccate)
-  v('RETTA_GIULIA', 'Retta giornaliera inserimento residenziale — Comunità Giulia', 'Retta', 'giorno', 123.49, { bloccato: true, modelli: COM, note: 'Quota Comune 60,69 + quota ASL 62,81 (tabella Andrea). ' + NOTA }),
-  v('RETTA_GIULIA_DIURNO', 'Retta giornaliera inserimento diurno — Comunità Giulia', 'Retta', 'giorno', 74.4, { bloccato: true, modelli: COM }),
-  v('RETTA_CRP', 'Retta giornaliera inserimento residenziale — CRP Cosmica2', 'Retta', 'giorno', 201.78, { bloccato: true, modelli: COM, note: 'Quota Comune 59,09 + quota ASL 142,69 (tabella Andrea). ' + NOTA }),
-  v('MAGG_DIURNO', 'Maggiorazione retta giornaliera inserimento diurno', 'Retta', 'giorno', 0, { min: 0, max: 200, modelli: COM }),
-  v('RETTA_ART_1', 'Retta residenziale giornaliera Casa Artemisia — 1 ospite', 'Retta', 'giorno', 50.09, { bloccato: true, modelli: ART }),
-  v('RETTA_ART_2', 'Retta residenziale giornaliera Casa Artemisia — 2 ospiti', 'Retta', 'giorno', 111.3, { bloccato: true, modelli: ART }),
-  v('RETTA_ART_3', 'Retta residenziale giornaliera Casa Artemisia — 3 ospiti', 'Retta', 'giorno', 135.79, { bloccato: true, modelli: ART }),
-  v('RETTA_ART_4', 'Retta residenziale giornaliera Casa Artemisia — 4 ospiti', 'Retta', 'giorno', 152.58, { bloccato: true, modelli: ART }),
-  v('RETTA_ART_5', 'Retta residenziale giornaliera Casa Artemisia — 5 ospiti', 'Retta', 'giorno', 169.18, { bloccato: true, modelli: ART }),
-
-  // Intervento educativo e sociosanitario (progetti individuali)
-  v('EDU_DIRETTO', 'Educatore — rapporto diretto', 'Intervento educativo', 'ora', 23, { min: 20, max: 28.95, modelli: [...IND, ...LIB] }),
-  v('EDU_INDIRETTO', 'Educatore — rapporto indiretto', 'Intervento educativo', 'ora', 23, { min: 20, max: 28.95, modelli: IND }),
-  v('SOCIOSAN_DIRETTO', 'Intervento sociosanitario — rapporto diretto', 'Intervento sociosanitario', 'ora', 23, { min: 20, max: 28.95, modelli: IND }),
-  v('SOCIOSAN_INDIRETTO', 'Intervento sociosanitario — rapporto indiretto', 'Intervento sociosanitario', 'ora', 23, { min: 20, max: 28.95, modelli: IND }),
-
-  // Comunità
-  v('ACCOMPAGNAMENTO', 'Accompagnamenti', 'Prestazioni aggiuntive', 'ora', 23, { min: 20, max: 28, modelli: COM }),
-  v('PREST_AGG', 'Prestazioni aggiuntive — educatore dedicato', 'Prestazioni aggiuntive', 'ora', 23, { min: 20, max: 28, modelli: COM }),
-  v('COP_OSP_COM', 'Copertura ospedaliera', 'Prestazioni aggiuntive', 'ora', 24, { min: 23, max: 26, modelli: COM }),
-
-  // Supervisione e sanitario (tutti i modelli PA)
-  v('SUPERVISIONE', 'Supervisione', 'Supervisione', 'ora', 40, { min: 30.91, max: 75, modelli: [...IND, ...COM] }),
-  v('PSICHIATRA', 'Psichiatra', 'Intervento sanitario', 'ora', 51.51, { min: 40, max: 75, modelli: IND }),
-  v('PSICOTERAPIA', 'Psicoterapia individuale', 'Intervento sanitario', 'ora', 28.95, { min: 20.67, max: 40, modelli: [...IND, ...COM, ...ART] }),
-
-  // Attività a valenza riabilitativa
-  v('ONODIDATTICA', 'Onodidattica', 'Attività a valenza riabilitativa', 'ora', 28, { min: 20, max: 75, modelli: [...COM, ...ART] }),
-  v('ORTODIDATTICA', 'Ortodidattica', 'Attività a valenza riabilitativa', 'ora', 28, { min: 20, max: 75, modelli: [...IND, ...COM, ...ART] }),
-  v('MUSICOTERAPIA', 'Musicoterapia', 'Attività a valenza riabilitativa', 'ora', 28, { min: 20, max: 75, modelli: [...IND, ...COM, ...ART] }),
-  v('ARTE_ESPRESSIVA', 'Arte espressiva', 'Attività a valenza riabilitativa', 'ora', 28, { min: 20, max: 75, modelli: [...IND, ...COM, ...ART] }),
-  v('ARTE_TERAPIA', 'Arte terapia', 'Attività a valenza riabilitativa', 'ora', 28, { min: 20, max: 75, modelli: [...IND, ...COM, ...ART] }),
-
-  // Casa Artemisia
-  v('MEDIATORE', 'Mediatore culturale', 'Altre prestazioni', 'ora', 23, { min: 20, max: 35, modelli: ART }),
-  v('OSS', 'Operatore socio sanitario', 'Altre prestazioni', 'ora', 23, { min: 20, max: 28.95, modelli: ART }),
-  v('ORIENTAMENTO', 'Orientamento al lavoro', 'Altre prestazioni', 'ora', 23, { min: 20, max: 35, modelli: ART }),
-  v('COUNSELING', 'Counseling individuale', 'Altre prestazioni', 'ora', 28.95, { min: 20, max: 40, modelli: ART }),
-
-  // Budget e quota ospitalità: spese F.I.C., fuori dalla base IVA
-  v('QUOTA_OSPITALITA', 'Quota mensile ospitalità', 'Budget', 'mese', 0, { min: 0, max: 2000, iva: 'fic', modelli: IND }),
-  v('BUDGET', 'Budget mensile previsto', 'Budget', 'mese', 0, { min: 0, max: 2000, iva: 'fic', modelli: [...IND, ...ART], note: 'La cifra del budget è passibile di variazioni secondo gli accordi con l’ente. ' + NOTA }),
-
-  // Rimborso chilometrico
-  v('KM', 'Rimborso chilometrico', 'Rimborso chilometrico', 'km', 0.5, { min: 0.5, max: 0.6 }),
-
-  // Privati, scuole, coperture (modello libero)
-  v('COP_OSP_EDU', 'Copertura ospedaliera — educatore', 'Intervento educativo', 'ora', 24, { min: 23, max: 26, modelli: LIB }),
-  v('COP_OSP_OSS', 'Copertura ospedaliera — OSS', 'Intervento sociosanitario', 'ora', 24, { min: 23, max: 26, modelli: LIB }),
-  v('INT_SCUOLA', 'Intervento a scuola — educatore', 'Intervento educativo', 'ora', 25, { min: 23, max: 28, modelli: LIB }),
-  v('INT_DOMICILIO', 'Intervento a domicilio — educatore', 'Intervento educativo', 'ora', 25, { min: 23, max: 28, modelli: LIB }),
+  {
+    env: 'SP_LIST_ENTI_PREVENTIVI',
+    nome: 'Enti Preventivi',
+    colonne: [testo('Chiave'), testo('Servizi'), spunta('Attivo'), testoLungo('Note')],
+  },
 ]
 
 // ------------------------------------------------------------
@@ -209,39 +139,6 @@ async function assicuraLista(token, site, esistenti, l) {
   return trovata.id
 }
 
-const mezzogiorno = (d) => `${d}T12:00:00Z`
-
-async function seminaTariffe(token, site, listId) {
-  const righe = await graph(token, 'GET', `/sites/${site}/lists/${listId}/items?$top=1`)
-  if ((righe.value || []).length) {
-    console.log('✓ Il tariffario ha già delle voci: non lo tocco')
-    return
-  }
-  let ordine = 10
-  for (const t of TARIFFE) {
-    await graph(token, 'POST', `/sites/${site}/lists/${listId}/items`, {
-      fields: {
-        Title: t.voce,
-        Codice: t.codice,
-        Gruppo: t.gruppo,
-        Unita: t.unita,
-        Prezzo: t.prezzo,
-        Bloccato: t.bloccato,
-        ...(t.min !== null ? { PrezzoMin: t.min } : {}),
-        ...(t.max !== null ? { PrezzoMax: t.max } : {}),
-        RegimeIva: t.iva,
-        Modelli: t.modelli.join(';'),
-        Ambito: t.ambito,
-        ValidoDal: mezzogiorno(DAL),
-        Ordine: ordine,
-        Note: t.note,
-      },
-    })
-    ordine += 10
-  }
-  console.log(`✓ Tariffario seminato: ${TARIFFE.length} voci, valide dal ${DAL.split('-').reverse().join('/')}`)
-}
-
 async function main() {
   loadEnvLocal()
   for (const k of ['GRAPH_TENANT_ID', 'GRAPH_CLIENT_ID', 'GRAPH_CLIENT_SECRET', 'SHAREPOINT_SITE_ID']) {
@@ -253,7 +150,6 @@ async function main() {
 
   const env = {}
   for (const l of LISTE) env[l.env] = await assicuraLista(token, site, esistenti, l)
-  if (!SENZA_TARIFFE) await seminaTariffe(token, site, env.SP_LIST_TARIFFARIO_PREVENTIVI)
 
   try {
     const docs = await graph(token, 'GET', `/sites/${SITO_DOCS}?$select=id`)
@@ -265,7 +161,7 @@ async function main() {
   }
 
   scriviEnvLocal(env)
-  console.log('\nProssimo passo: bash scripts/preventivi-env-vercel.sh\n')
+  console.log('\nProssimi passi: node scripts/preventivi-carica-matrice.mjs, poi bash scripts/preventivi-env-vercel.sh\n')
 }
 
 /** Aggiunge (o corregge) le variabili in .env.local, senza toccare il resto. */

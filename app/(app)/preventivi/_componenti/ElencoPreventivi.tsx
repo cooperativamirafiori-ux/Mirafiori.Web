@@ -15,7 +15,7 @@ import { Kpi } from '@/components/ui/Kpi'
 import { Pill } from '@/components/ui/Pill'
 import { Vuoto } from '@/components/ui/Vuoto'
 import { inputCls } from '@/components/ui/Campo'
-import { MODELLI, STATI_PREVENTIVO, type Preventivo, type StatoPreventivo } from '@/types/preventivi'
+import { STATI_PREVENTIVO, type Preventivo, type StatoPreventivo } from '@/types/preventivi'
 import { aggiungiGiorni, dataIt, euro, oggiIso } from '@/lib/preventivi/calcoli'
 import { GIORNI_SOLLECITO } from '@/lib/preventivi/flusso'
 
@@ -68,7 +68,7 @@ export function ElencoPreventivi({ statoIniziale, tutti }: { statoIniziale: stri
       .filter(
         (p) =>
           !q ||
-          [p.numero, p.beneficiario, p.destinatario.ente, p.destinatario.nome, p.ccNome, p.tipoProgetto, p.oggetto]
+          [p.numero, p.beneficiario, ...p.enti, ...p.persone.map((x) => x.nome), p.ccNome, p.servizio, p.tipoProgetto, p.oggetto]
             .join(' ')
             .toLowerCase()
             .includes(q),
@@ -86,6 +86,12 @@ export function ElencoPreventivi({ statoIniziale, tutti }: { statoIniziale: stri
           className="grow sm:grow-0 text-center px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-gray-700 font-semibold"
         >
           {tutti ? 'Tariffario e ISTAT' : 'Tariffario'}
+        </Link>
+        <Link
+          href="/preventivi/enti"
+          className="grow sm:grow-0 text-center px-4 py-2.5 rounded-xl border border-gray-300 bg-white text-gray-700 font-semibold"
+        >
+          Enti
         </Link>
       </div>
 
@@ -142,10 +148,10 @@ export function ElencoPreventivi({ statoIniziale, tutti }: { statoIniziale: stri
                   <span className="ml-auto text-sm font-semibold text-gray-800">{euro(p.totaleMensile)}/mese</span>
                 </div>
                 <p className="mt-1.5 font-semibold text-gray-800">
-                  {p.beneficiario || 'Senza beneficiario'} <span className="font-normal text-gray-500">· {p.destinatario.ente || 'ente da indicare'}</span>
+                  {p.beneficiario || 'Senza beneficiario'} <span className="font-normal text-gray-500">· {p.enti.join(' + ') || 'ente da indicare'}</span>
                 </p>
                 <p className="text-sm text-gray-600">
-                  {p.tipoProgetto || MODELLI[p.modello]} · {p.ccNome || p.ccCodice}
+                  {p.tipoProgetto || p.servizio || 'servizio da scegliere'} · {p.ccNome || p.ccCodice}
                   {p.dal && p.al ? ` · ${dataIt(p.dal)} – ${dataIt(p.al)}` : ''}
                 </p>
                 {p.stato === 'emesso' && (

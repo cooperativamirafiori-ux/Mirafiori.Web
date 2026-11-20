@@ -1,9 +1,10 @@
 /**
- * Preventivi — letture e scritture sulle tre liste SharePoint.
+ * Preventivi — letture e scritture sulle liste SharePoint.
  *
  *   SP_LIST_PREVENTIVI            → "Preventivi"
  *   SP_LIST_TARIFFARIO_PREVENTIVI → "Tariffario Preventivi"
  *   SP_LIST_CONTATTI_PREVENTIVI   → "Contatti Preventivi"
+ *   SP_LIST_ENTI_PREVENTIVI       → "Enti Preventivi" (20/11/2026)
  *
  * Create da scripts/provision-preventivi.mjs. Le righe del preventivo stanno
  * in JSON in una colonna a più righe: sono la fotografia del documento com'era
@@ -17,15 +18,15 @@
 import { graphDelete, graphGet, graphGetAll, graphPatch, graphPost } from '@/lib/core/graph'
 import { PREFER_NON_INDEXED } from '@/lib/core/sp'
 import {
-  AMBITI,
-  ELENCO_MODELLI,
+  DURATA_DEFAULT,
+  ENTE_TUTTI,
   REGIMI_IVA,
   STATI_PREVENTIVO,
   UNITA,
   formattaNumero,
-  type Ambito,
   type DatiPreventivo,
-  type Modello,
+  type Ente,
+  type Persona,
   type Preventivo,
   type RegimeIva,
   type RigaPreventivo,
@@ -33,13 +34,14 @@ import {
   type Tariffa,
   type Unita,
 } from '@/types/preventivi'
-import { totali } from './calcoli'
+import { fineDaDurata, mesiPeriodo, totali } from './calcoli'
 
 const SITE = () => process.env.SHAREPOINT_SITE_ID!
 const L = {
   preventivi: () => process.env.SP_LIST_PREVENTIVI,
   tariffario: () => process.env.SP_LIST_TARIFFARIO_PREVENTIVI,
   contatti: () => process.env.SP_LIST_CONTATTI_PREVENTIVI,
+  enti: () => process.env.SP_LIST_ENTI_PREVENTIVI,
 }
 type NomeLista = keyof typeof L
 
@@ -72,23 +74,17 @@ function mapTariffa(item: any): Tariffa {
   const f = item.fields ?? {}
   const unita = (Object.keys(UNITA) as Unita[]).includes(f.Unita) ? f.Unita : 'ora'
   const iva = (Object.keys(REGIMI_IVA) as RegimeIva[]).includes(f.RegimeIva) ? f.RegimeIva : 'iva5'
-  const ambito = (AMBITI as readonly string[]).includes(f.Ambito) ? (f.Ambito as Ambito) : 'Tutti'
   return {
     spItemId: String(item.id),
     codice: String(f.Codice ?? '').trim(),
+    servizio: String(f.Servizio ?? '').trim(),
+    sottotipo: String(f.Sottotipo ?? '').trim(),
     voce: String(f.Title ?? '').trim(),
+    ente: String(f.Ente ?? '').trim() || ENTE_TUTTI,
     gruppo: String(f.Gruppo ?? 'Altre prestazioni').trim(),
     unita,
-    prezzo: n(f.Prezzo) ?? 0,
-    bloccato: f.Bloccato === true,
-    min: n(f.PrezzoMin),
-    max: n(f.PrezzoMax),
+    prezzo: n(f.Prezzo),
     iva,
-    modelli: String(f.Modelli ?? '')
-      .split(/[;,]/)
-      .map((s) => s.trim())
-      .filter((s): s is Modello => (ELENCO_MODELLI as string[]).includes(s)),
-    ambito,
     dal: soloData(f.ValidoDal) || '2000-01-01',
     al: dataOrNull(f.ValidoAl),
     ordine: n(f.Ordine) ?? 999,
@@ -96,23 +92,24 @@ function mapTariffa(item: any): Tariffa {
   }
 }
 
-/** Tutto il tariffario, storico compreso. */
+/**
+ * Tutto il tariffario, storico compreso. Le righe senza servizio sono il
+ * tariffario di prima della matrice (ottobre 2026): non si usano più.
+ */
 export async function getTariffe(): Promise<Tariffa[]> {
-  return (await tutti('tariffario')).map(mapTariffa).filter((t) => t.codice && t.voce)
+  return (await tutti('tariffario')).map(mapTariffa).filter((t) => t.codice && t.voce && t.servizio)
 }
 
 export interface DatiTariffa {
   codice: string
+  servizio: string
+  sottotipo: string
   voce: string
+  ente: string
   gruppo: string
   unita: Unita
-  prezzo: number
-  bloccato: boolean
-  min: number | null
-  max: number | null
+  prezzo: number | null
   iva: RegimeIva
-  modelli: Modello[]
-  ambito: Ambito
   dal: string
   al: string | null
   ordine: number
@@ -123,15 +120,13 @@ function campiTariffa(d: Partial<DatiTariffa>): Record<string, unknown> {
   const c: Record<string, unknown> = {}
   if (d.voce !== undefined) c.Title = d.voce
   if (d.codice !== undefined) c.Codice = d.codice
+  if (d.servizio !== undefined) c.Servizio = d.servizio
+  if (d.sottotipo !== undefined) c.Sottotipo = d.sottotipo || null
+  if (d.ente !== undefined) c.Ente = d.ente
   if (d.gruppo !== undefined) c.Gruppo = d.gruppo
   if (d.unita !== undefined) c.Unita = d.unita
   if (d.prezzo !== undefined) c.Prezzo = d.prezzo
-  if (d.bloccato !== undefined) c.Bloccato = d.bloccato
-  if (d.min !== undefined) c.PrezzoMin = d.min
-  if (d.max !== undefined) c.PrezzoMax = d.max
   if (d.iva !== undefined) c.RegimeIva = d.iva
-  if (d.modelli !== undefined) c.Modelli = d.modelli.join(';')
-  if (d.ambito !== undefined) c.Ambito = d.ambito
   if (d.dal !== undefined) c.ValidoDal = scriviData(d.dal)
   if (d.al !== undefined) c.ValidoAl = scriviData(d.al)
   if (d.ordine !== undefined) c.Ordine = d.ordine
@@ -151,6 +146,48 @@ export async function aggiornaTariffa(spItemId: string, d: Partial<DatiTariffa>)
 }
 
 // ============================================================
+// Enti
+// ============================================================
+
+function mapEnte(item: any): Ente {
+  const f = item.fields ?? {}
+  return {
+    spItemId: String(item.id),
+    nome: String(f.Title ?? '').trim(),
+    chiave: String(f.Chiave ?? '').trim(),
+    servizi: String(f.Servizi ?? ''),
+    attivo: f.Attivo !== false,
+    note: String(f.Note ?? ''),
+  }
+}
+
+export const entiConfigurati = () => Boolean(L.enti())
+
+export async function getEnti(): Promise<Ente[]> {
+  if (!L.enti()) return []
+  return (await tutti('enti'))
+    .map(mapEnte)
+    .filter((e) => e.nome)
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'it'))
+}
+
+export async function creaEnte(d: { nome: string; servizi: string; note: string }): Promise<Ente> {
+  const res = await graphPost<any>(base('enti'), {
+    fields: { Title: d.nome, Servizi: d.servizi || null, Note: d.note || null, Attivo: true },
+  })
+  return mapEnte(await graphGet<any>(`${base('enti')}/${res.id}?$expand=fields`))
+}
+
+export async function aggiornaEnte(spItemId: string, d: Partial<{ nome: string; servizi: string; note: string; attivo: boolean }>): Promise<void> {
+  const c: Record<string, unknown> = {}
+  if (d.nome !== undefined) c.Title = d.nome
+  if (d.servizi !== undefined) c.Servizi = d.servizi || null
+  if (d.note !== undefined) c.Note = d.note || null
+  if (d.attivo !== undefined) c.Attivo = d.attivo
+  if (Object.keys(c).length) await graphPatch(`${base('enti')}/${spItemId}/fields`, c)
+}
+
+// ============================================================
 // Preventivi
 // ============================================================
 
@@ -164,35 +201,52 @@ function leggiRighe(raw: unknown): RigaPreventivo[] {
   }
 }
 
+function leggiJson<T>(raw: unknown, vuoto: T): T {
+  if (typeof raw !== 'string' || !raw.trim()) return vuoto
+  try {
+    return JSON.parse(raw) as T
+  } catch {
+    return vuoto
+  }
+}
+
 function mapPreventivo(item: any): Preventivo {
   const f = item.fields ?? {}
   const stato = (Object.keys(STATI_PREVENTIVO) as StatoPreventivo[]).includes(f.Stato) ? (f.Stato as StatoPreventivo) : 'bozza'
-  const modello = (ELENCO_MODELLI as string[]).includes(f.Modello) ? (f.Modello as Modello) : 'libero'
+  const dal = soloData(f.PeriodoDal)
+  // I preventivi di prova di ottobre non hanno la durata: la si ricava dal periodo.
+  const durataMesi = n(f.DurataMesi) ?? (mesiPeriodo(dal, soloData(f.PeriodoAl)) || DURATA_DEFAULT)
+  const dest = leggiJson<{ enti?: string[]; persone?: Persona[] }>(f.Destinatari, {})
+  const persone: Persona[] = Array.isArray(dest.persone)
+    ? dest.persone
+    : f.DestinatarioNome
+      ? [{ nome: String(f.DestinatarioNome), ruolo: String(f.DestinatarioRuolo ?? ''), ente: String(f.EnteDestinatario ?? ''), email: String(f.DestinatarioEmail ?? '') }]
+      : []
   return {
     spItemId: String(item.id),
     numero: f.Title && f.Title !== '(bozza)' ? String(f.Title) : '',
     anno: n(f.Anno),
     progressivo: n(f.Progressivo),
     revisione: n(f.Revisione) ?? 0,
-    modello,
     ccCodice: String(f.CentroCosto ?? '').toLowerCase(),
     ccNome: String(f.CentroCostoNome ?? ''),
     cartella: String(f.Cartella ?? 'Altro'),
-    ambito: (AMBITI as readonly string[]).includes(f.Ambito) ? (f.Ambito as Ambito) : 'Tutti',
-    destinatario: {
-      ente: String(f.EnteDestinatario ?? ''),
-      nome: String(f.DestinatarioNome ?? ''),
-      ruolo: String(f.DestinatarioRuolo ?? ''),
-      email: String(f.DestinatarioEmail ?? ''),
-    },
+    servizio: String(f.Servizio ?? ''),
+    sottotipo: String(f.Sottotipo ?? ''),
+    ente: String(f.EnteScelta ?? ''),
+    enti: Array.isArray(dest.enti) ? dest.enti : f.EnteDestinatario ? [String(f.EnteDestinatario)] : [],
+    persone,
     beneficiario: String(f.Beneficiario ?? ''),
     oggetto: String(f.Oggetto ?? ''),
     tipoProgetto: String(f.TipoProgetto ?? ''),
     ripartizione: String(f.Ripartizione ?? ''),
-    dal: soloData(f.PeriodoDal),
-    al: soloData(f.PeriodoAl),
+    dal,
+    durataMesi,
+    al: fineDaDurata(dal, durataMesi),
     righe: leggiRighe(f.Righe),
     note: String(f.Note ?? ''),
+    maggiorazione: f.Maggiorazione === true,
+    referente2: leggiJson<Persona | null>(f.Referente2, null),
     stato,
     totaleMensile: n(f.TotaleMensile) ?? 0,
     creatoDa: String(f.CreatoDa ?? ''),
@@ -223,25 +277,32 @@ export async function getPreventivo(spItemId: string): Promise<Preventivo | null
   }
 }
 
-function campiDati(d: DatiPreventivo, ccNome: string): Record<string, unknown> {
+function campiDati(d: DatiPreventivo, ccNome: string, enti: string[]): Record<string, unknown> {
+  const primo = d.persone[0]
   return {
-    Modello: d.modello,
     CentroCosto: d.ccCodice,
     CentroCostoNome: ccNome || null,
     Cartella: d.cartella,
-    Ambito: d.ambito,
-    EnteDestinatario: d.destinatario.ente || null,
-    DestinatarioNome: d.destinatario.nome || null,
-    DestinatarioRuolo: d.destinatario.ruolo || null,
-    DestinatarioEmail: d.destinatario.email || null,
+    Servizio: d.servizio || null,
+    Sottotipo: d.sottotipo || null,
+    EnteScelta: d.ente || null,
+    // Testo leggibile anche da SharePoint; il dato vero è in Destinatari.
+    EnteDestinatario: enti.join(' + ') || null,
+    DestinatarioNome: primo?.nome || null,
+    DestinatarioRuolo: primo?.ruolo || null,
+    DestinatarioEmail: primo?.email || null,
+    Destinatari: JSON.stringify({ enti, persone: d.persone }),
     Beneficiario: d.beneficiario || null,
     Oggetto: d.oggetto || null,
     TipoProgetto: d.tipoProgetto || null,
     Ripartizione: d.ripartizione || null,
     PeriodoDal: scriviData(d.dal),
-    PeriodoAl: scriviData(d.al),
+    PeriodoAl: scriviData(fineDaDurata(d.dal, d.durataMesi)),
+    DurataMesi: d.durataMesi,
     Righe: JSON.stringify(d.righe),
-    TotaleMensile: totali(d.righe, d.dal, d.al).mensileIvato,
+    TotaleMensile: totali(d.righe, d.durataMesi, d.maggiorazione).mensileIvato,
+    Maggiorazione: d.maggiorazione,
+    Referente2: d.referente2 ? JSON.stringify(d.referente2) : null,
     Note: d.note || null,
   }
 }
@@ -249,13 +310,14 @@ function campiDati(d: DatiPreventivo, ccNome: string): Record<string, unknown> {
 export async function creaPreventivo(
   d: DatiPreventivo,
   ccNome: string,
+  enti: string[],
   autore: { email: string; nome: string },
   precedenteId?: string,
 ): Promise<Preventivo> {
   const res = await graphPost<any>(base('preventivi'), {
     fields: {
       Title: '(bozza)',
-      ...campiDati(d, ccNome),
+      ...campiDati(d, ccNome, enti),
       Stato: 'bozza',
       Revisione: 0,
       CreatoDa: autore.email,
@@ -266,8 +328,8 @@ export async function creaPreventivo(
   return (await getPreventivo(String(res.id)))!
 }
 
-export async function salvaDati(spItemId: string, d: DatiPreventivo, ccNome: string): Promise<Preventivo> {
-  await graphPatch(`${base('preventivi')}/${spItemId}/fields`, campiDati(d, ccNome))
+export async function salvaDati(spItemId: string, d: DatiPreventivo, ccNome: string, enti: string[]): Promise<Preventivo> {
+  await graphPatch(`${base('preventivi')}/${spItemId}/fields`, campiDati(d, ccNome, enti))
   return (await getPreventivo(spItemId))!
 }
 
@@ -355,11 +417,11 @@ export async function getContatti(): Promise<Contatto[]> {
 }
 
 /**
- * La rubrica si riempie da sola: a ogni emissione il destinatario, se nuovo,
+ * La rubrica si riempie da sola: a ogni emissione ogni persona, se nuova,
  * finisce fra i contatti; se c'era, se ne aggiornano ruolo ed email.
  * Non fa mai fallire l'emissione.
  */
-export async function ricordaContatto(d: DatiPreventivo['destinatario']): Promise<void> {
+export async function ricordaContatto(d: Persona): Promise<void> {
   if (!L.contatti() || !d.nome) return
   try {
     const chiave = (s: string) => s.trim().toLowerCase()

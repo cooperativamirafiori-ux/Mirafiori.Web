@@ -2,10 +2,10 @@
 
 /** Il riquadro dei totali, con gli stessi conti del documento (lib/preventivi/calcoli.ts). */
 
-import type { TotaliPreventivo } from '@/types/preventivi'
+import { MAGGIORAZIONE_PRIVATI, type TotaliPreventivo } from '@/types/preventivi'
 import { euro, numero } from '@/lib/preventivi/calcoli'
 
-export function Totali({ t }: { t: TotaliPreventivo }) {
+export function Totali({ t, inizioDaDefinire }: { t: TotaliPreventivo; inizioDaDefinire?: boolean }) {
   const riga = (etichetta: string, valore: number, forte = false) => (
     <div className={`flex justify-between gap-3 ${forte ? 'font-bold text-gray-900 border-t border-gray-200 pt-1.5' : 'text-gray-700'}`}>
       <span>{etichetta}</span>
@@ -22,12 +22,17 @@ export function Totali({ t }: { t: TotaliPreventivo }) {
         </div>
       ))}
       <div className="pt-1.5" />
+      {t.maggiorazione > 0 && riga(`Maggiorazione ${MAGGIORAZIONE_PRIVATI}%`, t.maggiorazione)}
       {riga('Totale spese', t.spese)}
       {t.iva > 0 && riga('IVA', t.iva)}
-      {t.fic > 0 && riga('Spese F.I.C. (escluse art. 15)', t.fic)}
+      {t.fic > 0 && riga('Spese escluse da IVA (F.I.C.)', t.fic)}
       {riga('Costo totale mensile (IVA compresa)', t.mensileIvato, true)}
       {riga('Totale a pagare senza IVA', t.mensileSenzaIva)}
-      {t.mesi > 0 && riga(`Sul periodo: ${numero(t.mesi)} mesi, IVA compresa`, t.periodo, true)}
+      {t.mesi > 0 && (
+        <p className="pt-1 text-xs text-gray-500">
+          Sul periodo ({numero(t.mesi)} mesi{inizioDaDefinire ? ' dalla data di avvio' : ''}, IVA compresa): {euro(t.periodo)} — nel PDF è una nota in basso.
+        </p>
+      )}
     </section>
   )
 }
